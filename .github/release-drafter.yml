@@ -7,13 +7,17 @@ exclude-contributors:
   - 'github-actions'
   - 'renovate[bot]'
   - 'renovate'
+  - 'pre-commit-ci'
+  - 'pre-commit-ci[bot]'
+  - 'bramstroker'
+  - 'crowdin-bot'
 exclude-labels:
   - 'skip-changelog'
   - 'dependencies'
 categories:
-  - title: '💡 Light models'
+  - title: '💡 Power profiles'
     labels:
-      - 'lightmodel'
+      - 'powerprofile'
   - title: '🚀 Features'
     labels:
       - 'feature'
@@ -43,11 +47,3 @@ template: |
 
   ## ⭐️ Thank you so much for helping out to keep this integration awesome
   $CONTRIBUTORS
-autolabeler:
-  - label: 'bug'
-    branch:
-      - '/fix\/.+/'
-  - label: 'enhancement'
-    branch:
-      - '/feature\/.+/'
-      - '/feat\/.+/'

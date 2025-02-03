@@ -53,7 +53,6 @@ from custom_components.powercalc.const import CONF_CREATE_ENERGY_SENSOR
     ],
 )
 async def test_merge_configuration(
-    hass: HomeAssistant,
     configs: list[dict],
     output_config: dict,
 ) -> None:
@@ -93,6 +92,21 @@ async def test_merge_configuration(
                 name="My awesome switchy",
             ),
             "My awesome switchy",
+        ),
+        (
+            "switch.livingroom-smartplug-television",
+            RegistryEntry(
+                entity_id="switch.livingroom-smartplug-television",
+                unique_id="abc",
+                platform="switch",
+                has_entity_name=True,
+                name=None,
+                original_name="Television",
+            ),
+            DeviceEntry(
+                name="Livingroom-SmartPlug",
+            ),
+            "Livingroom-SmartPlug Television",
         ),
     ],
 )

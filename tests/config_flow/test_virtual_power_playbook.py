@@ -2,6 +2,7 @@ from homeassistant import data_entry_flow
 from homeassistant.const import ATTR_ENTITY_ID, CONF_ENTITY_ID, STATE_IDLE, STATE_PLAYING
 from homeassistant.core import HomeAssistant
 
+from custom_components.powercalc.config_flow import Step
 from custom_components.powercalc.const import (
     CONF_AUTOSTART,
     CONF_MODE,
@@ -81,7 +82,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         },
     )
 
-    result = await initialize_options_flow(hass, entry)
+    result = await initialize_options_flow(hass, entry, Step.PLAYBOOK)
 
     user_input = {
         CONF_PLAYBOOKS: {
@@ -103,14 +104,14 @@ async def test_options_flow(hass: HomeAssistant) -> None:
 
 async def test_playbooks_mandatory(hass: HomeAssistant) -> None:
     result = await goto_virtual_power_strategy_step(hass, CalculationStrategy.PLAYBOOK)
-    result = await set_virtual_power_configuration(
-        hass,
-        result,
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
         {
             CONF_REPEAT: True,
             CONF_AUTOSTART: "playbook1",
         },
     )
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["errors"] == {"base": "playbook_mandatory"}
 

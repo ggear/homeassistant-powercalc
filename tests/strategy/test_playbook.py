@@ -9,14 +9,17 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_ON,
     STATE_PAUSED,
+    STATE_PLAYING,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
+from custom_components.powercalc import CONF_IGNORE_UNAVAILABLE_STATE
 from custom_components.powercalc.const import (
     CONF_AUTOSTART,
+    CONF_CUSTOM_MODEL_DIRECTORY,
     CONF_MULTIPLY_FACTOR,
     CONF_PLAYBOOK,
     CONF_PLAYBOOKS,
@@ -34,6 +37,7 @@ from custom_components.powercalc.strategy.playbook import PlaybookStrategy
 from tests.common import (
     get_simple_fixed_config,
     get_test_config_dir,
+    get_test_profile_dir,
     run_powercalc_setup,
 )
 
@@ -318,6 +322,43 @@ async def test_multiply_factor(hass: HomeAssistant) -> None:
     await elapse_and_assert_power(hass, 2, "60.00")
 
 
+async def test_source_entity_trigger(hass: HomeAssistant) -> None:
+    hass.config.config_dir = get_test_config_dir()
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_ENTITY_ID: "switch.test",
+            CONF_NAME: "Test",
+            CONF_PLAYBOOK: {
+                CONF_PLAYBOOKS: {
+                    "on": "test2.csv",
+                },
+                CONF_STATE_TRIGGER: {
+                    STATE_ON: "on",
+                },
+            },
+        },
+    )
+
+    hass.states.async_set("switch.test", STATE_ON)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(POWER_SENSOR_ID).state == "0.00"
+    await elapse_and_assert_power(hass, 2, "20.00")
+
+    hass.states.async_set("switch.test", STATE_OFF)
+    await hass.async_block_till_done()
+
+    async_fire_time_changed(hass, dt.utcnow() + timedelta(seconds=60))
+    await hass.async_block_till_done()
+
+    hass.states.async_set("switch.test", STATE_ON)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(POWER_SENSOR_ID).state == "0.00"
+    await elapse_and_assert_power(hass, 2, "20.00")
+
+
 async def test_state_trigger(hass: HomeAssistant) -> None:
     hass.config.config_dir = get_test_config_dir()
     await run_powercalc_setup(
@@ -364,6 +405,24 @@ async def test_state_trigger(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
     await elapse_and_assert_power(hass, 1, "0.10")
+
+    hass.states.async_set("media_player.sonos", STATE_PLAYING)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(POWER_SENSOR_ID).state == "0.00"
+
+
+async def test_playbook_strategy_from_library_profile(hass: HomeAssistant) -> None:
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_ENTITY_ID: "vacuum.test",
+            CONF_CUSTOM_MODEL_DIRECTORY: get_test_profile_dir("playbook"),
+            CONF_IGNORE_UNAVAILABLE_STATE: True,
+        },
+    )
+
+    await elapse_and_assert_power(hass, 3, "20.00")
 
 
 async def elapse_and_assert_power(

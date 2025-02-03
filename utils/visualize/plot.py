@@ -165,7 +165,7 @@ def resolve_absolute_file_path(file_path: str) -> str:
         "../../profile_library",
         file_path
     )
-    if os.path.exists(file_path):
+    if os.path.exists(library_path):
         return library_path
 
     raise FileNotFoundError(f"File not found: {file_path}")

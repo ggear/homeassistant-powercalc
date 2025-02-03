@@ -9,17 +9,18 @@
 [![Sonar quality gate](https://img.shields.io/sonar/alert_status/bramstroker_homeassistant-powercalc/master?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge)](https://sonarcloud.io/summary/new_code?id=bramstroker_homeassistant-powercalc)
 [![BuyMeACoffee](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee&style=for-the-badge)](https://www.buymeacoffee.com/bramski)
 
-# :zap: PowerCalc: Home Assistant Virtual Power Sensors
+# <img src="https://docs.powercalc.nl/img/logo2_light.svg" width="400">
 
-PowerCalc is a custom component for Home Assistant to estimate the power consumption (as virtual meters) of lights, fans, smart speakers and other devices, which don't have a built-in power meter. The consumption of light entities is calculated using different strategies to estimate the power usage by looking at brightness, hue/saturation and color temperature. For other entities a generic calculation can be applied, based on the attributes relevant for that entity.
+**PowerCalc** is a versatile custom component for Home Assistant that estimates power consumption for devices like lights, fans, smart speakers, and more—especially those without built-in power meters.
+It acts as a virtual energy monitor, using advanced strategies to calculate power usage. For light entities, PowerCalc analyzes factors such as brightness, hue, saturation, and color temperature to deliver accurate consumption estimates. For other devices, it offers extensive configuration possibilities.
 
-Also a measure utility is included which allows user to measure their lights and other devices and contribute power profiles to the PowerCalc library.
+Additionally, PowerCalc includes a powerful measurement utility, enabling users to assess their devices' power usage and contribute custom power profiles to the growing PowerCalc library.
 
-![Preview](https://raw.githubusercontent.com/bramstroker/homeassistant-powercalc/master/assets/preview.gif)
+![Preview](https://raw.githubusercontent.com/bramstroker/homeassistant-powercalc/master/docs/source/img/preview.gif)
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/bramski)
 
-Go to the [Quick Start](https://homeassistant-powercalc.readthedocs.io/en/latest/quick-start.html) for installation instruction.
+Go to the [Quick Start](https://docs.powercalc.nl/quick-start/) for installation instruction.
 
-- [Full Documentation](https://homeassistant-powercalc.readthedocs.io/en/latest/)
-- [Supported model listing](docs/supported_models.md)
+- [Full Documentation](https://docs.powercalc.nl)
+- [Profile library](https://library.powercalc.nl)

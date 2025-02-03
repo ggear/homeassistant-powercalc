@@ -17,7 +17,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, split_entity_id
 from homeassistant.helpers.area_registry import AreaRegistry
 from homeassistant.helpers.device_registry import DeviceEntry
-from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
+from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry, RegistryEntryDisabler
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -25,6 +25,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_registry,
 )
 
+from custom_components.powercalc import CONF_CREATE_UTILITY_METERS
 from custom_components.powercalc.const import (
     ATTR_ENTITIES,
     CONF_ALL,
@@ -36,6 +37,7 @@ from custom_components.powercalc.const import (
     CONF_IGNORE_UNAVAILABLE_STATE,
     CONF_INCLUDE,
     CONF_INCLUDE_NON_POWERCALC_SENSORS,
+    CONF_LABEL,
     CONF_OR,
     CONF_POWER,
     CONF_SENSOR_TYPE,
@@ -47,6 +49,7 @@ from custom_components.powercalc.const import (
     ENTRY_DATA_POWER_ENTITY,
     SensorType,
 )
+from custom_components.powercalc.group_include.include import find_entities
 from custom_components.test.light import MockLight
 from tests.common import (
     create_discoverable_light,
@@ -321,6 +324,62 @@ async def test_include_group(hass: HomeAssistant) -> None:
         "sensor.tv_power",
         "sensor.soundbar_power",
     }
+
+
+async def test_include_skips_unsupported_entities(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.ERROR)
+    mock_device_registry(
+        hass,
+        {
+            "device-a": DeviceEntry(
+                id="device-a",
+                manufacturer="Signify",
+                model="LCT012",
+            ),
+            "device-b": DeviceEntry(
+                id="device-b",
+                manufacturer="Signify",
+                model="Room",
+            ),
+        },
+    )
+
+    mock_registry(
+        hass,
+        {
+            "light.a": RegistryEntry(
+                entity_id="light.a",
+                unique_id="111",
+                platform="light",
+                device_id="device-a",
+            ),
+            "light.b": RegistryEntry(
+                entity_id="light.b",
+                unique_id="222",
+                platform="light",
+                device_id="device-b",
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        [
+            {
+                CONF_CREATE_GROUP: "Powercalc group",
+                CONF_INCLUDE: {CONF_DOMAIN: "light"},
+                CONF_IGNORE_UNAVAILABLE_STATE: True,
+            },
+        ],
+    )
+
+    group_state = hass.states.get("sensor.powercalc_group_power")
+    assert group_state
+    assert group_state.attributes.get(ATTR_ENTITIES) == {
+        "sensor.a_power",
+    }
+
+    assert len(caplog.records) == 0
 
 
 async def test_error_is_logged_when_group_not_exists(
@@ -730,6 +789,152 @@ async def test_power_group_does_not_include_binary_sensors(
             CONF_CREATE_GROUP: "Test include",
             CONF_INCLUDE: {
                 CONF_AREA: "bathroom",
+                CONF_INCLUDE_NON_POWERCALC_SENSORS: True,
+            },
+            CONF_IGNORE_UNAVAILABLE_STATE: True,
+        },
+    )
+
+    group_state = hass.states.get("sensor.test_include_power")
+    assert group_state
+    assert group_state.attributes.get(CONF_ENTITIES) == {"sensor.test"}
+
+
+async def test_energy_group_does_not_include_utility_meters(hass: HomeAssistant) -> None:
+    mock_registry(
+        hass,
+        {
+            "light.test": RegistryEntry(
+                entity_id="light.test",
+                unique_id="1111",
+                platform="light",
+            ),
+            "sensor.test": RegistryEntry(
+                entity_id="sensor.test",
+                unique_id="2222",
+                platform="sensor",
+                device_class=SensorDeviceClass.ENERGY,
+            ),
+            "sensor.test_daily": RegistryEntry(
+                entity_id="sensor.test_daily",
+                unique_id="3333",
+                platform="utility_meter",
+                device_class=SensorDeviceClass.ENERGY,
+            ),
+            "sensor.test_hourly": RegistryEntry(
+                entity_id="sensor.test_hourly",
+                unique_id="4444",
+                platform="utility_meter",
+                device_class=SensorDeviceClass.ENERGY,
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        [
+            {
+                CONF_ENTITY_ID: "light.test",
+                CONF_UNIQUE_ID: "5555",
+                CONF_NAME: "Test powercalc",
+                CONF_FIXED: {CONF_POWER: 50},
+                CONF_CREATE_UTILITY_METERS: True,
+            },
+            {
+                CONF_CREATE_GROUP: "Test include",
+                CONF_INCLUDE: {
+                    CONF_ALL: None,
+                },
+                CONF_IGNORE_UNAVAILABLE_STATE: True,
+            },
+        ],
+    )
+
+    group_state = hass.states.get("sensor.test_include_energy")
+    assert group_state
+    assert group_state.attributes.get(CONF_ENTITIES) == {"sensor.test", "sensor.test_powercalc_energy"}
+
+
+async def test_include_group_does_not_include_disabled_sensors(hass: HomeAssistant) -> None:
+    mock_registry(
+        hass,
+        {
+            "sensor.test_energy": RegistryEntry(
+                entity_id="sensor.test_energy",
+                unique_id="1111",
+                platform="sensor",
+                device_class=SensorDeviceClass.ENERGY,
+            ),
+            "sensor.test_disabled_energy": RegistryEntry(
+                entity_id="sensor.test_disabled_energy",
+                unique_id="2222",
+                platform="sensor",
+                device_class=SensorDeviceClass.ENERGY,
+                disabled_by=RegistryEntryDisabler.USER,
+            ),
+            "sensor.test_power": RegistryEntry(
+                entity_id="sensor.test_power",
+                unique_id="3333",
+                platform="sensor",
+                device_class=SensorDeviceClass.POWER,
+            ),
+            "sensor.test_disabled_power": RegistryEntry(
+                entity_id="sensor.test_disabled_power",
+                unique_id="4444",
+                platform="sensor",
+                device_class=SensorDeviceClass.POWER,
+                disabled_by=RegistryEntryDisabler.USER,
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_CREATE_GROUP: "Test include",
+            CONF_INCLUDE: {
+                CONF_ALL: None,
+            },
+            CONF_IGNORE_UNAVAILABLE_STATE: True,
+        },
+    )
+
+    group_state = hass.states.get("sensor.test_include_power")
+    assert group_state
+    assert group_state.attributes.get(CONF_ENTITIES) == {"sensor.test_power"}
+
+    group_state = hass.states.get("sensor.test_include_energy")
+    assert group_state
+    assert group_state.attributes.get(CONF_ENTITIES) == {"sensor.test_energy"}
+
+
+async def test_include_by_label(hass: HomeAssistant) -> None:
+    mock_registry(
+        hass,
+        {
+            "sensor.test": RegistryEntry(
+                entity_id="sensor.test",
+                unique_id="1111",
+                platform="sensor",
+                device_class=SensorDeviceClass.POWER,
+                labels=["my_label"],
+            ),
+            "sensor.test2": RegistryEntry(
+                entity_id="sensor.test",
+                unique_id="2222",
+                platform="sensor",
+                device_class=SensorDeviceClass.POWER,
+                labels=["other_label"],
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_CREATE_GROUP: "Test include",
+            CONF_INCLUDE: {
+                CONF_LABEL: "my_label",
             },
             CONF_IGNORE_UNAVAILABLE_STATE: True,
         },
@@ -968,7 +1173,7 @@ async def test_include_by_area_combined_with_domain_filter(hass: HomeAssistant, 
     }
 
 
-async def test_include_all(hass: HomeAssistant, area_registry: AreaRegistry) -> None:
+async def test_include_all(hass: HomeAssistant) -> None:
     mock_registry(
         hass,
         {
@@ -1015,7 +1220,7 @@ async def test_include_all(hass: HomeAssistant, area_registry: AreaRegistry) -> 
     }
 
 
-async def test_exclude_non_powercalc_sensors(hass: HomeAssistant, area_registry: AreaRegistry) -> None:
+async def test_exclude_non_powercalc_sensors(hass: HomeAssistant) -> None:
     mock_registry(
         hass,
         {
@@ -1081,6 +1286,50 @@ async def test_include_logs_warning(hass: HomeAssistant, caplog: pytest.LogCaptu
     error_messages = [record for record in caplog.records if record.levelno == logging.ERROR]
     assert len(error_messages) == 0
     assert "Could not resolve any entities in group" in caplog.text
+
+
+async def test_irrelevant_entity_domains_are_skipped(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    mock_device_registry(
+        hass,
+        {
+            "device-a": DeviceEntry(
+                id="device-a",
+                manufacturer="Signify",
+                model="LCT012",
+            ),
+        },
+    )
+    mock_registry(
+        hass,
+        {
+            "light.test": RegistryEntry(
+                entity_id="light.test",
+                unique_id="2222",
+                platform="hue",
+                device_id="device-a",
+            ),
+            "scene.test": RegistryEntry(
+                entity_id="scene.test",
+                unique_id="3333",
+                platform="hue",
+                device_id="device-a",
+            ),
+            "event.test": RegistryEntry(
+                entity_id="event.test",
+                unique_id="4444",
+                platform="hue",
+                device_id="device-a",
+            ),
+        },
+    )
+    _, discoverable_entities = await find_entities(hass)
+    assert len(discoverable_entities) == 1
+    assert "light.test" in discoverable_entities
+
+    assert "scene.test" not in caplog.text
+    assert "event.test" not in caplog.text
 
 
 def _create_powercalc_config_entry(

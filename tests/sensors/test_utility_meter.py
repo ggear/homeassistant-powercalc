@@ -1,11 +1,13 @@
 import logging
 from datetime import timedelta
+from unittest.mock import patch
 
 import homeassistant.util.dt as dt_util
 import pytest
 from freezegun import freeze_time
 from homeassistant.components import utility_meter
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.utility_meter.const import DAILY, HOURLY
 from homeassistant.components.utility_meter.sensor import (
     ATTR_STATUS,
     ATTR_TARIFF,
@@ -33,6 +35,7 @@ from custom_components.powercalc.const import (
     CONF_POWER,
     CONF_POWER_SENSOR_ID,
     CONF_SENSOR_TYPE,
+    CONF_UTILITY_METER_NET_CONSUMPTION,
     CONF_UTILITY_METER_TARIFFS,
     CONF_UTILITY_METER_TYPES,
     DOMAIN,
@@ -57,7 +60,7 @@ async def test_tariff_sensors_are_created(hass: HomeAssistant) -> None:
             CONF_FIXED: {CONF_POWER: 50},
             CONF_CREATE_UTILITY_METERS: True,
             CONF_UTILITY_METER_TARIFFS: ["general", "peak", "offpeak"],
-            CONF_UTILITY_METER_TYPES: ["daily", "hourly"],
+            CONF_UTILITY_METER_TYPES: [DAILY, HOURLY],
         },
     )
 
@@ -101,7 +104,7 @@ async def test_tariff_sensors_created_for_gui_sensors(hass: HomeAssistant) -> No
         {},
         {
             CONF_UTILITY_METER_TARIFFS: ["peak", "offpeak"],
-            CONF_UTILITY_METER_TYPES: ["daily"],
+            CONF_UTILITY_METER_TYPES: [DAILY],
         },
     )
 
@@ -147,7 +150,7 @@ async def test_utility_meter_is_not_created_twice(
         {
             CONF_UNIQUE_ID: "1234",
             CONF_CREATE_UTILITY_METERS: True,
-            CONF_UTILITY_METER_TYPES: ["daily"],
+            CONF_UTILITY_METER_TYPES: [DAILY],
             CONF_POWER_SENSOR_ID: power_sensor_id,
             CONF_ENERGY_SENSOR_ID: energy_sensor_id,
         },
@@ -158,7 +161,7 @@ async def test_utility_meter_is_not_created_twice(
         {
             CONF_UNIQUE_ID: "1234",
             CONF_CREATE_UTILITY_METERS: True,
-            CONF_UTILITY_METER_TYPES: ["daily"],
+            CONF_UTILITY_METER_TYPES: [DAILY],
             CONF_POWER_SENSOR_ID: power_sensor_id,
             CONF_ENERGY_SENSOR_ID: energy_sensor_id,
         },
@@ -263,3 +266,21 @@ async def test_regression(hass: HomeAssistant) -> None:
             CONF_CREATE_UTILITY_METERS: True,
         },
     )
+
+
+async def test_net_consumption_option(hass: HomeAssistant) -> None:
+    """Test that the net consumption option is respected."""
+    with patch("custom_components.powercalc.sensors.utility_meter.VirtualUtilityMeter") as mock_utility_meter:
+        await run_powercalc_setup(
+            hass,
+            {
+                CONF_ENTITY_ID: "switch.test",
+                CONF_MODE: CalculationStrategy.FIXED,
+                CONF_FIXED: {CONF_POWER: 50},
+                CONF_CREATE_UTILITY_METERS: True,
+                CONF_UTILITY_METER_NET_CONSUMPTION: True,
+            },
+        )
+
+        _, kwargs = mock_utility_meter.call_args
+        assert kwargs["net_consumption"] is True

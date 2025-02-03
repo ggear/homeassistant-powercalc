@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import json
 import logging
@@ -5,17 +6,20 @@ import os
 import shutil
 import time
 from functools import partial
+from unittest.mock import patch
 
 import pytest
 from aiohttp import ClientError
 from aioresponses import aioresponses
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import STORAGE_DIR
 
 from custom_components.powercalc.helpers import get_library_json_path, get_library_path
 from custom_components.powercalc.power_profile.error import LibraryLoadingError, ProfileDownloadError
+from custom_components.powercalc.power_profile.library import ModelInfo, ProfileLibrary
 from custom_components.powercalc.power_profile.loader.remote import ENDPOINT_DOWNLOAD, ENDPOINT_LIBRARY, RemoteLoader
 from custom_components.powercalc.power_profile.power_profile import DeviceType
-from tests.common import get_test_profile_dir
+from tests.common import get_test_config_dir, get_test_profile_dir
 
 pytestmark = pytest.mark.skip_remote_loader_mocking
 
@@ -72,7 +76,7 @@ async def mock_download_profile_endpoints(mock_aioresponse: aioresponses) -> lis
     )
 
     for remote_file in remote_files:
-        with open(get_test_profile_dir("signify-LCA001") + f"/{remote_file['path']}", "rb") as f:
+        with open(get_test_profile_dir("signify_LCA001") + f"/{remote_file['path']}", "rb") as f:
             mock_aioresponse.get(
                 remote_file["url"],
                 status=200,
@@ -125,13 +129,13 @@ async def test_download_with_parenthesis(remote_loader: RemoteLoader, mock_aiore
 
 
 async def test_get_manufacturer_listing(remote_loader: RemoteLoader) -> None:
-    manufacturers = await remote_loader.get_manufacturer_listing(DeviceType.LIGHT)
+    manufacturers = await remote_loader.get_manufacturer_listing({DeviceType.LIGHT})
     assert "signify" in manufacturers
     assert len(manufacturers) > 40
 
 
 async def test_get_model_listing(remote_loader: RemoteLoader) -> None:
-    models = await remote_loader.get_model_listing("signify", DeviceType.LIGHT)
+    models = await remote_loader.get_model_listing("signify", {DeviceType.LIGHT})
     assert "LCT010" in models
     assert len(models) > 40
 
@@ -286,6 +290,9 @@ async def test_fallback_to_local_library(hass: HomeAssistant, mock_aioresponse: 
     Test that the local library is used when the remote library is not available.
     When unavailable, it should retry 3 times before falling back to the local library.
     """
+
+    shutil.copy(get_library_json_path(), hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
+
     caplog.set_level(logging.WARNING)
     mock_aioresponse.get(
         ENDPOINT_LIBRARY,
@@ -307,9 +314,11 @@ async def test_fallback_to_local_library_on_client_connection_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """
-    Test that the local library is used when powercalc.lauwbier.nl is not available.
+    Test that the local library is used when api.powercalc.nl is not available.
     See: https://github.com/bramstroker/homeassistant-powercalc/issues/2277
     """
+    shutil.copy(get_library_json_path(), hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
+
     caplog.set_level(logging.WARNING)
     mock_aioresponse.get(
         ENDPOINT_LIBRARY,
@@ -324,6 +333,27 @@ async def test_fallback_to_local_library_on_client_connection_error(
 
     assert "signify" in loader.manufacturer_models
     assert len(caplog.records) == 2
+
+
+async def test_fallback_to_local_library_fails(hass: HomeAssistant, mock_aioresponse: aioresponses, caplog: pytest.LogCaptureFixture) -> None:
+    """
+    After 3 retries, and the library.json is never downloaded before to .storage dir, it should raise a ProfileDownloadError.
+    """
+
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
+
+    caplog.set_level(logging.WARNING)
+    mock_aioresponse.get(
+        ENDPOINT_LIBRARY,
+        status=404,
+        repeat=True,
+    )
+
+    loader = RemoteLoader(hass)
+    loader.retry_timeout = 0
+    with pytest.raises(ProfileDownloadError):
+        await loader.initialize()
 
 
 async def test_fallback_to_local_profile(
@@ -443,17 +473,83 @@ async def test_profile_redownloaded_when_model_json_corrupt_retry_limit(
         await remote_loader.load_model("apple", "HomePod Mini")
 
 
-async def test_find_model(remote_loader: RemoteLoader) -> None:
-    model = await remote_loader.find_model("apple", {"HomePod (gen 2)"})
-    assert model == "MQJ83"
+@pytest.mark.parametrize(
+    "manufacturer,phrases,expected_models,library_dir",
+    [
+        ("apple", {"HomePod (gen 2)"}, {"MQJ83"}, None),
+        ("apple", {"Non existing model"}, set(), None),
+        ("signify", {"LCA001", "LCT010"}, {"LCT010", "LCA001"}, None),
+        ("test_manu", {"CCT Light"}, {"model1", "model2"}, "multi_profile"),
+    ],
+)
+@pytest.mark.skip_remote_loader_mocking
+async def test_find_model(
+    hass: HomeAssistant,
+    manufacturer: str,
+    phrases: set[str],
+    expected_models: list[str],
+    library_dir: str,
+) -> None:
+    with patch("custom_components.powercalc.power_profile.loader.remote.RemoteLoader.load_library_json") as mock_load_lib:
 
+        def load_library_json() -> dict:
+            library_path = get_test_config_dir(f"powercalc_profiles/{library_dir}/library.json") if library_dir else get_library_json_path()
+            with open(library_path) as f:
+                return json.load(f)
 
-async def test_find_model_returns_none(remote_loader: RemoteLoader) -> None:
-    model = await remote_loader.find_model("apple", {"Non existing model"})
-    assert model is None
+        mock_load_lib.side_effect = load_library_json
+
+        loader = RemoteLoader(hass)
+        loader.retry_timeout = 0
+        await loader.initialize()
+        assert await loader.find_model(manufacturer, phrases) == expected_models
 
 
 def clear_storage_dir(storage_path: str) -> None:
     if not os.path.exists(storage_path):
         return
     shutil.rmtree(storage_path, ignore_errors=True)
+
+
+async def test_multiple_manufacturer_aliases(hass: HomeAssistant, mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        ENDPOINT_LIBRARY,
+        status=200,
+        payload={
+            "manufacturers": [
+                {
+                    "name": "manufacturer1",
+                    "aliases": ["my-alias"],
+                    "models": [
+                        {
+                            "id": "model1",
+                            "device_type": "light",
+                            "updated_at": "2021-01-01T00:00:00",
+                        },
+                    ],
+                },
+                {
+                    "name": "manufacturer2",
+                    "aliases": ["my-alias"],
+                    "models": [
+                        {
+                            "id": "model1",
+                            "device_type": "light",
+                            "updated_at": "2021-01-01T00:00:00",
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+
+    library = await ProfileLibrary.factory(hass)
+
+    manufacturers = await library.find_manufacturers("my-alias")
+    assert manufacturers == {"manufacturer1", "manufacturer2"}
+
+    model_listing = await library.get_model_listing("my-alias", {DeviceType.LIGHT})
+    assert len(model_listing) == 2
+
+    models = await library.find_models(ModelInfo("my-alias", "model1"))
+    assert models == {ModelInfo("manufacturer1", "model1"), ModelInfo("manufacturer2", "model1")}

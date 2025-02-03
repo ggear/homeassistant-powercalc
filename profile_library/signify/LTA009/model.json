@@ -1,6 +1,7 @@
 {
   "measure_description": "Measured with utils/measure script",
-  "measure_device": "Gosuna Smart Plug UP111 (via tuya)",
+  "measure_device": "Gosund UP111",
+  "measure_device_firmware": "Tuya",
   "measure_method": "script",
   "measure_settings": {
     "SAMPLE_COUNT": 1,
@@ -13,5 +14,6 @@
   "aliases": [
     "9290024684"
   ],
-  "created_at": "2022-05-06T22:10:00"
+  "created_at": "2022-05-06T22:10:00",
+  "author": "xpenno255 <47892554+xpenno255@users.noreply.github.com>"
 }

@@ -1,7 +1,8 @@
 {
   "calculation_strategy": "lut",
   "measure_description": "Measured with utils/measure script",
-  "measure_device": "Gosund SP1 Tasmota",
+  "measure_device": "Gosund SP1",
+  "measure_device_firmware": "Tasmota",
   "measure_method": "script",
   "measure_settings": {
     "SAMPLE_COUNT": 2,
@@ -10,5 +11,6 @@
   },
   "name": "Livarno Lux E27 bulb CCT",
   "standby_power": 0.31,
-  "created_at": "2023-02-10T09:29:19"
+  "created_at": "2023-02-10T09:29:19",
+  "author": "Perfunctory85 <105150364+Perfunctory85@users.noreply.github.com>"
 }

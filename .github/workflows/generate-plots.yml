@@ -1,4 +1,4 @@
-name: Generate support model list
+name: Generate plots
 
 on:
   push:
@@ -20,12 +20,10 @@ jobs:
       - uses: ./.github/workflows/poetry-composite-action
         with:
           directory: './utils/visualize'
-          python_version: '3.12'
           cache_dependencies: 'false'
       - name: Run visualization tool
         run: |
-          cd ./utils/visualize
-          bash generate-all.sh
+          cd ./utils/visualize && bash generate-all.sh ../../profile_library
       - uses: EndBug/add-and-commit@v9
         if: github.ref == 'refs/heads/master'
         with:

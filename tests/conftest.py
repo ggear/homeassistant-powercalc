@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import shutil
@@ -32,8 +33,14 @@ from tests.common import mock_area_registry
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations: bool) -> None:
+def auto_enable_custom_integrations(enable_custom_integrations: bool) -> Generator:
     yield
+
+
+@pytest.fixture(autouse=True)
+def enable_event_loop_debug(event_loop: asyncio.AbstractEventLoop) -> None:
+    """Override the fixture to disable event loop debug mode."""
+    event_loop.set_debug(False)  # Modify this behavior as needed
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +112,7 @@ class MockEntityWithModel(Protocol):
         entity_id: str,
         manufacturer: str = "signify",
         model: str = "LCT010",
+        model_id: str | None = None,
         **entity_reg_kwargs: Any,  # noqa: ANN401
     ) -> None: ...
 
@@ -115,9 +123,13 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
         entity_id: str,
         manufacturer: str = "signify",
         model: str = "LCT010",
+        model_id: str | None = None,
         **entity_reg_kwargs: Any,  # noqa: ANN401
     ) -> None:
         device_id = str(uuid.uuid4())
+        if "device_id" in entity_reg_kwargs:
+            device_id = entity_reg_kwargs["device_id"]
+            del entity_reg_kwargs["device_id"]
 
         unique_id = str(uuid.uuid4())
         if "unique_id" in entity_reg_kwargs:
@@ -126,7 +138,7 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
 
         platform = "foo"
         if "platform" in entity_reg_kwargs:
-            unique_id = entity_reg_kwargs["platform"]
+            platform = entity_reg_kwargs["platform"]
             del entity_reg_kwargs["platform"]
 
         mock_registry(
@@ -148,6 +160,7 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
                     id=device_id,
                     manufacturer=manufacturer,
                     model=model,
+                    model_id=model_id,
                 ),
             },
         )
@@ -156,7 +169,7 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
 
 
 @pytest.fixture(autouse=True)
-def mock_remote_loader(request: SubRequest) -> Generator:
+def mock_remote_loader(request: SubRequest, hass: HomeAssistant) -> Generator:
     if "skip_remote_loader_mocking" in request.keywords:
         yield
         return

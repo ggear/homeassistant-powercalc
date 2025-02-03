@@ -5,13 +5,14 @@ import pytest
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_MODE,
-    ATTR_COLOR_TEMP,
+    ATTR_COLOR_TEMP_KELVIN,
     ATTR_HS_COLOR,
     ColorMode,
 )
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import CONF_ENTITY_ID, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
+from homeassistant.util import color as color_util
 
 from custom_components.powercalc.common import SourceEntity
 from custom_components.powercalc.const import CONF_MANUFACTURER, CONF_MODEL, CalculationStrategy
@@ -21,7 +22,7 @@ from custom_components.powercalc.strategy.factory import PowerCalculatorStrategy
 from custom_components.powercalc.strategy.strategy_interface import (
     PowerCalculationStrategyInterface,
 )
-from tests.common import run_powercalc_setup
+from tests.common import get_test_profile_dir, run_powercalc_setup
 from tests.strategy.common import create_source_entity
 
 
@@ -227,7 +228,7 @@ async def test_sensor_unavailable_for_unsupported_color_mode(hass: HomeAssistant
 async def test_fallback_color_temp_to_hs(hass: HomeAssistant) -> None:
     """
     Test fallback is done when no color_temp.csv is available, but a hs.csv is.
-    Fixes issue where HUE bridge is falsly reporting color_temp as color_mode.
+    Fixes issue where HUE bridge is falsy reporting color_temp as color_mode.
     See: https://github.com/bramstroker/homeassistant-powercalc/issues/2247
     """
 
@@ -243,7 +244,7 @@ async def test_fallback_color_temp_to_hs(hass: HomeAssistant) -> None:
     hass.states.async_set(
         "light.test",
         STATE_ON,
-        {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100, ATTR_COLOR_TEMP: 500},
+        {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100, ATTR_COLOR_TEMP_KELVIN: 500},
     )
     await hass.async_block_till_done()
 
@@ -276,11 +277,30 @@ async def test_warning_is_logged_when_color_mode_is_none(hass: HomeAssistant, ca
     assert "color mode unknown" in caplog.text
 
 
+async def test_fallback_to_non_gzipped_file(hass: HomeAssistant) -> None:
+    """
+    Test that a fallback is done when a gzipped file is not available.
+    See: https://github.com/bramstroker/homeassistant-powercalc/issues/2798
+    """
+    strategy = await _create_lut_strategy(
+        hass,
+        "test",
+        "test",
+        custom_profile_dir=get_test_profile_dir("lut_non_gzipped"),
+    )
+    await _calculate_and_assert_power(
+        strategy,
+        state=_create_light_color_temp_state(1, 153),
+        expected_power=0.96,
+    )
+
+
 async def _create_lut_strategy(
     hass: HomeAssistant,
     manufacturer: str,
     model: str,
     source_entity: SourceEntity | None = None,
+    custom_profile_dir: str | None = None,
 ) -> PowerCalculationStrategyInterface:
     if not source_entity:
         source_entity = create_source_entity(LIGHT_DOMAIN)
@@ -288,6 +308,7 @@ async def _create_lut_strategy(
     library = await ProfileLibrary.factory(hass)
     power_profile = await library.get_profile(
         ModelInfo(manufacturer, model),
+        custom_directory=custom_profile_dir,
     )
     return await strategy_factory.create(
         config={},
@@ -315,7 +336,7 @@ def _create_light_color_temp_state(brightness: int, color_temp: int) -> State:
         {
             ATTR_COLOR_MODE: ColorMode.COLOR_TEMP,
             ATTR_BRIGHTNESS: brightness,
-            ATTR_COLOR_TEMP: color_temp,
+            ATTR_COLOR_TEMP_KELVIN: color_util.color_temperature_mired_to_kelvin(color_temp),
         },
     )
 

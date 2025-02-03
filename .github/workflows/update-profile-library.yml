@@ -1,0 +1,49 @@
+name: Update profile library
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/profile_library/**'
+  push:
+    paths:
+      - '**/model.json'
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  format:
+    name: Update profile library
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          python -m pip install -r ${{ github.workspace }}/.github/scripts/profile_library/requirements.txt
+      - name: Pull again
+        run: git pull || true
+      - name: Update library.json, authors and translations
+        run: |
+          python3 ${{ github.workspace }}/.github/scripts/profile_library/update-library.py
+      - uses: EndBug/add-and-commit@v9
+        if: github.ref == 'refs/heads/master'
+        with:
+          add: 'profile_library'
+          message: 'Update profile library'
+      - name: Purge powercalc API memory cache
+        run: |
+          curl -X GET "https://api.powercalc.nl/cache/flush" -H  "Authorization: Bearer ${{ secrets.POWERCALC_API_KEY }}"
+      - name: Purge cloudflare cache
+        uses: jakejarvis/cloudflare-purge-action@master
+        env:
+          CLOUDFLARE_ZONE: ${{ secrets.CLOUDFLARE_ZONE }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_KEY: ${{ secrets.CLOUDFLARE_KEY }}
+          PURGE_URLS: '["https://api.powercalc.nl/library"]'
