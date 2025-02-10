@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -288,6 +289,7 @@ async def test_reset_service(hass: HomeAssistant) -> None:
         hass,
         {
             CONF_CREATE_GROUP: "TestGroup",
+            CONF_GROUP_ENERGY_START_AT_ZERO: False,
             CONF_ENTITIES: [
                 get_simple_fixed_config("input_boolean.test1"),
                 get_simple_fixed_config("input_boolean.test2"),
@@ -477,6 +479,7 @@ async def test_energy_group_available_when_members_temporarily_unavailable(
         hass,
         {
             CONF_CREATE_GROUP: "TestGroup",
+            CONF_GROUP_ENERGY_START_AT_ZERO: False,
             CONF_ENTITIES: [
                 get_simple_fixed_config("input_boolean.test1", 50),
                 get_simple_fixed_config("input_boolean.test2", 50),
@@ -956,6 +959,7 @@ async def test_energy_unit_conversions(hass: HomeAssistant) -> None:
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,
+            CONF_GROUP_ENERGY_START_AT_ZERO: False,
             CONF_NAME: "TestGroup",
             CONF_GROUP_ENERGY_ENTITIES: [
                 "sensor.energy_Wh",
@@ -1693,20 +1697,28 @@ async def test_get_group_entities_action(hass: HomeAssistant) -> None:
     assert res["sensor.testgroup_energy"][ATTR_ENTITIES] == {"sensor.test1_energy", "sensor.test2_energy", "sensor.test3_energy"}
 
 
-async def test_start_at_zero(hass: HomeAssistant) -> None:
-    hass.states.async_set("sensor.a_energy", "2.00")
-    hass.states.async_set("sensor.b_energy", "3.00")
-    await hass.async_block_till_done()
-
-    await setup_config_entry(
-        hass,
+@pytest.mark.parametrize(
+    "entry_data",
+    [
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,
             CONF_NAME: "TestGroup",
             CONF_GROUP_ENERGY_ENTITIES: ["sensor.a_energy", "sensor.b_energy"],
             CONF_GROUP_ENERGY_START_AT_ZERO: True,
         },
-    )
+        {
+            CONF_SENSOR_TYPE: SensorType.GROUP,
+            CONF_NAME: "TestGroup",
+            CONF_GROUP_ENERGY_ENTITIES: ["sensor.a_energy", "sensor.b_energy"],
+        },
+    ],
+)
+async def test_start_at_zero(hass: HomeAssistant, entry_data: dict[str, Any]) -> None:
+    hass.states.async_set("sensor.a_energy", "2.00")
+    hass.states.async_set("sensor.b_energy", "3.00")
+    await hass.async_block_till_done()
+
+    await setup_config_entry(hass, entry_data)
 
     assert hass.states.get("sensor.testgroup_energy").state == "0.0000"
 
@@ -1728,14 +1740,14 @@ async def test_area_group(hass: HomeAssistant, area_registry: AreaRegistry) -> N
         {
             "sensor.test_power": RegistryEntry(
                 entity_id="sensor.test_power",
-                unique_id="1111",
+                unique_id=1111,
                 platform="powercalc",
                 device_class=SensorDeviceClass.POWER,
                 area_id=area.id,
             ),
             "sensor.test_energy": RegistryEntry(
                 entity_id="sensor.test_energy",
-                unique_id="2222",
+                unique_id=2222,
                 platform="powercalc",
                 device_class=SensorDeviceClass.ENERGY,
                 area_id=area.id,
@@ -1773,6 +1785,7 @@ async def _create_energy_group(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,
+            CONF_GROUP_ENERGY_START_AT_ZERO: False,
             CONF_NAME: name,
             CONF_GROUP_ENERGY_ENTITIES: member_entities,
         },
