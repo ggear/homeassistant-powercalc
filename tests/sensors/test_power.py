@@ -77,6 +77,7 @@ from tests.common import (
     create_input_boolean,
     create_input_number,
     get_simple_fixed_config,
+    get_test_config_dir,
     get_test_profile_dir,
     run_powercalc_setup,
     setup_config_entry,
@@ -334,12 +335,12 @@ async def test_template_entity_tracking(hass: HomeAssistant) -> None:
     await run_powercalc_setup(
         hass,
         {
-            CONF_ENTITY_ID: "input_boolean.test",
+            CONF_ENTITY_ID: "input_number.test",
             CONF_FIXED: {CONF_POWER: "{{ states('input_number.test') }}"},
         },
     )
 
-    hass.states.async_set("input_boolean.test", STATE_ON)
+    hass.states.async_set("input_number.test", 0)
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.test_power").state == "0.00"
@@ -348,6 +349,25 @@ async def test_template_entity_tracking(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.test_power").state == "15.00"
+
+
+async def test_template_entity_not_double_tracked(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    """When the source entity is also used in the template, it should not be double tracked"""
+    caplog.set_level(logging.ERROR)
+
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_NAME: "Dynamic input number",
+            CONF_ENTITY_ID: "input_number.my_entity",
+            CONF_FIXED: {
+                CONF_POWER: "{{ states('input_number.my_entity') | float(0) }}",
+            },
+        },
+    )
+
+    assert hass.states.get("sensor.dynamic_input_number_power")
+    assert len(caplog.records) == 0
 
 
 async def test_unknown_source_entity_state(hass: HomeAssistant) -> None:
@@ -648,6 +668,23 @@ async def test_entity_category(hass: HomeAssistant) -> None:
     power_entry = entity_registry.async_get("sensor.test_power")
     assert power_entry
     assert power_entry.entity_category == EntityCategory.DIAGNOSTIC
+
+
+async def test_sub_profile_default_select(hass: HomeAssistant) -> None:
+    hass.config.config_dir = get_test_config_dir()
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_ENTITY_ID: "switch.test",
+            CONF_MANUFACTURER: "test",
+            CONF_MODEL: "sub_profile_default",
+        },
+    )
+
+    hass.states.async_set("switch.test", STATE_ON)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_device_power").state == "0.80"
 
 
 async def test_switch_sub_profile_service(hass: HomeAssistant) -> None:
