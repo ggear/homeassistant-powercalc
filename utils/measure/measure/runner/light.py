@@ -95,6 +95,9 @@ class LightRunner(MeasurementRunner):
     def prepare_measurements_for_mode(self, export_directory: str, mode: LutMode) -> MeasurementRunInput:
         """Fetch all variations for the given color mode and prepare the measurement session."""
 
+        if mode == LutMode.WHITE:
+            mode = LutMode.BRIGHTNESS
+
         csv_file_path = f"{export_directory}/{mode.value}.csv"
 
         resume_at = None
@@ -119,6 +122,14 @@ class LightRunner(MeasurementRunner):
         """Run the measurement session for lights"""
 
         mode = measurement_info.mode
+        if mode == LutMode.WHITE:
+            self.light_controller.change_light_state(
+                mode,
+                on=True,
+                bri=255,
+            )
+            mode = LutMode.BRIGHTNESS
+
         file_write_mode = "w"
         write_header_row = True
         if measurement_info.is_resuming:
@@ -215,24 +226,32 @@ class LightRunner(MeasurementRunner):
 
     def wait(self, variation: Variation, previous_variation: Variation | None) -> None:
         """Wait for the light to process the change"""
-        if previous_variation:
-            if isinstance(variation, ColorTempVariation) and variation.is_ct_changed(previous_variation):
-                _LOGGER.info("Extra waiting for significant CT change...")
-                time.sleep(self.config.sleep_time_ct)
+        time.sleep(self.config.sleep_time)
 
-            if isinstance(variation, HsVariation) and variation.is_sat_changed(previous_variation):
-                _LOGGER.info("Extra waiting for significant SAT change...")
-                time.sleep(self.config.sleep_time_sat)
+        if not previous_variation:
+            return
 
-            if isinstance(variation, HsVariation) and variation.is_hue_changed(previous_variation):
+        if isinstance(variation, ColorTempVariation) and isinstance(previous_variation, ColorTempVariation) and variation.ct < previous_variation.ct:
+            _LOGGER.info("Extra waiting for significant CT change...")
+            time.sleep(self.config.sleep_time_ct)
+            return
+
+        if isinstance(variation, HsVariation) and isinstance(previous_variation, HsVariation):
+            if variation.hue < previous_variation.hue:
                 _LOGGER.info("Extra waiting for significant HUE change...")
                 time.sleep(self.config.sleep_time_hue)
+            if variation.sat < previous_variation.sat:
+                _LOGGER.info("Extra waiting for significant SAT change...")
+                time.sleep(self.config.sleep_time_sat)
+            return
 
-            if isinstance(variation, EffectVariation) and variation.is_effect_changed(previous_variation):
-                _LOGGER.info("Extra waiting for effect change...")
-                time.sleep(self.config.sleep_time_effect_change)
-
-        time.sleep(self.config.sleep_time)
+        if (
+            isinstance(variation, EffectVariation)
+            and isinstance(previous_variation, EffectVariation)
+            and variation.is_effect_changed(previous_variation)
+        ):
+            _LOGGER.info("Extra waiting for effect change...")
+            time.sleep(self.config.sleep_time_effect_change)
 
     def set_light_to_maximum_brightness(self, mode: LutMode) -> None:
         """

@@ -128,7 +128,7 @@ async def test_download_with_parenthesis(remote_loader: RemoteLoader, mock_aiore
 
 async def test_get_manufacturer_listing(remote_loader: RemoteLoader) -> None:
     manufacturers = await remote_loader.get_manufacturer_listing({DeviceType.LIGHT})
-    assert "signify" in manufacturers
+    assert ("signify", "Signify") in manufacturers
     assert len(manufacturers) > 40
 
 
@@ -249,6 +249,7 @@ async def test_profile_redownloaded_when_newer_version_available(
                 "manufacturers": [
                     {
                         "name": "signify",
+                        "dir_name": "signify",
                         "models": [
                             {
                                 "id": "LCA001",
@@ -529,6 +530,7 @@ async def test_multiple_manufacturer_aliases(hass: HomeAssistant, mock_aiorespon
             "manufacturers": [
                 {
                     "name": "manufacturer1",
+                    "dir_name": "manufacturer1",
                     "aliases": ["my-alias"],
                     "models": [
                         {
@@ -540,6 +542,7 @@ async def test_multiple_manufacturer_aliases(hass: HomeAssistant, mock_aiorespon
                 },
                 {
                     "name": "manufacturer2",
+                    "dir_name": "manufacturer2",
                     "aliases": ["my-alias"],
                     "models": [
                         {
@@ -559,7 +562,7 @@ async def test_multiple_manufacturer_aliases(hass: HomeAssistant, mock_aiorespon
     assert manufacturers == {"manufacturer1", "manufacturer2"}
 
     model_listing = await library.get_model_listing("my-alias", {DeviceType.LIGHT})
-    assert len(model_listing) == 2
+    assert len(model_listing) == 1  # Because it's a set model1 should only be listed once
 
     models = await library.find_models(ModelInfo("my-alias", "model1"))
     assert models == {ModelInfo("manufacturer1", "model1"), ModelInfo("manufacturer2", "model1")}
