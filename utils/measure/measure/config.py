@@ -4,9 +4,12 @@ from decouple import Choices, UndefinedValueError, config
 
 from measure.const import MeasureType
 from measure.controller.charging.const import ChargingControllerType
+from measure.controller.fan.const import FanControllerType
 from measure.controller.light.const import LightControllerType
 from measure.controller.media.const import MediaControllerType
 from measure.powermeter.const import PowerMeterType
+
+_LOGGER = logging.getLogger("measure")
 
 
 class MeasureConfig:
@@ -121,6 +124,14 @@ class MeasureConfig:
         )
 
     @property
+    def selected_fan_controller(self) -> FanControllerType:
+        return config(
+            "FAN_CONTROLLER",
+            cast=Choices([t.value for t in FanControllerType]),
+            default=FanControllerType.HASS.value,
+        )
+
+    @property
     def selected_power_meter(self) -> PowerMeterType:
         return config(
             "POWER_METER",
@@ -193,9 +204,14 @@ class MeasureConfig:
     @property
     def selected_measure_type(self) -> str | None:
         try:
-            return MeasureType(config("SELECTED_DEVICE_TYPE", default=config("SELECTED_MEASURE_TYPE")))
+            return MeasureType(config("SELECTED_MEASURE_TYPE"))
         except UndefinedValueError:
-            return None
+            try:
+                # Log deprecation warning
+                _LOGGER.warning("'SELECTED_DEVICE_TYPE' is deprecated. Use 'SELECTED_MEASURE_TYPE' instead.")
+                return MeasureType(config("SELECTED_DEVICE_TYPE"))
+            except UndefinedValueError:
+                return None
 
     @property
     def resume(self) -> bool:
