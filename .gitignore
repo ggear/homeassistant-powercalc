@@ -11,4 +11,7 @@ cov.xml
 
 custom_components/test
 
-powercalc-component.iml
+*.egg-info/
+
+# PyEnv Version File
+.python-version
