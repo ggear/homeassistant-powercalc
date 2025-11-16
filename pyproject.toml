@@ -16,7 +16,7 @@ classifiers = [
   "Intended Audience :: End Users/Desktop",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.13.2,<4.0"
 dependencies = ["homeassistant"]
@@ -32,12 +32,14 @@ markers = [
 log_level = "DEBUG"
 asyncio_default_fixture_loop_scope = "function"
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components", "powercalc"]
+known-third-party = ["homeassistant"]
+force-sort-within-sections = true
+combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 show_error_codes = true
 follow_imports = "silent"
 local_partial_types = true
@@ -69,7 +71,7 @@ source = ["custom_components/powercalc", "utils", "tests"]
 
 [tool.ruff]
 line-length = 150
-target-version = "py313"
+target-version = "py314"
 exclude = ["utils/measure/playground", "utils/visualize", ".github", "docs"]
 
 [tool.ruff.lint]
@@ -83,11 +85,15 @@ ignore = ["S101"]
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
+[tool.uv]
+prerelease = "allow"
+override-dependencies = [
+  "mashumaro[msgpack]==3.17",
+]
+
 [project.optional-dependencies]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-git-revision-date-localized-plugin"
+    "zensical"
 ]
 dev = [
     "pre-commit>=4.0.0",
@@ -95,7 +101,7 @@ dev = [
     "mypy==1.18.2",
     "voluptuous-stubs>=0.1",
     "homeassistant-stubs",
-    "pytest-homeassistant-custom-component==0.13.287",
+    "pytest-homeassistant-custom-component==0.13.295",
     "types-pytz>=2024.1",
     "types-croniter>=2.0",
     "croniter>=6.0.0",
@@ -109,6 +115,11 @@ packages = ["custom_components"]
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+docs = [
+    "zensical>=0.0.5",
+]
 
 [tool.codespell]
 ignore-words-list = 'hass'

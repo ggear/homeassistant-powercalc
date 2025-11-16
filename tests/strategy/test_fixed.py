@@ -1,6 +1,6 @@
+from collections.abc import Generator
 import logging
 
-import pytest
 from homeassistant.components import input_number
 from homeassistant.components.climate import ATTR_FAN_MODE, ATTR_HVAC_ACTION, HVACAction
 from homeassistant.const import CONF_ENTITY_ID, STATE_OFF, STATE_ON
@@ -9,6 +9,7 @@ from homeassistant.helpers.event import TrackTemplate
 from homeassistant.helpers.template import Template
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.setup import async_setup_component
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powercalc.common import SourceEntity, create_source_entity
@@ -271,7 +272,7 @@ async def test_template_power_initial_value_after_startup(hass: HomeAssistant) -
     assert state.state == "30.00"
 
 
-async def test_duplicate_tracking_is_prevented(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+async def test_duplicate_tracking_is_prevented(hass: HomeAssistant, caplog: pytest.LogCaptureFixture, enable_throttle: Generator[None]) -> None:
     """
     Make sure the source entity is only tracked once, when it is referenced both in template and entity_id.
     see: https://github.com/bramstroker/homeassistant-powercalc/issues/2802
@@ -336,6 +337,7 @@ async def test_climate_entity_on_off(hass: HomeAssistant) -> None:
 async def test_state_power_mixed_with_power_template(hass: HomeAssistant) -> None:
     """
     Test that a climate entity with a power template and state-based power works correctly.
+    states_power should have priority and the power template should only be used when no state match is found.
     See: https://github.com/bramstroker/homeassistant-powercalc/issues/3312
     """
 

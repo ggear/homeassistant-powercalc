@@ -2,6 +2,7 @@ site_name: Powercalc documentation
 docs_dir: source
 theme:
   name: material
+  variant: classic
   features:
     - navigation.tabs
     - navigation.sections
@@ -30,6 +31,9 @@ theme:
   favicon: img/logo.svg
 extra:
   generator: false
+  analytics:
+    provider: google
+    property: G-XPYSM71YND
 plugins:
   - search
   - git-revision-date-localized:
@@ -77,6 +81,7 @@ nav:
       - 'configuration/standby-power.md'
       - 'configuration/entity-category.md'
       - 'configuration/new-yaml-structure.md'
+      - 'configuration/update-frequency.md'
   - 'Misc':
       - 'misc/naming.md'
       - 'misc/uninstall.md'
@@ -85,7 +90,7 @@ nav:
       - 'library/discovery.md'
       - 'library/structure.md'
       - 'library/sub-profiles.md'
-      - 'library/custom-fields.md'
+      - 'library/variables.md'
       - 'Device types':
           - 'library/device-types/index.md'
           - 'library/device-types/camera.md'
