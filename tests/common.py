@@ -15,11 +15,13 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 import homeassistant.helpers.area_registry as ar
+from homeassistant.helpers.floor_registry import FloorEntry, FloorRegistry, FloorRegistryItems
 from homeassistant.helpers.normalized_name_base_registry import NormalizedNameBaseRegistryItems
 from homeassistant.helpers.typing import ConfigType, StateType
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry, RegistryEntryWithDefaults, mock_registry, setup_test_component_platform
 
+from custom_components.powercalc import CONF_ENERGY_UPDATE_INTERVAL, CONF_GROUP_ENERGY_UPDATE_INTERVAL, CONF_GROUP_POWER_UPDATE_INTERVAL
 from custom_components.powercalc.const import (
     CONF_FIXED,
     CONF_MODE,
@@ -91,7 +93,15 @@ async def run_powercalc_setup(
     sensor_config: list[ConfigType] | ConfigType | None = None,
     domain_config: ConfigType | None = None,
 ) -> None:
+    domain_config = {
+        CONF_ENERGY_UPDATE_INTERVAL: 0,
+        CONF_GROUP_ENERGY_UPDATE_INTERVAL: 0,
+        CONF_GROUP_POWER_UPDATE_INTERVAL: 0,
+        **(domain_config or {}),
+    }
+
     config = {DOMAIN: domain_config or {}}
+
     if not sensor_config:
         sensor_config = {}
     if sensor_config and not isinstance(sensor_config, list):
@@ -228,6 +238,35 @@ def mock_area_registry(
     registry._area_data = registry.areas.data  # noqa: SLF001
 
     hass.data[ar.DATA_REGISTRY] = registry
+    return registry
+
+
+def mock_floor_registry(
+    hass: HomeAssistant,
+    mock_entries: dict[str, FloorEntry] | None = None,
+) -> FloorRegistry:
+    """Mock the Floor Registry.
+
+    This should only be used if you need to mock/re-stage a clean mocked
+    floor registry in your current hass object. It can be useful to,
+    for example, pre-load the registry with items.
+
+    This mock will thus replace the existing registry in the running hass.
+
+    If you just need to access the existing registry, use the `floor_registry`
+    fixture instead.
+    """
+    from homeassistant.helpers.floor_registry import DATA_REGISTRY
+
+    registry = FloorRegistry(hass)
+    registry.floors = FloorRegistryItems()
+    if mock_entries:
+        for key, entry in mock_entries.items():
+            registry.floors[key] = entry
+
+    registry._floor_data = registry.floors.data  # noqa: SLF001
+
+    hass.data[DATA_REGISTRY] = registry
     return registry
 
 

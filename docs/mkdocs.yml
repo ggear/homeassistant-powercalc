@@ -75,13 +75,18 @@ nav:
       - 'strategies/wled.md'
       - 'strategies/composite.md'
   - 'Configuration':
+      - 'configuration/index.md'
       - 'configuration/global-configuration.md'
       - 'configuration/sensor-configuration.md'
       - 'configuration/multiply-factor.md'
       - 'configuration/standby-power.md'
       - 'configuration/entity-category.md'
-      - 'configuration/new-yaml-structure.md'
+      - 'configuration/outlier-filter.md'
       - 'configuration/update-frequency.md'
+      - 'Migration':
+        - 'configuration/migration/new-yaml-structure.md'
+        - 'configuration/migration/discovery-config.md'
+        - 'configuration/migration/update-interval-config.md'
   - 'Misc':
       - 'misc/naming.md'
       - 'misc/uninstall.md'
@@ -121,6 +126,7 @@ nav:
       - 'troubleshooting/faq.md'
       - 'troubleshooting/data-correction.md'
       - 'troubleshooting/debug-logging.md'
+      - 'troubleshooting/download-diagnostics.md'
       - 'troubleshooting/install-master.md'
       - 'troubleshooting/yeelight.md'
   - 'Cookbook':
@@ -129,10 +135,11 @@ nav:
       - 'cookbook/ups.md'
   - 'Contributing':
       - 'contributing/index.md'
-      - 'contributing/integration-development.md'
       - 'Measure':
-        - 'contributing/measure.md'
-        - 'contributing/measure-ocr.md'
+          - 'contributing/measure/measure.md'
+          - 'contributing/measure/measure-ocr.md'
+          - 'contributing/measure/standby_troubleshooting.md'
+      - 'contributing/integration-development.md'
       - 'contributing/translating.md'
   - 'Tutorials':
       - 'community/tutorials.md'

@@ -1,5 +1,6 @@
 from datetime import timedelta
 import logging
+from typing import Any
 from unittest.mock import AsyncMock, patch
 import uuid
 
@@ -10,7 +11,7 @@ from homeassistant.components.light import (
     ColorMode,
 )
 from homeassistant.config_entries import SOURCE_IGNORE, SOURCE_INTEGRATION_DISCOVERY
-from homeassistant.const import CONF_ENTITY_ID, CONF_NAME, CONF_SOURCE, CONF_UNIQUE_ID, STATE_ON
+from homeassistant.const import CONF_ENABLED, CONF_ENTITY_ID, CONF_NAME, CONF_SOURCE, CONF_UNIQUE_ID, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntry
@@ -26,11 +27,12 @@ from pytest_homeassistant_custom_component.common import (
     mock_registry,
 )
 
-from custom_components.powercalc import CONF_DISCOVERY_EXCLUDE_SELF_USAGE, SERVICE_UPDATE_LIBRARY, DeviceType, DiscoveryManager
+from custom_components.powercalc import CONF_DISCOVERY, CONF_ENABLE_AUTODISCOVERY_DEPRECATED, SERVICE_UPDATE_LIBRARY, DeviceType, DiscoveryManager
 from custom_components.powercalc.common import create_source_entity
+from custom_components.powercalc.config_flow import PowercalcConfigFlow
 from custom_components.powercalc.const import (
-    CONF_DISCOVERY_EXCLUDE_DEVICE_TYPES,
-    CONF_ENABLE_AUTODISCOVERY,
+    CONF_EXCLUDE_DEVICE_TYPES,
+    CONF_EXCLUDE_SELF_USAGE,
     CONF_FIXED,
     CONF_MANUFACTURER,
     CONF_MODE,
@@ -42,9 +44,10 @@ from custom_components.powercalc.const import (
     CONF_WLED,
     DOMAIN,
     DUMMY_ENTITY_ID,
+    ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
     SensorType,
 )
-from custom_components.powercalc.discovery import get_power_profile_by_source_entity
+from custom_components.powercalc.discovery import DiscoveryStatus, get_power_profile_by_source_entity
 from custom_components.powercalc.power_profile.library import ModelInfo
 from custom_components.test.light import MockLight
 
@@ -121,7 +124,7 @@ async def test_autodiscovery_disabled(
 
     mock_entity_with_model_information("light.testa", "lidl", "HG06106C")
 
-    await run_powercalc_setup(hass, {}, {CONF_ENABLE_AUTODISCOVERY: False})
+    await run_powercalc_setup(hass, {}, {CONF_DISCOVERY: {CONF_ENABLED: False}})
 
     assert not hass.states.get("sensor.testa_power")
     assert not hass.config_entries.async_entries(DOMAIN)
@@ -146,7 +149,7 @@ async def test_autodiscovery_skipped_for_lut_with_subprofiles(
         capabilities={ATTR_SUPPORTED_COLOR_MODES: [ColorMode.COLOR_TEMP, ColorMode.HS]},
     )
 
-    await run_powercalc_setup(hass, {}, {CONF_ENABLE_AUTODISCOVERY: True})
+    await run_powercalc_setup(hass)
 
     assert not hass.states.get("sensor.testa_power")
     assert not caplog.records
@@ -385,10 +388,12 @@ async def test_exclude_device_types(
         hass,
         {},
         {
-            CONF_DISCOVERY_EXCLUDE_DEVICE_TYPES: [
-                DeviceType.SMART_SWITCH,
-                DeviceType.COVER,
-            ],
+            CONF_DISCOVERY: {
+                CONF_EXCLUDE_DEVICE_TYPES: [
+                    DeviceType.SMART_SWITCH,
+                    DeviceType.COVER,
+                ],
+            },
         },
     )
 
@@ -413,7 +418,9 @@ async def test_exclude_self_usage(
         hass,
         {},
         {
-            CONF_DISCOVERY_EXCLUDE_SELF_USAGE: True,
+            CONF_DISCOVERY: {
+                CONF_EXCLUDE_SELF_USAGE: True,
+            },
         },
     )
 
@@ -580,6 +587,23 @@ async def test_wled_not_discovered_twice(
     mock_entity_with_model_information("light.test", "WLED", "FOSS")
 
     await run_powercalc_setup(hass, {})
+
+    mock_calls = mock_flow_init.mock_calls
+    assert len(mock_calls) == 0
+
+
+async def test_wled_skipped_when_light_device_type_excluded(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+    mock_flow_init: AsyncMock,
+) -> None:
+    mock_entity_with_model_information("light.test", "WLED", "FOSS")
+
+    await run_powercalc_setup(
+        hass,
+        {},
+        {CONF_DISCOVERY: {CONF_EXCLUDE_DEVICE_TYPES: [DeviceType.LIGHT]}},
+    )
 
     mock_calls = mock_flow_init.mock_calls
     assert len(mock_calls) == 0
@@ -759,7 +783,7 @@ async def test_interval_based_rediscovery(
 
     mock_entity_with_model_information("light.test", "signify", "LCT010")
 
-    await run_powercalc_setup(hass, {}, {CONF_ENABLE_AUTODISCOVERY: True})
+    await run_powercalc_setup(hass)
 
     async_fire_time_changed(hass, dt.utcnow() + timedelta(hours=2))
     await hass.async_block_till_done(True)
@@ -930,3 +954,98 @@ async def test_get_entities(hass: HomeAssistant, entity_entries: list[RegistryEn
     discovery_manager = DiscoveryManager(hass, {})
     entity_ids = [entity.entity_id for entity in await discovery_manager.get_entities()]
     assert entity_ids == expected_entities
+
+
+async def test_discovery_enable_runtime(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+    mock_flow_init: AsyncMock,
+) -> None:
+    mock_entity_with_model_information("light.test", "signify", "LCT010")
+
+    entry = MockConfigEntry(
+        entry_id=ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
+        unique_id=ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
+        domain=DOMAIN,
+        data={
+            CONF_DISCOVERY: {
+                CONF_ENABLED: False,
+            },
+        },
+        version=PowercalcConfigFlow.VERSION,
+    )
+    entry.add_to_hass(hass)
+
+    await run_powercalc_setup(hass)
+
+    assert len(mock_flow_init.mock_calls) == 0
+
+    new_data = entry.data.copy()
+    new_data[CONF_DISCOVERY] = {CONF_ENABLED: True}
+    hass.config_entries.async_update_entry(entry, data=new_data)
+    await hass.async_block_till_done()
+
+    assert len(mock_flow_init.mock_calls) == 1
+
+
+async def test_discovery_disable_runtime(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+) -> None:
+    mock_entity_with_model_information("light.test", "signify", "LCT010")
+
+    entry = MockConfigEntry(
+        entry_id=ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
+        unique_id=ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
+        domain=DOMAIN,
+        data={
+            CONF_DISCOVERY: {
+                CONF_ENABLED: True,
+            },
+        },
+        version=PowercalcConfigFlow.VERSION,
+    )
+    entry.add_to_hass(hass)
+
+    await run_powercalc_setup(hass)
+
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert len(flows) == 1
+
+    new_data = entry.data.copy()
+    new_data[CONF_DISCOVERY] = {CONF_ENABLED: False}
+    hass.config_entries.async_update_entry(entry, data=new_data)
+    await hass.async_block_till_done()
+
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert len(flows) == 0
+
+
+@pytest.mark.parametrize(
+    "global_config",
+    [
+        ({CONF_ENABLE_AUTODISCOVERY_DEPRECATED: False}),
+        ({CONF_DISCOVERY: {CONF_ENABLED: False}}),
+    ],
+)
+async def test_discovery_disabled(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+    global_config: dict[str, Any],
+) -> None:
+    mock_entity_with_model_information("light.test", "signify", "LCT010")
+
+    await run_powercalc_setup(hass, {}, global_config)
+
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert len(flows) == 0
+
+
+async def test_discovery_process_is_locked(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    discovery_manager = DiscoveryManager(hass, {})
+    discovery_manager._status = DiscoveryStatus.IN_PROGRESS  # noqa: SLF001
+    await discovery_manager.start_discovery()
+
+    assert "Discovery already in progress, skipping new discovery run" in caplog.text

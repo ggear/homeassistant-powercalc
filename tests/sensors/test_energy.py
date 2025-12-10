@@ -28,6 +28,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_registry,
 )
 
+from custom_components.powercalc import CONF_ENERGY_UPDATE_INTERVAL
 from custom_components.powercalc.const import (
     ATTR_ENTITIES,
     ATTR_SOURCE_DOMAIN,
@@ -35,6 +36,7 @@ from custom_components.powercalc.const import (
     CONF_CREATE_ENERGY_SENSORS,
     CONF_CREATE_GROUP,
     CONF_DISABLE_EXTENDED_ATTRIBUTES,
+    CONF_ENERGY_FILTER_OUTLIER_ENABLED,
     CONF_ENERGY_SENSOR_ID,
     CONF_ENERGY_SENSOR_PRECISION,
     CONF_ENERGY_SENSOR_UNIT_PREFIX,
@@ -477,3 +479,63 @@ async def test_device_class_is_set_after_startup(hass: HomeAssistant) -> None:
     state = hass.states.get("sensor.test_energy")
     assert state
     assert state.attributes.get(ATTR_DEVICE_CLASS) == SensorDeviceClass.ENERGY
+
+
+async def test_force_updated_at_interval(hass: HomeAssistant) -> None:
+    """
+    Make sure energy_update_interval is respected.
+    Energy sensor should update at the defined interval even when power sensor state does not change.
+    """
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_NAME: "Test",
+            CONF_UNIQUE_ID: "1234353",
+            CONF_POWER_SENSOR_ID: "sensor.test_power",
+        },
+        {
+            CONF_ENERGY_UPDATE_INTERVAL: 20,
+        },
+    )
+
+    power_sensor_id = "sensor.test_power"
+    energy_sensor_id = "sensor.test_energy"
+
+    hass.states.async_set(power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    await hass.async_block_till_done()
+
+    async_fire_time_changed(hass, dt.utcnow() + timedelta(minutes=60))
+    await hass.async_block_till_done()
+    assert hass.states.get(energy_sensor_id).state == "0.1000"
+    async_fire_time_changed(hass, dt.utcnow() + timedelta(seconds=40))
+    await hass.async_block_till_done()
+    assert hass.states.get(energy_sensor_id).state == "0.1011"
+
+
+async def test_outlier_filtering(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    power_sensor_id = "sensor.test_power"
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_NAME: "Test",
+            CONF_POWER_SENSOR_ID: power_sensor_id,
+            CONF_ENERGY_FILTER_OUTLIER_ENABLED: True,
+        },
+    )
+
+    hass.states.async_set(power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "120", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "1200", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "200", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "400", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "7000000", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "1100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "20", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    hass.states.async_set(power_sensor_id, "80", {ATTR_UNIT_OF_MEASUREMENT: "W"})
+    await hass.async_block_till_done()
+
+    assert "Rejecting power value 7000000 as outlier for energy integration" in caplog.text

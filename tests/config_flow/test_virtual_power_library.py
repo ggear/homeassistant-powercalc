@@ -9,21 +9,20 @@ import pytest
 from pytest_homeassistant_custom_component.common import mock_device_registry
 import voluptuous as vol
 
-from custom_components.powercalc import (
-    CONF_CREATE_ENERGY_SENSOR,
-    CONF_CREATE_UTILITY_METERS,
-    CONF_ENERGY_INTEGRATION_METHOD,
-    DEFAULT_ENERGY_INTEGRATION_METHOD,
-)
 from custom_components.powercalc.common import create_source_entity
 from custom_components.powercalc.config_flow import Step
 from custom_components.powercalc.const import (
+    CONF_CREATE_ENERGY_SENSOR,
+    CONF_CREATE_UTILITY_METERS,
+    CONF_ENERGY_FILTER_OUTLIER_ENABLED,
+    CONF_ENERGY_INTEGRATION_METHOD,
     CONF_MANUFACTURER,
     CONF_MODE,
     CONF_MODEL,
     CONF_SENSOR_TYPE,
     CONF_SUB_PROFILE,
     CONF_VARIABLES,
+    DEFAULT_ENERGY_INTEGRATION_METHOD,
     DUMMY_ENTITY_ID,
     CalculationStrategy,
     SensorType,
@@ -356,6 +355,7 @@ async def test_profile_with_custom_fields(
         CONF_CREATE_ENERGY_SENSOR: True,
         CONF_CREATE_UTILITY_METERS: False,
         CONF_ENERGY_INTEGRATION_METHOD: DEFAULT_ENERGY_INTEGRATION_METHOD,
+        CONF_ENERGY_FILTER_OUTLIER_ENABLED: False,
         CONF_ENTITY_ID: "sensor.test",
         CONF_NAME: "test",
         CONF_MANUFACTURER: "test",

@@ -1,7 +1,7 @@
 # Dynamically including entities
 
-Powercalc provides several methods to automatically include a bunch of entities in a group with the `include` option.
-In addition to that you can use filters to exclude certain entities.
+Powercalc provides several methods to automatically include a bunch of entities in a group with the `include` option. The `include` option is used to set the initial entity set for your group.
+In addition to that you can use `filter` options to further narrow down this initial set by excluding certain entities.
 
 !!! note
 
@@ -16,6 +16,17 @@ When you created the group using the GUI you can use the `Reload` button on the 
 If you used YAML you need to restart Home Assistant fully to reload the group.
 
 ## Include
+
+
+!!! note
+
+    Filters `area`, `floor`, `group`, `domain` and `label` can be used with multiple values.
+
+    ```yaml
+      area:
+        - bathroom
+        - kitchen
+    ```
 
 ### Area
 
@@ -40,6 +51,18 @@ powercalc:
           fixed:
             power: 100
 ```
+
+### Floor
+
+```yaml
+powercalc:
+  sensors:
+    - create_group: First Floor
+      include:
+        floor: first_floor
+```
+
+This will include all entities that are in areas assigned to the specified floor. Like area filtering, this can be combined with other options:
 
 ### Group
 
@@ -78,6 +101,7 @@ powercalc:
 ### Label
 
 Filters entities by a [label](https://www.home-assistant.io/docs/organizing/labels/).
+Supports both labels defined on the entity and labels defined on the device.
 
 ```yaml
 powercalc:
@@ -134,8 +158,8 @@ powercalc:
 
 ## Filters
 
-Besides the base filters described above which build the base include you can also apply additional filters to further narrow down the list of items.
-These filters accept the same configuration as described above.
+While the `include` options above are used to set the initial entity set for your group, you can also apply additional `filter` options to further narrow down this initial set.
+These filters accept the same configuration as the include options described above, but they are applied after the initial entity set is determined by the `include` options.
 
 For example to include all light entities from area outdoor.
 
@@ -186,8 +210,6 @@ By default all the include options will include any power and/or energy sensor f
 When you don't want that behaviour you can set `include_non_powercalc_sensors` to `false`.
 
 ```yaml
-.. code-block:: yaml
-
 powercalc:
   sensors:
     - create_group: Outdoor lights
@@ -199,8 +221,6 @@ powercalc:
 You can also set this option globally:
 
 ```yaml
-.. code-block:: yaml
-
 powercalc:
   include_non_powercalc_sensors: false
 ```

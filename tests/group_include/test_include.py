@@ -14,6 +14,7 @@ from homeassistant.const import (
     STATE_OFF,
 )
 from homeassistant.core import HomeAssistant, split_entity_id
+from homeassistant.helpers import label_registry
 from homeassistant.helpers.area_registry import AreaRegistry
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntryDisabler
@@ -40,6 +41,8 @@ from custom_components.powercalc.const import (
     CONF_INCLUDE,
     CONF_INCLUDE_NON_POWERCALC_SENSORS,
     CONF_LABEL,
+    CONF_MANUFACTURER,
+    CONF_MODEL,
     CONF_OR,
     CONF_POWER,
     CONF_SENSOR_TYPE,
@@ -933,6 +936,9 @@ async def test_include_by_label(hass: HomeAssistant) -> None:
         },
     )
 
+    label_reg = label_registry.async_get(hass)
+    label_reg.async_create("my_label")
+
     await run_powercalc_setup(
         hass,
         {
@@ -1328,9 +1334,9 @@ async def test_irrelevant_entity_domains_are_skipped(hass: HomeAssistant, caplog
             ),
         },
     )
-    _, discoverable_entities = await find_entities(hass)
-    assert len(discoverable_entities) == 1
-    assert "light.test" in discoverable_entities
+    result = await find_entities(hass)
+    assert len(result.discoverable) == 1
+    assert "light.test" in result.discoverable
 
     assert "scene.test" not in caplog.text
     assert "event.test" not in caplog.text
@@ -1360,6 +1366,52 @@ async def test_prevent_duplicate_entities_when_using_include_all(
 
     assert hass.states.get("sensor.test_power")
     assert not hass.states.get("sensor.test_power_2")
+
+
+async def test_include_with_gui_and_yaml_entry(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+) -> None:
+    """Test include works correctly when individual entity is configured both with YAML and GUI"""
+
+    mock_entity_with_model_information("light.test", "signify", "LCT010")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_UNIQUE_ID: "pc_68291146-1592-4cfa-b5fb-bfeefcf9c691",
+            CONF_ENTITY_ID: "light.test",
+            CONF_MANUFACTURER: "signify",
+            CONF_MODEL: "LCT015",
+            CONF_CREATE_UTILITY_METERS: True,
+            ENTRY_DATA_POWER_ENTITY: "sensor.test_power",
+            ENTRY_DATA_ENERGY_ENTITY: "sensor.test_energy",
+        },
+        unique_id="pc_68291146-1592-4cfa-b5fb-bfeefcf9c691",
+    )
+    entry.add_to_hass(hass)
+
+    await run_powercalc_setup(
+        hass,
+        [
+            {
+                CONF_ENTITY_ID: "light.test",
+            },
+            {
+                CONF_CREATE_GROUP: "My Group",
+                CONF_INCLUDE: {
+                    CONF_DOMAIN: "light",
+                },
+                CONF_IGNORE_UNAVAILABLE_STATE: True,
+            },
+        ],
+    )
+
+    state = hass.states.get("sensor.my_group_power")
+    assert state
+    assert state.attributes.get(CONF_ENTITIES) == {"sensor.test_power"}
+    assert not hass.states.get("sensor.test_power2")
 
 
 def _create_powercalc_config_entry(
