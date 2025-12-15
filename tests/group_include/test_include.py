@@ -14,10 +14,10 @@ from homeassistant.const import (
     STATE_OFF,
 )
 from homeassistant.core import HomeAssistant, split_entity_id
-from homeassistant.helpers import label_registry
 from homeassistant.helpers.area_registry import AreaRegistry
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntryDisabler
+from homeassistant.helpers.label_registry import LabelRegistry
 from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -43,6 +43,7 @@ from custom_components.powercalc.const import (
     CONF_LABEL,
     CONF_MANUFACTURER,
     CONF_MODEL,
+    CONF_NOT,
     CONF_OR,
     CONF_POWER,
     CONF_SENSOR_TYPE,
@@ -75,14 +76,14 @@ from tests.conftest import MockEntityWithModel
 )
 async def test_include_area(
     hass: HomeAssistant,
-    entity_reg: EntityRegistry,
+    entity_registry: EntityRegistry,
     area_registry: AreaRegistry,
     area_input: str,
 ) -> None:
     await create_mock_light_entity(hass, create_discoverable_light("bathroom_mirror"))
 
     area = area_registry.async_get_or_create("Bathroom 1")
-    entity_reg.async_update_entity("light.bathroom_mirror", area_id=area.id)
+    entity_registry.async_update_entity("light.bathroom_mirror", area_id=area.id)
 
     _create_powercalc_config_entry(hass, "light.bathroom_mirror")
 
@@ -272,9 +273,6 @@ async def test_include_template(hass: HomeAssistant) -> None:
         ],
     )
 
-    await hass.async_start()
-    await hass.async_block_till_done()
-
     group_state = hass.states.get("sensor.lights_power")
     assert group_state
     assert group_state.attributes.get(ATTR_ENTITIES) == {"sensor.bathroom_spots_power"}
@@ -340,12 +338,12 @@ async def test_include_skips_unsupported_entities(hass: HomeAssistant, caplog: p
         {
             "device-a": DeviceEntry(
                 id="device-a",
-                manufacturer="Signify",
+                manufacturer="signify",
                 model="LCT012",
             ),
             "device-b": DeviceEntry(
                 id="device-b",
-                manufacturer="Signify",
+                manufacturer="signify",
                 model="Room",
             ),
         },
@@ -493,7 +491,6 @@ async def test_combine_include_with_entities(hass: HomeAssistant) -> None:
 
 async def test_include_filter_domain(
     hass: HomeAssistant,
-    entity_reg: EntityRegistry,
     area_registry: AreaRegistry,
 ) -> None:
     area = area_registry.async_get_or_create("Bathroom 1")
@@ -562,7 +559,7 @@ async def test_include_filter_domain(
 
 async def test_include_yaml_configured_entity(
     hass: HomeAssistant,
-    entity_reg: EntityRegistry,
+    entity_registry: EntityRegistry,
     area_registry: AreaRegistry,
 ) -> None:
     """Test that include also includes entities that the user configured with YAML"""
@@ -577,9 +574,9 @@ async def test_include_yaml_configured_entity(
     )
 
     area = area_registry.async_get_or_create("My area")
-    entity_reg.async_update_entity(light_a.entity_id, area_id=area.id)
-    entity_reg.async_update_entity(light_b.entity_id, area_id=area.id)
-    entity_reg.async_update_entity(light_c.entity_id, area_id=area.id)
+    entity_registry.async_update_entity(light_a.entity_id, area_id=area.id)
+    entity_registry.async_update_entity(light_b.entity_id, area_id=area.id)
+    entity_registry.async_update_entity(light_c.entity_id, area_id=area.id)
 
     _create_powercalc_config_entry(hass, light_a.entity_id)
 
@@ -677,7 +674,7 @@ async def test_include_non_powercalc_entities_in_group(
 
 async def test_group_setup_continues_when_subgroup_has_no_include_entities(
     hass: HomeAssistant,
-    entity_reg: EntityRegistry,
+    entity_registry: EntityRegistry,
     area_registry: AreaRegistry,
 ) -> None:
     """
@@ -687,7 +684,7 @@ async def test_group_setup_continues_when_subgroup_has_no_include_entities(
 
     area_bathroom = area_registry.async_get_or_create("Bathroom")
     area_registry.async_get_or_create("Bedroom")
-    entity_reg.async_update_entity("light.bathroom_mirror", area_id=area_bathroom.id)
+    entity_registry.async_update_entity("light.bathroom_mirror", area_id=area_bathroom.id)
 
     _create_powercalc_config_entry(hass, "light.bathroom_mirror")
 
@@ -715,14 +712,14 @@ async def test_group_setup_continues_when_subgroup_has_no_include_entities(
 
 async def test_area_groups_as_subgroups(
     hass: HomeAssistant,
-    entity_reg: EntityRegistry,
+    entity_registry: EntityRegistry,
     area_registry: AreaRegistry,
 ) -> None:
     await create_mock_light_entity(hass, create_discoverable_light("bathroom_mirror"))
 
     area_bathroom = area_registry.async_get_or_create("Bathroom")
     area_registry.async_get_or_create("Bedroom")
-    entity_reg.async_update_entity("light.bathroom_mirror", area_id=area_bathroom.id)
+    entity_registry.async_update_entity("light.bathroom_mirror", area_id=area_bathroom.id)
 
     _create_powercalc_config_entry(hass, "light.bathroom_mirror")
 
@@ -748,7 +745,7 @@ async def test_area_groups_as_subgroups(
     )
     group_b_entry.add_to_hass(hass)
 
-    await run_powercalc_setup(hass, {})
+    await run_powercalc_setup(hass)
 
     group_a_power = hass.states.get("sensor.groupa_power")
     assert group_a_power
@@ -915,7 +912,7 @@ async def test_include_group_does_not_include_disabled_sensors(hass: HomeAssista
     assert group_state.attributes.get(CONF_ENTITIES) == {"sensor.test_energy"}
 
 
-async def test_include_by_label(hass: HomeAssistant) -> None:
+async def test_include_by_label(hass: HomeAssistant, label_registry: LabelRegistry) -> None:
     mock_registry(
         hass,
         {
@@ -936,8 +933,7 @@ async def test_include_by_label(hass: HomeAssistant) -> None:
         },
     )
 
-    label_reg = label_registry.async_get(hass)
-    label_reg.async_create("my_label")
+    label_registry.async_create("my_label")
 
     await run_powercalc_setup(
         hass,
@@ -1227,6 +1223,78 @@ async def test_include_all(hass: HomeAssistant) -> None:
         "sensor.switch_power",
         "sensor.light_power",
         "sensor.existing_power",
+    }
+
+
+async def test_include_by_label_filter_other_label(hass: HomeAssistant, label_registry: LabelRegistry) -> None:
+    """See https://github.com/bramstroker/homeassistant-powercalc/issues/3685"""
+
+    label_registry.async_create("my_label")
+    label_registry.async_create("exclude_powercalc")
+
+    mock_device_registry(
+        hass,
+        {
+            "device-a": DeviceEntry(
+                id="device-a",
+                manufacturer="Signify",
+                model="LCT012",
+                labels=["my_label"],
+            ),
+        },
+    )
+
+    mock_registry(
+        hass,
+        {
+            "sensor.some_energy": RegistryEntryWithDefaults(
+                entity_id="sensor.some_energy",
+                unique_id="1111",
+                platform="sensor",
+                device_id="device-a",
+                original_device_class=SensorDeviceClass.ENERGY,
+            ),
+            "sensor.some_energy2": RegistryEntryWithDefaults(
+                entity_id="sensor.some_energy2",
+                unique_id="2222",
+                platform="sensor",
+                device_id="device-a",
+                labels=["exclude_powercalc"],
+                original_device_class=SensorDeviceClass.ENERGY,
+            ),
+            "sensor.some_energy3": RegistryEntryWithDefaults(
+                entity_id="sensor.some_energy3",
+                unique_id="3333",
+                platform="sensor",
+                device_id="device-a",
+                labels=["exclude_powercalc"],
+                original_device_class=SensorDeviceClass.ENERGY,
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        [
+            {
+                CONF_CREATE_GROUP: "My group",
+                CONF_INCLUDE: {
+                    CONF_LABEL: "my_label",
+                    CONF_FILTER: {
+                        CONF_NOT: {
+                            CONF_LABEL: "exclude_powercalc",
+                        },
+                    },
+                },
+                CONF_IGNORE_UNAVAILABLE_STATE: True,
+            },
+        ],
+    )
+
+    group_state = hass.states.get("sensor.my_group_energy")
+    assert group_state
+    assert group_state.attributes.get(CONF_ENTITIES) == {
+        "sensor.some_energy",
     }
 
 

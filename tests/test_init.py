@@ -8,7 +8,6 @@ from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_NAME,
     CONF_UNIQUE_ID,
-    EVENT_HOMEASSISTANT_STARTED,
     STATE_ON,
     STATE_UNAVAILABLE,
 )
@@ -65,7 +64,7 @@ from .common import (
 from .conftest import MockEntityWithModel
 
 
-async def test_domain_groups(hass: HomeAssistant, entity_reg: EntityRegistry) -> None:
+async def test_domain_groups(hass: HomeAssistant, entity_registry: EntityRegistry) -> None:
     await create_input_boolean(hass)
 
     domain_config = {
@@ -84,21 +83,18 @@ async def test_domain_groups(hass: HomeAssistant, entity_reg: EntityRegistry) ->
         domain_config,
     )
 
-    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
-    await hass.async_block_till_done()
-
     group_state = hass.states.get("sensor.all_input_boolean_power")
     assert group_state
     assert group_state.attributes.get(ATTR_ENTITIES) == {"sensor.test_power"}
 
     assert hass.states.get("sensor.all_light_power").state == STATE_UNAVAILABLE
 
-    entity_entry = entity_reg.async_get("sensor.all_input_boolean_power")
+    entity_entry = entity_registry.async_get("sensor.all_input_boolean_power")
     assert entity_entry
     assert entity_entry.platform == "powercalc"
 
 
-async def test_unload_entry(hass: HomeAssistant, entity_reg: EntityRegistry) -> None:
+async def test_unload_entry(hass: HomeAssistant, entity_registry: EntityRegistry) -> None:
     unique_id = "98493943242"
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -117,7 +113,7 @@ async def test_unload_entry(hass: HomeAssistant, entity_reg: EntityRegistry) -> 
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.testentry_power")
-    assert entity_reg.async_get("sensor.testentry_power")
+    assert entity_registry.async_get("sensor.testentry_power")
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
@@ -153,9 +149,6 @@ async def test_domain_group_with_utility_meter(
     }
 
     await run_powercalc_setup(hass, {}, domain_config)
-
-    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
-    await hass.async_block_till_done()
 
     assert hass.states.get("sensor.all_light_power")
     assert hass.states.get("sensor.all_light_energy")

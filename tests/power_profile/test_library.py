@@ -13,7 +13,7 @@ from custom_components.powercalc.power_profile.library import ModelInfo, Profile
 from custom_components.powercalc.power_profile.loader.composite import CompositeLoader
 from custom_components.powercalc.power_profile.loader.local import LocalLoader
 from custom_components.powercalc.power_profile.loader.remote import RemoteLoader
-from tests.common import get_test_config_dir, get_test_profile_dir, run_powercalc_setup
+from tests.common import get_test_profile_dir, run_powercalc_setup
 from tests.conftest import MockEntityWithModel
 
 
@@ -33,7 +33,6 @@ async def test_manufacturer_listing(hass: HomeAssistant) -> None:
     ],
 )
 async def test_model_listing(hass: HomeAssistant, manufacturer: str, expected_models: list[str]) -> None:
-    hass.config.config_dir = get_test_config_dir()
     library = await ProfileLibrary.factory(hass)
     await library.get_model_listing(manufacturer)
     models = await library.get_model_listing(manufacturer)  # Trigger twice to test cache
@@ -44,7 +43,16 @@ async def test_model_listing(hass: HomeAssistant, manufacturer: str, expected_mo
 async def test_model_listing_sorted(hass: HomeAssistant) -> None:
     library = await ProfileLibrary.factory(hass)
     models = await library.get_model_listing("signify")
-    assert models == set(sorted(models))  # noqa: C414
+
+    expected = [
+        "1740193P0",
+        "9290030514",
+        "LCA007",
+        "LCT010",
+        "LWA017",
+    ]
+    indices = [models.index(x) for x in expected]
+    assert indices == sorted(indices)
 
 
 @pytest.mark.parametrize(
@@ -91,8 +99,9 @@ async def test_non_existing_manufacturer_returns_empty_model_list(
         (ModelInfo("signify", "LCT010"), "signify", "LCT010"),
         (ModelInfo("signify", "LCA001"), "signify", "LCA001"),
         (ModelInfo("signify", "Hue go (LLC020)"), "signify", "LLC020"),
-        (ModelInfo("ikea", "TRADFRI bulb E14 WS opal 400lm"), "ikea", "LED1536G5"),
         (ModelInfo("signify", "Hue go", "LLC020"), "signify", "LLC020"),
+        (ModelInfo("wiz", "SHRGB"), "wiz", "SHRGB"),
+        (ModelInfo("tuya", "TS011F"), "tuya", "TS011F"),
     ],
 )
 async def test_get_profile(
@@ -119,7 +128,6 @@ async def test_hidden_directories_are_skipped_from_model_listing(
     hass: HomeAssistant,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    hass.config.config_dir = get_test_config_dir()
     caplog.set_level(logging.ERROR)
     library = await ProfileLibrary.factory(hass)
     models = await library.get_model_listing("hidden-directories")
@@ -252,7 +260,6 @@ async def test_linked_profile_fixed(
     """
     See https://github.com/bramstroker/homeassistant-powercalc/pull/3406
     """
-    hass.config.config_dir = get_test_config_dir()
     mock_entity_with_model_information(
         "switch.test",
         "test",

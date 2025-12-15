@@ -60,6 +60,7 @@ nav:
          - 'sensor-types/group/custom.md'
          - 'sensor-types/group/domain.md'
          - 'sensor-types/group/subtract.md'
+         - 'sensor-types/group/standby.md'
          - 'sensor-types/group/tracked-untracked.md'
          - 'sensor-types/group/include-entities.md'
       - 'sensor-types/real-power-sensor.md'
@@ -87,9 +88,6 @@ nav:
         - 'configuration/migration/new-yaml-structure.md'
         - 'configuration/migration/discovery-config.md'
         - 'configuration/migration/update-interval-config.md'
-  - 'Misc':
-      - 'misc/naming.md'
-      - 'misc/uninstall.md'
   - 'Library':
       - 'library/library.md'
       - 'library/discovery.md'
@@ -122,6 +120,9 @@ nav:
       - 'actions/stop-playbook.md'
       - 'actions/switch-sub-profile.md'
       - 'actions/update-library.md'
+  - 'Misc':
+      - 'misc/naming.md'
+      - 'misc/uninstall.md'
   - 'Troubleshooting':
       - 'troubleshooting/faq.md'
       - 'troubleshooting/data-correction.md'

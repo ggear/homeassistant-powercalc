@@ -11,6 +11,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powercalc import (
+    CONF_CREATE_STANDBY_GROUP,
     CONF_DISCOVERY,
     CONF_EXCLUDE_DEVICE_TYPES,
     CONF_EXCLUDE_SELF_USAGE,
@@ -71,7 +72,7 @@ from tests.config_flow.common import (
 
 async def test_config_flow(hass: HomeAssistant) -> None:
     """Test full configuration flow."""
-    await run_powercalc_setup(hass, {}, {})
+    await run_powercalc_setup(hass)
 
     result = await select_menu_item(hass, Step.GLOBAL_CONFIGURATION)
 
@@ -126,6 +127,7 @@ async def test_config_flow(hass: HomeAssistant) -> None:
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["data"] == {
         CONF_CREATE_DOMAIN_GROUPS: [],
+        CONF_CREATE_STANDBY_GROUP: True,
         CONF_CREATE_ENERGY_SENSORS: True,
         CONF_CREATE_UTILITY_METERS: True,
         CONF_DISABLE_EXTENDED_ATTRIBUTES: False,
@@ -416,7 +418,7 @@ async def test_entities_are_reloaded_reflecting_changes(hass: HomeAssistant) -> 
     )
     await hass.config_entries.async_setup(global_config_entry.entry_id)
 
-    await run_powercalc_setup(hass, {}, {})
+    await run_powercalc_setup(hass)
 
     assert hass.states.get("sensor.test_power").state == "50.00"
 

@@ -4,9 +4,8 @@ from homeassistant import data_entry_flow
 from homeassistant.const import CONF_DEVICE, CONF_ENTITIES, CONF_ENTITY_ID, CONF_NAME, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntry
-from homeassistant.helpers.entity_registry import RegistryEntry
+from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
 from homeassistant.helpers.selector import EntitySelector
 from pytest_homeassistant_custom_component.common import RegistryEntryWithDefaults, mock_device_registry, mock_registry
 import voluptuous as vol
@@ -29,7 +28,7 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.power_profile.factory import get_power_profile
 from custom_components.powercalc.power_profile.library import ModelInfo
-from tests.common import get_test_config_dir, run_powercalc_setup
+from tests.common import run_powercalc_setup
 from tests.config_flow.common import (
     DEFAULT_UNIQUE_ID,
     create_mock_entry,
@@ -41,7 +40,7 @@ from tests.config_flow.common import (
 from tests.conftest import MockEntityWithModel
 
 
-async def test_create_multi_switch_sensor_entry(hass: HomeAssistant) -> None:
+async def test_create_multi_switch_sensor_entry(hass: HomeAssistant, entity_registry: EntityRegistry) -> None:
     result = await goto_virtual_power_strategy_step(hass, CalculationStrategy.MULTI_SWITCH, {CONF_NAME: "test"})
     result = await set_virtual_power_configuration(
         hass,
@@ -59,9 +58,7 @@ async def test_create_multi_switch_sensor_entry(hass: HomeAssistant) -> None:
     assert hass.states.get("sensor.test_power")
     assert hass.states.get("sensor.test_energy")
 
-    entity_reg = er.async_get(hass)
-    entry = entity_reg.async_get("sensor.test_power")
-    assert entry
+    assert entity_registry.async_get("sensor.test_power")
 
 
 async def test_discovery_flow(
@@ -70,7 +67,6 @@ async def test_discovery_flow(
 ) -> None:
     await run_powercalc_setup(hass)
 
-    hass.config.config_dir = get_test_config_dir()
     device_entry = mock_device_with_switches(hass, 2)
 
     result = await initialize_device_discovery_flow(hass, device_entry)
@@ -119,7 +115,6 @@ async def test_discovery_flow(
 
 async def test_switch_entities_automatically_populated_from_device(hass: HomeAssistant) -> None:
     """When setting up multi switch, the switch entities should be automatically populated from the device."""
-    hass.config.config_dir = get_test_config_dir()
     device_entry = mock_device_with_switches(hass, 4)
 
     result = await initialize_device_discovery_flow(hass, device_entry)
@@ -146,8 +141,6 @@ async def test_discovery_flow_once_per_unique_device(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
 ) -> None:
-    hass.config.config_dir = get_test_config_dir()
-
     mock_device_with_switches(hass, 6)
 
     discovery_manager = DiscoveryManager(hass, {})
@@ -208,7 +201,7 @@ async def test_regression_2612(hass: HomeAssistant, mock_entity_with_model_infor
         },
     )
 
-    await run_powercalc_setup(hass, {})
+    await run_powercalc_setup(hass)
 
     assert hass.states.get("sensor.foo_bar_power")
     assert hass.states.get("sensor.foo_bar_energy")
@@ -221,8 +214,6 @@ async def test_setup_without_switches(hass: HomeAssistant, mock_entity_with_mode
     Shelly 2.5 can have detached switches
     Allow the user to setup this multi_switch profile without selecting any switches
     """
-
-    hass.config.config_dir = get_test_config_dir()
     device_entry = mock_device_with_switches(hass, 0)
 
     result = await initialize_device_discovery_flow(hass, device_entry)
@@ -244,8 +235,6 @@ async def test_light_switches_selectable(hass: HomeAssistant) -> None:
     Some integrations allow you to change the type of a switch to light.
     Make sure that light entities are also selectable in the multi switch setup
     """
-    hass.config.config_dir = get_test_config_dir()
-
     device_id = "abcdef"
     device_entry = DeviceEntry(
         id=device_id,
