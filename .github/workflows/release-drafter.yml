@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - beta
 
 jobs:
   update_release_draft:
@@ -36,6 +37,9 @@ jobs:
         with:
           footer: ${{ steps.supporters.outputs.value }}
           config-name: release-drafter.yml
-          disable-releaser: github.ref != 'refs/heads/main'
+
+          # Mark beta as prerelease and auto-increment beta.N
+          prerelease: ${{ github.ref_name == 'beta' }}
+          prerelease-identifier: beta
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

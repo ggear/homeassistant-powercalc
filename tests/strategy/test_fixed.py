@@ -9,7 +9,6 @@ from homeassistant.helpers.template import Template
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.setup import async_setup_component
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powercalc.common import SourceEntity, create_source_entity
 from custom_components.powercalc.const import (
@@ -20,14 +19,13 @@ from custom_components.powercalc.const import (
     CONF_SENSOR_TYPE,
     CONF_STANDBY_POWER,
     CONF_STATES_POWER,
-    DOMAIN,
     CalculationStrategy,
     SensorType,
 )
 from custom_components.powercalc.errors import StrategyConfigurationError
 from custom_components.powercalc.strategy.factory import PowerCalculatorStrategyFactory
 from custom_components.powercalc.strategy.fixed import FixedStrategy
-from tests.common import run_powercalc_setup
+from tests.common import run_powercalc_setup, setup_config_entry
 
 
 async def test_simple_power(hass: HomeAssistant) -> None:
@@ -171,9 +169,10 @@ async def test_config_entry_with_template_rendered_correctly(
     hass: HomeAssistant,
 ) -> None:
     template = "{{states('input_number.test')|float}}"
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
+
+    await setup_config_entry(
+        hass,
+        {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
             CONF_ENTITY_ID: "input_boolean.test",
             CONF_FIXED: {
@@ -182,9 +181,6 @@ async def test_config_entry_with_template_rendered_correctly(
             },
         },
     )
-    config_entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
 
     hass.states.async_set("input_boolean.test", STATE_ON)
     hass.states.async_set("input_number.test", 40)
@@ -195,11 +191,59 @@ async def test_config_entry_with_template_rendered_correctly(
     assert state.state == "40.00"
 
 
+@pytest.mark.parametrize(
+    "entity_id,states_power,expected_power",
+    [
+        (
+            "valve.living_room_heating",
+            {
+                "closed": 0,
+                "open": 0.696,
+            },
+            {
+                "open": "0.70",
+            },
+        ),
+        (
+            "cover.my_screen",
+            {
+                "closing": 0.4,
+                "opening": 0.8,
+            },
+            {
+                "closed": "0.00",
+                "closing": "0.40",
+                "opening": "0.80",
+            },
+        ),
+    ],
+)
+async def test_config_entry_with_states_power(
+    hass: HomeAssistant,
+    entity_id: str,
+    states_power: dict[str, float],
+    expected_power: dict[str, str],
+) -> None:
+    await setup_config_entry(
+        hass,
+        {
+            CONF_ENTITY_ID: entity_id,
+            CONF_FIXED: {
+                CONF_STATES_POWER: states_power,
+            },
+        },
+    )
+
+    for state, expected in expected_power.items():
+        hass.states.async_set(entity_id, state)
+        await hass.async_block_till_done()
+        assert hass.states.get(f"sensor.{entity_id.split('.')[1]}_power").state == expected
+
+
 async def test_config_entry_with_states_power_template(hass: HomeAssistant) -> None:
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+    await setup_config_entry(
+        hass,
+        {
             CONF_ENTITY_ID: "media_player.test",
             CONF_FIXED: {
                 CONF_STATES_POWER: {
@@ -209,9 +253,6 @@ async def test_config_entry_with_states_power_template(hass: HomeAssistant) -> N
             },
         },
     )
-    config_entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
 
     hass.states.async_set("media_player.test", "playing")
     hass.states.async_set("input_number.test", 40)
