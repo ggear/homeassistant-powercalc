@@ -7951,10 +7951,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
@@ -8642,11 +8642,11 @@
           "max_power": 8.43,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "95044b79d5af8c9f772224706e31a8fb"
+          "hash": "0fe99fa744a2e295cb5b27223c8fb6b6"
         }
       ],
       "device_types": [
@@ -10199,10 +10199,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
+          "hash": "a803a0424627baf0efcf5e7c682be4f8"
         },
         {
           "aliases": [
@@ -12785,10 +12785,10 @@
           "max_power": 12.91,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
-            "brightness"
+            "brightness",
+            "hs"
           ],
-          "hash": "601aa03751c813e5be58a4bb7f7e6dc4"
+          "hash": "caf8dfd4b1c3b1fe7249fe105af3229a"
         },
         {
           "aliases": [
@@ -12972,11 +12972,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
+            "brightness",
             "color_temp",
-            "brightness"
+            "hs"
           ],
-          "hash": "e8b5204c099f9a8935b0a95633865472"
+          "hash": "21e279d64e6840a6f75b4f41fe8ce9c6"
         },
         {
           "author": "Daniel O'Connor <daniel.oconnor@gmail.com>",
@@ -14460,11 +14460,11 @@
           "max_power": 39.0,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "b558995e3b047c8d8c5921b74736b8f4"
+          "hash": "ca835c2c050c377470043f69d75e0e45"
         },
         {
           "calculation_strategy": "lut",
@@ -14491,11 +14491,11 @@
           "max_power": 20.4,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "87712518a23226a5947ad8501a350aed"
+          "hash": "953b3637b3a77c46dc7513ada8de63cd"
         },
         {
           "author": "Brian Egge <brianegge@gmail.com>",
@@ -14552,10 +14552,10 @@
           "max_power": 24.11,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "b8ba79c307b90439d3849a26bc5a829e"
+          "hash": "4c36aaae24715c4f9bc1ea0dcf35e520"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -14702,11 +14702,11 @@
           "max_power": 36.45,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "c5f06f7ac36512536168a0f496155dfb"
+          "hash": "2ea3e415936623fe485ee433c5d5a8e3"
         },
         {
           "author": "gobbli",
@@ -14732,11 +14732,11 @@
           "max_power": 23.35,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "5fd6bf12289b916338b4a7954940dfd9"
+          "hash": "fc32a8e4378dd50d1ba5f7b508e89fb3"
         },
         {
           "author": "Sku1ly <45756272+Sku1ly@users.noreply.github.com>",
@@ -14762,11 +14762,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
+            "brightness",
             "color_temp",
-            "brightness"
+            "hs"
           ],
-          "hash": "97ddeacae6bac7c7d1c1208e04fbc5ea"
+          "hash": "7a39dbf6da62530b8a004e954f9cfc8d"
         },
         {
           "author": "sockmonkey0223 <joshua.oswald@gmail.com>",
@@ -16714,11 +16714,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
+            "brightness",
             "color_temp",
-            "brightness"
+            "hs"
           ],
-          "hash": "bec73b4bee157ea1e51d5ae0df5db9c6"
+          "hash": "ed8c6f8ad83348d686cdce499f97ea56"
         }
       ],
       "device_types": [
