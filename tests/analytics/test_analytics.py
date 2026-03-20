@@ -35,6 +35,7 @@ from custom_components.powercalc.const import (
     CalculationStrategy,
     EntityType,
     GroupType,
+    PowerProfileSource,
     SensorType,
 )
 from tests.common import get_simple_fixed_config, run_powercalc_setup, setup_config_entry
@@ -93,6 +94,7 @@ async def test_send_analytics_success(
     assert len(aioclient_mock.mock_calls) == 1
     mock_call = aioclient_mock.mock_calls[0]
     posted_json = mock_call[2]
+    assert posted_json["language"] == "en"
     assert posted_json["custom_profile_count"] > 50
     assert posted_json["counts"]["by_config_type"] == {"yaml": 2}
     assert posted_json["counts"]["by_sensor_type"] == {SensorType.VIRTUAL_POWER: 2}
@@ -102,6 +104,7 @@ async def test_send_analytics_success(
     assert posted_json["counts"]["by_device_type"] == {DeviceType.LIGHT: 1}
     assert posted_json["counts"]["by_source_domain"] == {"light": 1, "switch": 1}
     assert posted_json["counts"]["by_entity_type"] == {EntityType.POWER_SENSOR: 2, EntityType.ENERGY_SENSOR: 2}
+    assert posted_json["counts"]["by_power_profile_source"] == {PowerProfileSource.MANUAL: 1, PowerProfileSource.LIBRARY_BUILTIN: 1}
 
 
 @pytest.mark.usefixtures("payload_mock")
@@ -195,8 +198,8 @@ async def test_no_duplicate_count_after_entry_reload(hass: HomeAssistant) -> Non
         {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
             CONF_ENTITY_ID: "light.test",
-            CONF_MANUFACTURER: "test",
-            CONF_MODEL: "lut_white",
+            CONF_MANUFACTURER: "signify",
+            CONF_MODEL: "LCT010",
         },
     )
     await hass.config_entries.async_reload(entry.entry_id)
@@ -206,7 +209,7 @@ async def test_no_duplicate_count_after_entry_reload(hass: HomeAssistant) -> Non
     payload = await analytics._prepare_payload()  # noqa: SLF001
 
     assert payload["counts"]["by_config_type"] == {"gui": 1}
-    assert payload["counts"]["by_manufacturer"] == {"test": 1}
+    assert payload["counts"]["by_manufacturer"] == {"signify": 1}
 
 
 async def test_no_duplicate_count_after_config_reload(hass: HomeAssistant) -> None:
@@ -331,3 +334,28 @@ async def test_standby_group_sensor_is_not_marked_as_yaml(hass: HomeAssistant) -
     payload = await analytics._prepare_payload()  # noqa: SLF001
 
     assert payload["counts"]["by_config_type"] == {}
+
+
+async def test_power_profile_sources(hass: HomeAssistant) -> None:
+    await run_powercalc_setup(
+        hass,
+        [
+            get_simple_fixed_config("switch.manual", 50),
+            {
+                CONF_ENTITY_ID: "light.library",
+                CONF_MANUFACTURER: "signify",
+                CONF_MODEL: "LCT010",
+            },
+        ],
+        {
+            CONF_CREATE_STANDBY_GROUP: False,
+        },
+    )
+
+    analytics = Analytics(hass)
+    payload = await analytics._prepare_payload()  # noqa: SLF001
+
+    assert payload["counts"]["by_power_profile_source"] == {
+        PowerProfileSource.MANUAL: 1,
+        PowerProfileSource.LIBRARY_BUILTIN: 1,
+    }

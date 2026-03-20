@@ -1,5 +1,6 @@
 from collections.abc import Generator
 import json
+import logging
 import os
 import shutil
 from typing import Any, Protocol
@@ -28,6 +29,13 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.helpers import get_library_json_path, get_library_path
 from tests.common import get_test_config_dir
+
+
+@pytest.fixture(autouse=True)
+def set_logging_levels(caplog: pytest.LogCaptureFixture) -> None:
+    logging.getLogger("homeassistant").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    caplog.set_level(logging.DEBUG, logger="custom_components.powercalc")
 
 
 @pytest.fixture(autouse=True)
@@ -77,7 +85,7 @@ def mock_flow_init(hass: HomeAssistant) -> Generator:
 class MockEntityWithModel(Protocol):
     def __call__(
         self,
-        entity_id: str,
+        entity_id: str | list[str],
         manufacturer: str = "signify",
         model: str = "LCT010",
         model_id: str | None = None,
@@ -109,18 +117,18 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
             platform = entity_reg_kwargs["platform"]
             del entity_reg_kwargs["platform"]
 
-        mock_registry(
-            hass,
-            {
-                entity_id: RegistryEntryWithDefaults(
-                    entity_id=entity_id,
-                    unique_id=unique_id,
-                    platform=platform,
-                    device_id=device_id,
-                    **entity_reg_kwargs,
-                ),
-            },
-        )
+        mock_entries: dict[str, Any] = {}
+        entity_ids = entity_id if isinstance(entity_id, list) else [entity_id]
+        for entity_id in entity_ids:
+            mock_entries[entity_id] = RegistryEntryWithDefaults(
+                entity_id=entity_id,
+                unique_id=unique_id + "_" + entity_id,
+                platform=platform,
+                device_id=device_id,
+                **entity_reg_kwargs,
+            )
+
+        mock_registry(hass, mock_entries)
         mock_device_registry(
             hass,
             {
@@ -137,12 +145,12 @@ def mock_entity_with_model_information(hass: HomeAssistant) -> MockEntityWithMod
 
 
 @pytest.fixture(autouse=True)
-def mock_remote_loader(request: SubRequest, hass: HomeAssistant) -> Generator:
+def mock_remote_loader(request: SubRequest) -> Generator:
     if "skip_remote_loader_mocking" in request.keywords:
         yield
         return
 
-    def side_effect(manufacturer: str, model: str, storage_path: str) -> None:
+    def side_effect(manufacturer: str, model: str, storage_path: str, _: str) -> None:
         source_dir = get_library_path(f"{manufacturer}/{model}")
         if os.path.exists(storage_path):
             return

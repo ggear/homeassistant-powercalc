@@ -2,9 +2,8 @@ from typing import Any
 from unittest.mock import patch
 
 from homeassistant.components.media_player import ATTR_MEDIA_VOLUME_LEVEL
-from homeassistant.const import CONF_ENTITY_ID, STATE_OFF, STATE_ON, STATE_PAUSED, STATE_PLAYING
-from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers.entity_registry import RegistryEntry
+from homeassistant.const import CONF_ENTITY_ID, STATE_PAUSED, STATE_PLAYING
+from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, RegistryEntryWithDefaults
 
@@ -20,14 +19,12 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.errors import (
     ModelNotSupportedError,
-    PowercalcSetupError,
     UnsupportedStrategyError,
 )
 from custom_components.powercalc.power_profile.library import ModelInfo, ProfileLibrary
 from custom_components.powercalc.power_profile.power_profile import (
     DeviceType,
     PowerProfile,
-    SubProfileSelector,
 )
 from tests.common import get_test_profile_dir, run_powercalc_setup
 
@@ -96,7 +93,6 @@ async def test_load_sub_profile(hass: HomeAssistant) -> None:
     assert power_profile.calculation_strategy == CalculationStrategy.LUT
     assert power_profile.manufacturer == "yeelight"
     assert power_profile.model == "YLDL01YL"
-    assert power_profile.name == "Yeelight YLDL01YL Downlight"
     assert power_profile.sub_profile == "ambilight"
 
 
@@ -190,123 +186,6 @@ async def test_discovery_does_not_break_when_unknown_device_type(hass: HomeAssis
     assert not power_profile.is_entity_domain_supported(
         SourceEntity("switch.test", "test", "switch"),
     )
-
-
-async def test_sub_profile_matcher_attribute(hass: HomeAssistant) -> None:
-    library = await ProfileLibrary.factory(hass)
-    power_profile = await library.get_profile(
-        ModelInfo("Test", "Test"),
-        custom_directory=get_test_profile_dir("sub_profile_match_attribute"),
-    )
-    selector = SubProfileSelector(
-        hass,
-        power_profile.sub_profile_select,
-        SourceEntity(entity_id="light.test", domain="light", object_id="test"),
-    )
-    assert len(selector.get_tracking_entities()) == 0
-
-    state = State("light.test", STATE_OFF)
-    assert selector.select_sub_profile(state) == "a"
-
-    state = State("light.test", STATE_ON, {"some": "a"})
-    assert selector.select_sub_profile(state) == "a"
-
-    state = State("light.test", STATE_ON, {"some": "b"})
-    assert selector.select_sub_profile(state) == "b"
-
-
-async def test_sub_profile_matcher_entity_id(hass: HomeAssistant) -> None:
-    library = await ProfileLibrary.factory(hass)
-    power_profile = await library.get_profile(
-        ModelInfo("Test", "Test"),
-        custom_directory=get_test_profile_dir("sub_profile_match_entity_id"),
-    )
-    selector = SubProfileSelector(
-        hass,
-        power_profile.sub_profile_select,
-        SourceEntity(entity_id="light.test", domain="light", object_id="test"),
-    )
-    assert len(selector.get_tracking_entities()) == 0
-
-    state = State("light.test_nightlight", STATE_ON)
-    assert selector.select_sub_profile(state) == "nightlight"
-
-    state = State("light.test", STATE_ON)
-    assert selector.select_sub_profile(state) == "default"
-
-
-@pytest.mark.parametrize(
-    "registry_entry,expected_profile",
-    [
-        (
-            RegistryEntryWithDefaults(
-                entity_id="switch.test",
-                platform="tasmota",
-                unique_id="111",
-            ),
-            "tasmota",
-        ),
-        (
-            RegistryEntryWithDefaults(
-                entity_id="switch.test",
-                platform="shelly",
-                unique_id="111",
-            ),
-            "default",
-        ),
-        (None, "default"),
-    ],
-)
-async def test_sub_profile_matcher_integration(
-    hass: HomeAssistant,
-    registry_entry: RegistryEntry,
-    expected_profile: str | None,
-) -> None:
-    library = await ProfileLibrary.factory(hass)
-    power_profile = await library.get_profile(
-        ModelInfo("Test", "Test"),
-        custom_directory=get_test_profile_dir("sub_profile_match_integration"),
-    )
-
-    source_entity = SourceEntity(
-        entity_id="switch.test",
-        domain="switch",
-        object_id="test",
-        entity_entry=registry_entry,
-    )
-
-    selector = SubProfileSelector(
-        hass,
-        power_profile.sub_profile_select,
-        source_entity,
-    )
-    assert len(selector.get_tracking_entities()) == 0
-
-    state = State("switch.test", STATE_ON)
-    assert selector.select_sub_profile(state) == expected_profile
-
-
-async def test_exception_is_raised_when_invalid_sub_profile_matcher_supplied(
-    hass: HomeAssistant,
-) -> None:
-    with pytest.raises(PowercalcSetupError):
-        power_profile = PowerProfile(
-            hass,
-            manufacturer="Foo",
-            model="Bar",
-            directory="",
-            json_data={
-                "sub_profile_select": {
-                    "matchers": [{"type": "invalid_type"}],
-                    "default": "henkie",
-                },
-            },
-        )
-        SubProfileSelector(
-            hass,
-            power_profile.sub_profile_select,
-            SourceEntity(entity_id="light.test", domain="light", object_id="test"),
-        )
 
 
 async def test_selecting_sub_profile_is_ignored(hass: HomeAssistant) -> None:
@@ -564,3 +443,27 @@ async def test_requires_manual_sub_profile_selection(hass: HomeAssistant, test_p
         custom_directory=get_test_profile_dir(test_profile),
     )
     assert await power_profile.requires_manual_sub_profile_selection == expected_result
+
+
+@pytest.mark.parametrize(
+    "manufacturer,model,custom_dir,expected_result",
+    [
+        ("test", "test", get_test_profile_dir("sub_profile_only_default"), True),
+        (
+            "test",
+            "fixed",
+            None,
+            True,
+        ),
+        (
+            "aeotec",
+            "ZW117",
+            None,
+            False,
+        ),
+    ],
+)
+async def test_is_custom_profile(hass: HomeAssistant, manufacturer: str, model: str, custom_dir: str | None, expected_result: bool) -> None:
+    library = await ProfileLibrary.factory(hass)
+    power_profile = await library.get_profile(ModelInfo(manufacturer, model), custom_directory=custom_dir)
+    assert power_profile.is_custom_profile is expected_result
