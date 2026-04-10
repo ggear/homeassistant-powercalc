@@ -44,5 +44,11 @@
   },
   "fixed_config": {
     "power": "{{ states('[[load_entity]]') | float(0) / 100 * [[nominal_va]] | float(0) * [[power_factor]] | float(0.6) }}"
-  }
+  },
+  "author_info": {
+    "name": "Brian Egge",
+    "github": "brianegge",
+    "email": "brianegge@gmail.com"
+  },
+  "author": "Brian Egge"
 }
