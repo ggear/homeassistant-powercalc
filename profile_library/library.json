@@ -3599,10 +3599,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "594b9d5f9fb1dfa92fa29f984aa58332"
+          "hash": "bec73b4bee157ea1e51d5ae0df5db9c6"
         }
       ],
       "device_types": [
@@ -4167,10 +4167,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "effect",
-            "color_temp"
+            "color_temp",
+            "effect"
           ],
-          "hash": "3bad0b9fca3a5809ab4f9e2acc1bcd33"
+          "hash": "7c00c8ef9ea7b444ae877606e245eb04"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -7775,10 +7775,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "7a9e12b9cee1380a419bdc1e032430f4"
+          "hash": "e8b5204c099f9a8935b0a95633865472"
         },
         {
           "author": "belledesire",
@@ -13330,6 +13330,30 @@
           "hash": "e9dd4579df7269a8fcea36d57957f662"
         },
         {
+          "calculation_strategy": "lut",
+          "created_at": "2026-04-06T18:05:55Z",
+          "device_type": "light",
+          "measure_device": "TP-Link Kasa KP115",
+          "measure_method": "script",
+          "measure_settings": {
+            "SAMPLE_COUNT": 1,
+            "SLEEP_TIME": 2,
+            "VERSION": "v1.20.11:docker"
+          },
+          "name": "Hue Festavia Outdoor White & Colour Gradient Globe String Lights, 14m",
+          "standby_power": 0.38,
+          "id": "LCX028",
+          "manufacturer": "signify",
+          "updated_at": "2026-04-11T19:25:47",
+          "max_power": 19.45,
+          "sub_profile_count": 0,
+          "color_modes": [
+            "hs",
+            "color_temp"
+          ],
+          "hash": "9c21530155b618e0aa3050a97cb78c66"
+        },
+        {
           "aliases": [
             "929003666701"
           ],
@@ -14619,10 +14643,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
@@ -20471,10 +20495,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "effect",
-            "color_temp"
+            "color_temp",
+            "effect"
           ],
-          "hash": "a5c6eba98484c0d0e80abf7ece57775c"
+          "hash": "c835365008fd19155e8884933d36a213"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20532,10 +20556,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "effect",
-            "color_temp"
+            "color_temp",
+            "effect"
           ],
-          "hash": "adeed99661a7df5505181e398612a632"
+          "hash": "4b65e10e693f49107b69ca124b7e566d"
         },
         {
           "author": "gobbli",
@@ -20562,10 +20586,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "effect",
-            "color_temp"
+            "color_temp",
+            "effect"
           ],
-          "hash": "f37a7dfbce76801a9228ffd96c12ef87"
+          "hash": "71fcc13f8e8cd86bc0ad5195a8d3a4fb"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -20772,10 +20796,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "eeae56542e64a5be400868d36acec9ee"
+          "hash": "97ddeacae6bac7c7d1c1208e04fbc5ea"
         },
         {
           "calculation_strategy": "lut",
@@ -20803,10 +20827,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "effect",
-            "color_temp"
+            "color_temp",
+            "effect"
           ],
-          "hash": "6ccfe83c3b4364ec7e8c218945242848"
+          "hash": "b85db766803a8f6a53d90fd2f034065d"
         }
       ],
       "device_types": [
