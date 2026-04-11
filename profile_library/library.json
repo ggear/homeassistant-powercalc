@@ -7622,7 +7622,8 @@
         },
         {
           "aliases": [
-            "261"
+            "261",
+            "262"
           ],
           "author": "Bob Shaker <bobshaker1@gmail.com>",
           "calculation_strategy": "fixed",
@@ -7641,10 +7642,10 @@
           },
           "id": "P110M",
           "manufacturer": "tp-link",
-          "updated_at": "2026-01-24T15:57:02",
+          "updated_at": "2026-04-11T06:41:33",
           "max_power": 1.2,
           "sub_profile_count": 0,
-          "hash": "c9668d97d8f64d79cd38ccf6c62f4558"
+          "hash": "407255a463fd09499d936c9693dc4b50"
         },
         {
           "aliases": [
@@ -14618,10 +14619,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "color_temp",
-            "hsv"
+            "hsv",
+            "color_temp"
           ],
-          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
+          "hash": "b251dc0be1a14126c86df718939fdab2"
         },
         {
           "aliases": [
@@ -19294,10 +19295,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
+          "hash": "a803a0424627baf0efcf5e7c682be4f8"
         },
         {
           "author": "Pasquale Cuorpo <maverick1982@users.noreply.github.com>",
