@@ -3599,10 +3599,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "bec73b4bee157ea1e51d5ae0df5db9c6"
+          "hash": "594b9d5f9fb1dfa92fa29f984aa58332"
         }
       ],
       "device_types": [
@@ -4167,10 +4167,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "7c00c8ef9ea7b444ae877606e245eb04"
+          "hash": "3bad0b9fca3a5809ab4f9e2acc1bcd33"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -4442,13 +4442,13 @@
           },
           "id": "rockrobo.vacuum.v1",
           "manufacturer": "roborock",
-          "updated_at": "2026-01-24T15:57:02",
+          "updated_at": "2026-04-11T07:12:15",
           "max_power": null,
           "sub_profile_count": 0,
           "color_modes": [
             "tapering"
           ],
-          "hash": "7a4f7d983cf809c81aed9056489fecbe"
+          "hash": "d7093d518345c9a6268a4034771313ed"
         }
       ],
       "device_types": [
@@ -7775,10 +7775,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "e8b5204c099f9a8935b0a95633865472"
+          "hash": "7a9e12b9cee1380a419bdc1e032430f4"
         },
         {
           "author": "belledesire",
@@ -19295,10 +19295,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "a803a0424627baf0efcf5e7c682be4f8"
+          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
         },
         {
           "author": "Pasquale Cuorpo <maverick1982@users.noreply.github.com>",
@@ -20471,10 +20471,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "c835365008fd19155e8884933d36a213"
+          "hash": "a5c6eba98484c0d0e80abf7ece57775c"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20532,10 +20532,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "4b65e10e693f49107b69ca124b7e566d"
+          "hash": "adeed99661a7df5505181e398612a632"
         },
         {
           "author": "gobbli",
@@ -20562,10 +20562,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "71fcc13f8e8cd86bc0ad5195a8d3a4fb"
+          "hash": "f37a7dfbce76801a9228ffd96c12ef87"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -20772,10 +20772,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "97ddeacae6bac7c7d1c1208e04fbc5ea"
+          "hash": "eeae56542e64a5be400868d36acec9ee"
         },
         {
           "calculation_strategy": "lut",
@@ -20803,10 +20803,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "b85db766803a8f6a53d90fd2f034065d"
+          "hash": "6ccfe83c3b4364ec7e8c218945242848"
         }
       ],
       "device_types": [
