@@ -3599,10 +3599,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "bec73b4bee157ea1e51d5ae0df5db9c6"
+          "hash": "594b9d5f9fb1dfa92fa29f984aa58332"
         }
       ],
       "device_types": [
@@ -4167,10 +4167,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "7c00c8ef9ea7b444ae877606e245eb04"
+          "hash": "3bad0b9fca3a5809ab4f9e2acc1bcd33"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -5520,6 +5520,10 @@
       "models": [
         {
           "aliases": [
+            "20ECF6001",
+            "20EBO8301",
+            "20ECL1301",
+            "20EBT8601",
             "20EBU4101"
           ],
           "author": "dxmnkd316 <46753733+dxmnkd316@users.noreply.github.com>",
@@ -5538,10 +5542,10 @@
           },
           "id": "20EBU4101",
           "manufacturer": "eve",
-          "updated_at": "2026-01-24T15:57:02",
+          "updated_at": "2026-04-12T12:10:28",
           "max_power": 0.9,
           "sub_profile_count": 0,
-          "hash": "a48027b031515e3f9c51ed8da2cfaa4b"
+          "hash": "88ae3cb0bd00da4a456370431a8995e4"
         }
       ],
       "device_types": [
@@ -7775,10 +7779,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "e8b5204c099f9a8935b0a95633865472"
+          "hash": "7a9e12b9cee1380a419bdc1e032430f4"
         },
         {
           "author": "belledesire",
@@ -13342,16 +13346,21 @@
           },
           "name": "Hue Festavia Outdoor White & Colour Gradient Globe String Lights, 14m",
           "standby_power": 0.38,
+          "author_info": {
+            "name": "phoenixxx-1",
+            "github": "phoenixxx-1"
+          },
+          "author": "phoenixxx-1",
           "id": "LCX028",
           "manufacturer": "signify",
-          "updated_at": "2026-04-11T19:25:47",
+          "updated_at": "2026-04-11T19:26:12",
           "max_power": 19.45,
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
             "color_temp"
           ],
-          "hash": "9c21530155b618e0aa3050a97cb78c66"
+          "hash": "783aa7ab1358c70b928d80156340d0af"
         },
         {
           "aliases": [
@@ -14643,10 +14652,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "color_temp",
-            "hsv"
+            "hsv",
+            "color_temp"
           ],
-          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
+          "hash": "b251dc0be1a14126c86df718939fdab2"
         },
         {
           "aliases": [
@@ -19319,10 +19328,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
+          "hash": "a803a0424627baf0efcf5e7c682be4f8"
         },
         {
           "author": "Pasquale Cuorpo <maverick1982@users.noreply.github.com>",
@@ -20495,10 +20504,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "c835365008fd19155e8884933d36a213"
+          "hash": "a5c6eba98484c0d0e80abf7ece57775c"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20556,10 +20565,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "4b65e10e693f49107b69ca124b7e566d"
+          "hash": "adeed99661a7df5505181e398612a632"
         },
         {
           "author": "gobbli",
@@ -20586,10 +20595,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "71fcc13f8e8cd86bc0ad5195a8d3a4fb"
+          "hash": "f37a7dfbce76801a9228ffd96c12ef87"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -20796,10 +20805,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "brightness"
+            "brightness",
+            "color_temp"
           ],
-          "hash": "97ddeacae6bac7c7d1c1208e04fbc5ea"
+          "hash": "eeae56542e64a5be400868d36acec9ee"
         },
         {
           "calculation_strategy": "lut",
@@ -20827,10 +20836,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "b85db766803a8f6a53d90fd2f034065d"
+          "hash": "6ccfe83c3b4364ec7e8c218945242848"
         }
       ],
       "device_types": [
