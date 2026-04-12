@@ -1,5 +1,7 @@
 {
-  "aliases": ["GUNNARP panel round"],
+  "aliases": [
+    "GUNNARP panel round"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2026-04-06T17:34:33Z",
   "device_type": "light",
@@ -12,5 +14,10 @@
     "VERSION": "v1.20.11:docker"
   },
   "name": "GUNNARP LED Ceiling / Wall Lamp 40cm",
-  "standby_power": 0.05
+  "standby_power": 0.05,
+  "author_info": {
+    "name": "Servox3",
+    "github": "Servox3"
+  },
+  "author": "Servox3"
 }
