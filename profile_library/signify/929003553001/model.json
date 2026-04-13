@@ -11,5 +11,10 @@
     "VERSION": "v1.20.12:docker"
   },
   "name": "Hue outdoor Resonate downward wall lamp",
-  "standby_power": 0.66
+  "standby_power": 0.66,
+  "author_info": {
+    "name": "posixx",
+    "github": "posixx"
+  },
+  "author": "posixx"
 }

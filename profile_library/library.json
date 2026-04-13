@@ -4166,11 +4166,11 @@
           "max_power": 8.43,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "effect",
+            "hs",
             "color_temp"
           ],
-          "hash": "3bad0b9fca3a5809ab4f9e2acc1bcd33"
+          "hash": "c587aa4b862dd4931c8e7f863bd6d7b8"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -6772,10 +6772,10 @@
           "author": "Brian Egge",
           "id": "Tripp Lite UPS",
           "manufacturer": "tripp lite",
-          "updated_at": "2026-04-12T13:31:47",
+          "updated_at": "2026-04-13T19:33:04",
           "max_power": 0,
           "sub_profile_count": 0,
-          "hash": "09abf6ee449d3947ac9b8285f62a4d73"
+          "hash": "95acf7f91ebe3a381d096076ce59dbf4"
         }
       ],
       "device_types": [
@@ -13698,6 +13698,30 @@
           "hash": "ff2b01a581ace6a052a6c560f5cdbf85"
         },
         {
+          "calculation_strategy": "lut",
+          "created_at": "2026-04-13T18:53:54Z",
+          "device_type": "light",
+          "measure_device": "Shelly PM Mini Gen3",
+          "measure_method": "script",
+          "measure_settings": {
+            "SAMPLE_COUNT": 2,
+            "SLEEP_TIME": 3,
+            "VERSION": "v1.20.12:docker"
+          },
+          "name": "Hue outdoor Resonate downward wall lamp",
+          "standby_power": 0.66,
+          "id": "929003553001",
+          "manufacturer": "signify",
+          "updated_at": "2026-04-13T19:33:04",
+          "max_power": 9.51,
+          "sub_profile_count": 0,
+          "color_modes": [
+            "hs",
+            "color_temp"
+          ],
+          "hash": "d9b8fed9ff0f1fc2151bd194f0085bed"
+        },
+        {
           "aliases": [
             "929001821618",
             "9290023495"
@@ -14710,10 +14734,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
@@ -18711,15 +18735,20 @@
           },
           "name": "GUNNARP LED Ceiling / Wall Lamp 40cm",
           "standby_power": 0.05,
+          "author_info": {
+            "name": "Servox3",
+            "github": "Servox3"
+          },
+          "author": "Servox3",
           "id": "T1828",
           "manufacturer": "ikea",
-          "updated_at": "2026-04-12T18:51:26",
+          "updated_at": "2026-04-12T18:51:49",
           "max_power": 22.9,
           "sub_profile_count": 0,
           "color_modes": [
             "color_temp"
           ],
-          "hash": "23231159b044f490108238ab5964877f"
+          "hash": "afd060a5a51f25d437aa6f0757aa59bd"
         },
         {
           "aliases": [
@@ -20587,11 +20616,11 @@
           "max_power": 20.4,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "effect",
+            "hs",
             "color_temp"
           ],
-          "hash": "a5c6eba98484c0d0e80abf7ece57775c"
+          "hash": "76c87cbf39b8499112a77525311f2b7f"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20648,11 +20677,11 @@
           "max_power": 39.0,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "effect",
+            "hs",
             "color_temp"
           ],
-          "hash": "adeed99661a7df5505181e398612a632"
+          "hash": "4ba1ff3b8dd16bbad33691d017d63e5b"
         },
         {
           "author": "gobbli",
@@ -20678,11 +20707,11 @@
           "max_power": 23.35,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "effect",
+            "hs",
             "color_temp"
           ],
-          "hash": "f37a7dfbce76801a9228ffd96c12ef87"
+          "hash": "4bf5058fbc6b6012c8fcb7805f1139a0"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -20859,10 +20888,10 @@
           "max_power": 24.11,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
-            "effect"
+            "effect",
+            "hs"
           ],
-          "hash": "4c36aaae24715c4f9bc1ea0dcf35e520"
+          "hash": "b8ba79c307b90439d3849a26bc5a829e"
         },
         {
           "author": "Sku1ly <45756272+Sku1ly@users.noreply.github.com>",
@@ -20919,11 +20948,11 @@
           "max_power": 36.45,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "effect",
+            "hs",
             "color_temp"
           ],
-          "hash": "6ccfe83c3b4364ec7e8c218945242848"
+          "hash": "490ea96b2575de8d2b16b70d69995526"
         }
       ],
       "device_types": [
