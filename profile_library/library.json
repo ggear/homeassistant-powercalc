@@ -3593,6 +3593,30 @@
             "color_temp"
           ],
           "hash": "717cd898b0a5947674aa783b26d94232"
+        },
+        {
+          "manufacturer": "lsc",
+          "model": "3012586",
+          "name": "Frameless Ceiling Light",
+          "created_at": "2026-04-07T11:55:06Z",
+          "calculation_strategy": "lut",
+          "device_type": "light",
+          "measure_device": "Shelly Plug",
+          "measure_method": "script",
+          "measure_settings": {
+            "SAMPLE_COUNT": 2,
+            "SLEEP_TIME": 5,
+            "VERSION": "master"
+          },
+          "standby_power": 0.41,
+          "id": "3012586",
+          "updated_at": "2026-04-15T19:40:24",
+          "max_power": 19.7,
+          "sub_profile_count": 0,
+          "color_modes": [
+            "color_temp"
+          ],
+          "hash": "5fcc55f35bbde4c8a77cf191b90686d9"
         }
       ],
       "device_types": [
@@ -3629,11 +3653,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "hs",
+            "brightness",
             "color_temp"
           ],
-          "hash": "7d6df058244cf0fb69cf220a11d00f37"
+          "hash": "594b9d5f9fb1dfa92fa29f984aa58332"
         }
       ],
       "device_types": [
@@ -7540,10 +7564,10 @@
           "max_power": 12.91,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
-            "hs"
+            "hs",
+            "brightness"
           ],
-          "hash": "caf8dfd4b1c3b1fe7249fe105af3229a"
+          "hash": "601aa03751c813e5be58a4bb7f7e6dc4"
         },
         {
           "aliases": [
@@ -7864,11 +7888,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "hs",
+            "brightness",
             "color_temp"
           ],
-          "hash": "c9cf5aa69a73b3a6b6a7d4899501ace8"
+          "hash": "7a9e12b9cee1380a419bdc1e032430f4"
         },
         {
           "author": "belledesire",
@@ -12504,6 +12528,7 @@
             "929003808101_01",
             "929003808101_02",
             "929003808101_03",
+            "929003808901_02",
             "929003808901_03",
             "929003808901_04",
             "929003808901_05"
@@ -12528,14 +12553,14 @@
           },
           "id": "929003808201",
           "manufacturer": "signify",
-          "updated_at": "2026-04-12T14:17:32",
+          "updated_at": "2026-04-15T19:40:43",
           "max_power": 4.28,
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
             "color_temp"
           ],
-          "hash": "b23bc5edd42aa344deeae84048c1e1cf"
+          "hash": "8b781993557931a06e0395b6290e43f5"
         },
         {
           "aliases": [
@@ -20953,11 +20978,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "hs",
+            "brightness",
             "color_temp"
           ],
-          "hash": "c5a4aa00980a86307c4756ec23fe2082"
+          "hash": "eeae56542e64a5be400868d36acec9ee"
         },
         {
           "calculation_strategy": "lut",
