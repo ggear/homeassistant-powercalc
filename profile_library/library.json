@@ -4226,11 +4226,11 @@
           "max_power": 8.43,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "95044b79d5af8c9f772224706e31a8fb"
+          "hash": "0fe99fa744a2e295cb5b27223c8fb6b6"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -20682,11 +20682,11 @@
           "max_power": 20.4,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "87712518a23226a5947ad8501a350aed"
+          "hash": "953b3637b3a77c46dc7513ada8de63cd"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20743,11 +20743,11 @@
           "max_power": 39.0,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "b558995e3b047c8d8c5921b74736b8f4"
+          "hash": "ca835c2c050c377470043f69d75e0e45"
         },
         {
           "author": "gobbli",
@@ -20773,11 +20773,11 @@
           "max_power": 23.35,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "5fd6bf12289b916338b4a7954940dfd9"
+          "hash": "fc32a8e4378dd50d1ba5f7b508e89fb3"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -20954,10 +20954,10 @@
           "max_power": 24.11,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "b8ba79c307b90439d3849a26bc5a829e"
+          "hash": "4c36aaae24715c4f9bc1ea0dcf35e520"
         },
         {
           "author": "Sku1ly <45756272+Sku1ly@users.noreply.github.com>",
@@ -21014,11 +21014,11 @@
           "max_power": 36.45,
           "sub_profile_count": 0,
           "color_modes": [
-            "effect",
             "color_temp",
-            "hs"
+            "hs",
+            "effect"
           ],
-          "hash": "c5f06f7ac36512536168a0f496155dfb"
+          "hash": "2ea3e415936623fe485ee433c5d5a8e3"
         }
       ],
       "device_types": [
