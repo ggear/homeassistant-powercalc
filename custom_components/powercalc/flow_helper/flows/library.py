@@ -24,7 +24,10 @@ from custom_components.powercalc.const import (
     LIBRARY_URL,
     CalculationStrategy,
 )
-from custom_components.powercalc.discovery import get_power_profile_by_source_entity
+from custom_components.powercalc.discovery import (
+    get_power_profile_by_source_device,
+    get_power_profile_by_source_entity,
+)
 from custom_components.powercalc.flow_helper.common import FlowType, PowercalcFormStep, Step
 from custom_components.powercalc.flow_helper.dynamic_field_builder import build_dynamic_field_schema
 from custom_components.powercalc.flow_helper.schema import SCHEMA_ENERGY_SENSOR_TOGGLE, SCHEMA_UTILITY_METER_TOGGLE, build_sub_profile_schema
@@ -109,6 +112,7 @@ class LibraryFlow:
                     str(user_input.get(CONF_MODEL)),
                 ),
                 self.flow.source_entity,
+                process_variables=False,
             )
             self.flow.selected_profile = profile
             if self.flow.selected_profile and not await self.flow.selected_profile.needs_user_configuration:
@@ -424,6 +428,8 @@ class LibraryConfigFlow(LibraryFlow):
             return
 
         self.flow.selected_profile = await get_power_profile_by_source_entity(self.flow.hass, self.flow.source_entity)
+        if self.flow.selected_profile is None and self.flow.source_entity.device_entry:
+            self.flow.selected_profile = await get_power_profile_by_source_device(self.flow.hass, self.flow.source_entity)
 
     def _show_autodiscovered_profile_form(self) -> FlowResult:
         """Show the confirmation form for an autodiscovered library profile."""
