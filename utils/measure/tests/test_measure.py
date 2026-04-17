@@ -202,6 +202,10 @@ def test_run_average(mock_input, mock_config_factory, caplog: pytest.LogCaptureF
 
         mock_take_measurement.assert_called_once_with(30)
 
+    assert not os.path.exists(os.path.join(PROJECT_DIR, "export", "generic"))
+    assert "Exporting to" not in caplog.text
+    assert "Files exported to" not in caplog.text
+
 
 def _create_measure_instance(config: MeasureConfig, console_events: EventGenerator | None = None):  # noqa: ANN202
     """Create instance of the Measure class"""

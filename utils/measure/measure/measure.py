@@ -159,11 +159,15 @@ class Measure:
         if answers.get(QUESTION_DUMMY_LOAD, False):
             measure_util.initialize_dummy_load()
 
-        export_directory = str(os.path.join(PROJECT_DIR, "export", answers.get(QUESTION_MODEL_ID, "generic")))
-        if not os.path.exists(export_directory):
-            os.makedirs(export_directory)
+        generate_model_json = bool(answers.get(QUESTION_GENERATE_MODEL_JSON, False))
+        should_export_files = generate_model_json or self.runner.writes_export_files()
+        export_directory = ""
+        if should_export_files:
+            export_directory = str(os.path.join(PROJECT_DIR, "export", answers.get(QUESTION_MODEL_ID, "generic")))
+            if not os.path.exists(export_directory):
+                os.makedirs(export_directory)
 
-        _LOGGER.info("Exporting to %s", export_directory)
+            _LOGGER.info("Exporting to %s", export_directory)
 
         if answers.get(QUESTION_DUMMY_LOAD, False):
             input("Please connect the appliance you want to measure in parallel to the dummy load and press enter to start measurement session...")
@@ -176,7 +180,7 @@ class Measure:
             _LOGGER.error("Some error occurred during the measurement session")
             exit(1)
 
-        generate_model_json: bool = answers.get(QUESTION_GENERATE_MODEL_JSON, False) and export_directory
+        generate_model_json = generate_model_json and bool(export_directory)
 
         if generate_model_json:
             try:
@@ -193,7 +197,7 @@ class Measure:
                 extra_json_data=runner_result.model_json_data,
             )
 
-        if export_directory and (generate_model_json or isinstance(self.runner, LightRunner)):
+        if export_directory and (generate_model_json or self.runner.writes_export_files()):
             _LOGGER.info(
                 "Measurement session finished. Files exported to %s",
                 export_directory,

@@ -21,6 +21,9 @@ class MeasurementRunner(ABC):
     def get_questions(self) -> list[Question]:
         return []
 
+    def writes_export_files(self) -> bool:
+        return False
+
     def measure_standby_power(self) -> float:
         return 0
 

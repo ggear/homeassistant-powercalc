@@ -26,6 +26,9 @@ class RecorderRunner(MeasurementRunner):
     def prepare(self, answers: dict[str, Any]) -> None:
         self.filename = answers[QUESTION_EXPORT_FILENAME]
 
+    def writes_export_files(self) -> bool:
+        return True
+
     def run(
         self,
         answers: dict[str, Any],
