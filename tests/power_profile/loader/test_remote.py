@@ -136,7 +136,7 @@ async def test_get_manufacturer_listing(remote_loader: RemoteLoader) -> None:
 
 async def test_get_model_listing(remote_loader: RemoteLoader) -> None:
     models = await remote_loader.get_model_listing("signify", {DeviceType.LIGHT})
-    assert "LCT010" in models
+    assert ("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)") in models
     assert len(models) > 40
 
 
@@ -642,6 +642,6 @@ async def test_min_version(hass: HomeAssistant, version: str, expect_model: bool
 
             models = await loader.get_model_listing("test_manu", None)
             if expect_model:
-                assert "min_version" in models
+                assert ("min_version", "Test profile") in models
             else:
-                assert "min_version" not in models
+                assert ("min_version", "Test profile") not in models

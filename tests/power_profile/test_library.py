@@ -29,11 +29,11 @@ async def test_manufacturer_listing(hass: HomeAssistant) -> None:
 @pytest.mark.parametrize(
     "manufacturer,expected_models",
     [
-        ("signify", ["LCT010", "LCA007"]),
-        ("Signify Netherlands B.V.", ["LCT010"]),
+        ("signify", [("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)"), ("LCA007", "Hue White and Color Ambiance A19 E26 1100lm")]),
+        ("Signify Netherlands B.V.", [("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)")]),
     ],
 )
-async def test_model_listing(hass: HomeAssistant, manufacturer: str, expected_models: list[str]) -> None:
+async def test_model_listing(hass: HomeAssistant, manufacturer: str, expected_models: list[tuple[str, str]]) -> None:
     library = await ProfileLibrary.factory(hass)
     await library.get_model_listing(manufacturer)
     models = await library.get_model_listing(manufacturer)  # Trigger twice to test cache
@@ -52,7 +52,8 @@ async def test_model_listing_sorted(hass: HomeAssistant) -> None:
         "LCT010",
         "LWA017",
     ]
-    indices = [models.index(x) for x in expected]
+    model_ids = [model[0] for model in models]
+    indices = [model_ids.index(x) for x in expected]
     assert indices == sorted(indices)
 
 

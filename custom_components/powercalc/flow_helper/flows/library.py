@@ -104,6 +104,11 @@ class LibraryFlow:
     ) -> FlowResult:
         """Ask the user to select the model."""
 
+        def _build_model_label(model_id: str, model_name: str) -> str:
+            if not model_name or model_name == model_id:
+                return model_id
+            return f"{model_id} ({model_name})"
+
         async def _validate(user_input: dict[str, Any]) -> dict[str, str]:
             library = await ProfileLibrary.factory(self.flow.hass)
             profile = await library.get_profile(
@@ -124,7 +129,10 @@ class LibraryFlow:
             manufacturer = str(self.flow.sensor_config.get(CONF_MANUFACTURER))
             library = await ProfileLibrary.factory(self.flow.hass)
             device_types = DOMAIN_DEVICE_TYPE_MAPPING.get(self.flow.source_entity.domain, set()) if self.flow.source_entity else None
-            models = [selector.SelectOptionDict(value=model, label=model) for model in await library.get_model_listing(manufacturer, device_types)]
+            models = [
+                selector.SelectOptionDict(value=model_id, label=_build_model_label(model_id, model_name))
+                for model_id, model_name in await library.get_model_listing(manufacturer, device_types)
+            ]
             model = self.flow.selected_profile.model if self.flow.selected_profile else self.flow.sensor_config.get(CONF_MODEL)
             return vol.Schema(
                 {

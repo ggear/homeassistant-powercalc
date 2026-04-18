@@ -42,4 +42,4 @@ async def test_lightify_plug_selectable(
     data_schema = result["data_schema"]
     model_select: SelectSelector = data_schema.schema["model"]
     model_options = model_select.config["options"]
-    assert {"value": "LIGHTIFY Plug 01", "label": "LIGHTIFY Plug 01"} in model_options
+    assert {"value": "LIGHTIFY Plug 01", "label": "LIGHTIFY Plug 01 (Osram Lightify Plug 01)"} in model_options

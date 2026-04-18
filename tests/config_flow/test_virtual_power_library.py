@@ -144,6 +144,26 @@ async def test_manufacturer_listing_is_filtered_by_entity_domain2(
     assert {"value": "shelly", "label": "Shelly"} in manufacturer_options
 
 
+async def test_model_listing_falls_back_to_model_id_when_name_missing(hass: HomeAssistant) -> None:
+    result = await select_menu_item(hass, Step.MENU_LIBRARY)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTITY_ID: "light.test"},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_MANUFACTURER: "test"},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MODEL
+
+    data_schema: vol.Schema = result["data_schema"]
+    model_select: SelectSelector = data_schema.schema["model"]
+    model_options = model_select.config["options"]
+    assert {"value": "composite_lut", "label": "composite_lut"} in model_options
+
+
 async def test_fixed_power_is_skipped_when_only_self_usage_true(hass: HomeAssistant) -> None:
     result = await select_menu_item(hass, Step.MENU_LIBRARY)
     result = await hass.config_entries.flow.async_configure(
@@ -346,6 +366,10 @@ async def test_configured_model_populated_in_options_flow(hass: HomeAssistant) -
     assert schema_keys[schema_keys.index(CONF_MODEL)].description == {
         "suggested_value": "LCT010",
     }
+    model_select: SelectSelector = result["data_schema"].schema[CONF_MODEL]
+    model_options = model_select.config["options"]
+    assert {"value": "LCT010", "label": "LCT010 (Hue White and Color Ambiance A19 E26 (Gen 3))"} in model_options
+    assert {"value": "LCA001", "label": "LCA001 (Hue White and Color Ambiance A19 E26/E27 (Gen 5))"} in model_options
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
