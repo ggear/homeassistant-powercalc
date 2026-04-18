@@ -18,3 +18,5 @@ custom_components/test
 
 # Visual Studio settings
 /.vs
+
+.omx

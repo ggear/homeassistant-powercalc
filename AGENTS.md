@@ -75,6 +75,7 @@ Configured via `pyproject.toml`:
 - Test files: `test_*.py`, async functions: `async def test_*`
 - Fixtures in `conftest.py` files
 - Use `@pytest.mark.parametrize` for test variants
+- We strive to 100% test coverage in the project
 
 ## Pull Requests
 

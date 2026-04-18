@@ -832,6 +832,28 @@ async def test_availability_entity(hass: HomeAssistant) -> None:
     assert hass.states.get("sensor.test_power").state == "10.00"
 
 
+async def test_dummy_source_ignores_availability_entity_state_for_power_calculation(hass: HomeAssistant) -> None:
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_ENTITY_ID: DUMMY_ENTITY_ID,
+            CONF_NAME: "Test",
+            CONF_AVAILABILITY_ENTITY: "binary_sensor.availability",
+            CONF_FIXED: {CONF_POWER: 10},
+        },
+    )
+
+    hass.states.async_set("binary_sensor.availability", STATE_OFF)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_power").state == "10.00"
+
+    hass.states.async_set("binary_sensor.availability", STATE_ON)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_power").state == "10.00"
+
+
 async def test_cover_entity_standby_power(hass: HomeAssistant) -> None:
     await run_powercalc_setup(
         hass,

@@ -292,6 +292,45 @@ async def test_change_manufacturer_model_from_options_flow(hass: HomeAssistant) 
     assert entry.data[CONF_MODEL] == "LWB010"
 
 
+async def test_device_discovered_entry_keeps_device_type_filter_in_library_options(hass: HomeAssistant) -> None:
+    entry = create_mock_entry(
+        hass,
+        {
+            CONF_ENTITY_ID: DUMMY_ENTITY_ID,
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_MANUFACTURER: "signify",
+            CONF_MODEL: "BSB002",
+        },
+    )
+
+    result = await initialize_options_flow(hass, entry, Step.LIBRARY_OPTIONS)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MANUFACTURER
+
+    manufacturer_select: SelectSelector = result["data_schema"].schema[CONF_MANUFACTURER]
+    manufacturer_options = manufacturer_select.config["options"]
+    assert {"value": "signify", "label": "Signify"} in manufacturer_options
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_MANUFACTURER: "signify"},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MODEL
+
+    model_select: SelectSelector = result["data_schema"].schema[CONF_MODEL]
+    model_options = model_select.config["options"]
+    option_values = [option["value"] for option in model_options]
+    assert "BSB002" in option_values
+    assert "LCT010" not in option_values
+
+
 async def test_change_sub_profile_options_flow(hass: HomeAssistant) -> None:
     entry = create_mock_entry(
         hass,

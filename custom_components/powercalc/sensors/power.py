@@ -599,9 +599,11 @@ class VirtualPowerSensor(SensorEntity, PowerSensor):
 
         # Resolve the relevant entity state
         entity_state = state
-        if (
+        if self._source_entity.entity_id == DUMMY_ENTITY_ID and self._calculation_strategy != CalculationStrategy.MULTI_SWITCH:
+            if self._availability_entity and state.entity_id == self._availability_entity:
+                entity_state = State(DUMMY_ENTITY_ID, STATE_ON)
+        elif (
             self._calculation_strategy != CalculationStrategy.MULTI_SWITCH
-            and self._source_entity.entity_id != DUMMY_ENTITY_ID
             and state.entity_id != self._source_entity.entity_id
             and (entity_state := self.hass.states.get(self._source_entity.entity_id)) is None
         ):

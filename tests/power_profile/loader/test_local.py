@@ -7,7 +7,7 @@ import pytest
 from custom_components.powercalc.const import CONF_CUSTOM_MODEL_DIRECTORY
 from custom_components.powercalc.power_profile.error import LibraryLoadingError
 from custom_components.powercalc.power_profile.loader.local import LocalLoader
-from custom_components.powercalc.power_profile.power_profile import DeviceType
+from custom_components.powercalc.power_profile.power_profile import DeviceType, DiscoveryBy
 from tests.common import get_test_config_dir, get_test_profile_dir, run_powercalc_setup
 
 
@@ -101,6 +101,8 @@ async def test_get_manufacturer_listing(hass: HomeAssistant) -> None:
     assert ("tp-link", "tp-link") in await loader.get_manufacturer_listing({DeviceType.SMART_SWITCH})
     assert ("tp-link", "tp-link") in await loader.get_manufacturer_listing({DeviceType.LIGHT})
     assert ("tp-link", "tp-link") not in await loader.get_manufacturer_listing({DeviceType.COVER})
+    assert ("test", "test") in await loader.get_manufacturer_listing(None, DiscoveryBy.DEVICE)
+    assert ("tasmota", "tasmota") not in await loader.get_manufacturer_listing(None, DiscoveryBy.DEVICE)
 
 
 async def test_get_model_listing(hass: HomeAssistant) -> None:
@@ -118,6 +120,9 @@ async def test_get_model_listing(hass: HomeAssistant) -> None:
     assert ("HS400", "IKEA Control outlet") not in await loader.get_model_listing("tp-link", {DeviceType.LIGHT})
     assert ("test", "Fixed mode profile") in await loader.get_model_listing("Tasmota", {DeviceType.LIGHT})
     assert (".test", ".test") not in await loader.get_model_listing("hidden-directories", {DeviceType.LIGHT})
+    device_models = await loader.get_model_listing("test", None, DiscoveryBy.DEVICE)
+    assert any(model_id == "multi_switch" for model_id, _ in device_models)
+    assert not any(model_id == "linked_profile_fixed" for model_id, _ in device_models)
 
 
 async def test_get_model_listing_unknown_manufacturer(hass: HomeAssistant) -> None:
