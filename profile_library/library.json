@@ -5606,7 +5606,8 @@
             "20EBO8301",
             "20ECL1301",
             "20EBT8601",
-            "20EBU4101"
+            "20EBU4101",
+            "80"
           ],
           "author": "dxmnkd316 <46753733+dxmnkd316@users.noreply.github.com>",
           "calculation_strategy": "fixed",
@@ -5624,10 +5625,10 @@
           },
           "id": "20EBU4101",
           "manufacturer": "eve",
-          "updated_at": "2026-04-12T12:10:28",
+          "updated_at": "2026-04-20T18:49:44",
           "max_power": 0.9,
           "sub_profile_count": 0,
-          "hash": "88ae3cb0bd00da4a456370431a8995e4"
+          "hash": "54e4aaa16eab2f769da896eecad93016"
         }
       ],
       "device_types": [
@@ -14822,10 +14823,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
