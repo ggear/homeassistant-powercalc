@@ -11,5 +11,11 @@
     "VERSION": "v1.20.12:docker"
   },
   "name": "Mijia Philips Desk Lamp 3",
-  "standby_power": 0.4
+  "standby_power": 0.4,
+  "author_info": {
+    "name": "xxddff",
+    "github": "xxddff",
+    "email": "772327379@qq.com"
+  },
+  "author": "xxddff"
 }
