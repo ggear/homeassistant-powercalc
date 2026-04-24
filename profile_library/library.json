@@ -3658,11 +3658,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "6dc3690f8a3008d64f9532292562ba8f"
+          "hash": "ed8c6f8ad83348d686cdce499f97ea56"
         }
       ],
       "device_types": [
@@ -4226,11 +4226,11 @@
           "max_power": null,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "effect",
+            "color_temp",
             "hs"
           ],
-          "hash": "a28d2fb500e7b8129553eb92959ad787"
+          "hash": "e01eed2f66179f6bf45d6bd6fdc6d3ec"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -7951,11 +7951,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "1e47e11c48244e5b0ba6b285c30fe2f1"
+          "hash": "21e279d64e6840a6f75b4f41fe8ce9c6"
         },
         {
           "author": "belledesire",
@@ -13564,10 +13564,10 @@
           "max_power": 9.7,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
-            "effect"
+            "effect",
+            "brightness"
           ],
-          "hash": "a3332c8e530d5681ac2319f7dcad807f"
+          "hash": "f11e61658021e57c881a6766b6bab27e"
         },
         {
           "aliases": [
@@ -19643,10 +19643,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "a803a0424627baf0efcf5e7c682be4f8"
+          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
         },
         {
           "author": "Pasquale Cuorpo <maverick1982@users.noreply.github.com>",
@@ -20818,11 +20818,11 @@
           "max_power": 20.4,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "effect",
+            "color_temp",
             "hs"
           ],
-          "hash": "db0831d14b70b40bd36fea4b21d78f74"
+          "hash": "87712518a23226a5947ad8501a350aed"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20879,11 +20879,11 @@
           "max_power": 39.0,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "effect",
+            "color_temp",
             "hs"
           ],
-          "hash": "9ee9d851f62f1483b14ca39f34cefe45"
+          "hash": "b558995e3b047c8d8c5921b74736b8f4"
         },
         {
           "author": "gobbli",
@@ -20909,11 +20909,11 @@
           "max_power": 23.35,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "effect",
+            "color_temp",
             "hs"
           ],
-          "hash": "e51ce873f4958f34050c38778bb55322"
+          "hash": "5fd6bf12289b916338b4a7954940dfd9"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -21119,11 +21119,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "e428a7720168f9b3f09af8f1cf3e83e9"
+          "hash": "7a39dbf6da62530b8a004e954f9cfc8d"
         },
         {
           "calculation_strategy": "lut",
@@ -21150,11 +21150,11 @@
           "max_power": 36.45,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "effect",
+            "color_temp",
             "hs"
           ],
-          "hash": "d83e25738b3ed996675dabf9b112c0be"
+          "hash": "c5f06f7ac36512536168a0f496155dfb"
         }
       ],
       "device_types": [
