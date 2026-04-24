@@ -3658,11 +3658,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "color_temp",
+            "brightness",
             "hs"
           ],
-          "hash": "ed8c6f8ad83348d686cdce499f97ea56"
+          "hash": "6dc3690f8a3008d64f9532292562ba8f"
         }
       ],
       "device_types": [
@@ -7951,11 +7951,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "color_temp",
+            "brightness",
             "hs"
           ],
-          "hash": "21e279d64e6840a6f75b4f41fe8ce9c6"
+          "hash": "1e47e11c48244e5b0ba6b285c30fe2f1"
         },
         {
           "author": "belledesire",
@@ -14888,10 +14888,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
@@ -21119,11 +21119,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
             "color_temp",
+            "brightness",
             "hs"
           ],
-          "hash": "7a39dbf6da62530b8a004e954f9cfc8d"
+          "hash": "e428a7720168f9b3f09af8f1cf3e83e9"
         },
         {
           "calculation_strategy": "lut",
