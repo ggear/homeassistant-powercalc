@@ -81,6 +81,13 @@
             "type": "string"
           }
         },
+        "legacy_ids": {
+          "type": "array",
+          "description": "Legacy canonical model ids which should migrate to this model",
+          "items": {
+            "type": "string"
+          }
+        },
         "updated_at": {
           "type": "string",
           "format": "date-time",

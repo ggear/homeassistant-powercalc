@@ -34,6 +34,7 @@ class LibraryModel(TypedDict):
     id: str
     name: NotRequired[str]
     aliases: NotRequired[list[str]]
+    legacy_ids: NotRequired[list[str]]
     hash: str
     device_type: NotRequired[DeviceType]
     discovery_by: NotRequired[DiscoveryBy]
@@ -225,6 +226,23 @@ class RemoteLoader(Loader):
         """Find matching model IDs in the library."""
         models = self.model_lookup.get(manufacturer, {})
         return [model["id"] for phrase in search if (phrase_lower := phrase.lower()) in models for model in models[phrase_lower]]
+
+    @async_cache
+    async def find_model_migration(self, manufacturer: str, model: str) -> str | None:
+        """Find the canonical model id for a legacy profile id."""
+        model_lower = model.lower()
+        matches = {
+            str(model_data.get("id"))
+            for manufacturer_data in self.library_contents.get("manufacturers", [])
+            if str(manufacturer_data.get("dir_name", "")).lower() == manufacturer
+            for model_data in manufacturer_data.get("models", []) or []
+            if model_lower in {str(legacy_id).lower() for legacy_id in model_data.get("legacy_ids", []) or []}
+        }
+
+        if len(matches) != 1:
+            return None
+
+        return next(iter(matches))
 
     @async_cache
     async def load_model(

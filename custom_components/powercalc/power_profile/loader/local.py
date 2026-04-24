@@ -134,6 +134,10 @@ class LocalLoader(Loader):
         profile = next((models[model] for model in models if model.lower() in search_lower), None)
         return [profile.model] if profile else []
 
+    async def find_model_migration(self, manufacturer: str, model: str) -> str | None:
+        """Local custom libraries do not support metadata-driven legacy profile migrations."""
+        return None
+
     def _load_custom_library(self) -> None:
         """Loading custom models and aliases from file system.
         Manufacturer directories without model directories and model.json files within

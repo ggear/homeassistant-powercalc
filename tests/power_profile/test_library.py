@@ -71,6 +71,18 @@ async def test_find_models(hass: HomeAssistant, model_info: ModelInfo, expected_
     assert [model.model for model in models] == expected_models
 
 
+async def test_find_model_migration(hass: HomeAssistant) -> None:
+    mock_loader = LocalLoader(hass, "")
+    mock_loader.find_manufacturers = AsyncMock(return_value={"eglo"})
+    mock_loader.find_model_migration = AsyncMock(return_value="900053")
+
+    library = ProfileLibrary(hass, loader=mock_loader)
+    await library.initialize()
+
+    migrated_model = await library.find_model_migration(ModelInfo("EGLO Leuchten", "33955"))
+    assert migrated_model == ModelInfo("eglo", "900053")
+
+
 async def test_get_sub_profile_listing(hass: HomeAssistant) -> None:
     library = await ProfileLibrary.factory(hass)
     profile = await library.get_profile(ModelInfo("yeelight", "YLDL01YL"))

@@ -60,3 +60,16 @@ class CompositeLoader(Loader):
             models.extend(await loader.find_model(manufacturer, search))
 
         return models
+
+    async def find_model_migration(self, manufacturer: str, model: str) -> str | None:
+        """Find the canonical model id for a legacy profile id."""
+        matches: set[str] = set()
+        for loader in self.loaders:
+            migrated_model = await loader.find_model_migration(manufacturer, model)
+            if migrated_model:
+                matches.add(migrated_model)
+
+        if len(matches) != 1:
+            return None
+
+        return next(iter(matches))

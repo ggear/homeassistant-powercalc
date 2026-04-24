@@ -226,6 +226,23 @@ class ProfileLibrary:
 
         return list(dict.fromkeys(found_models))
 
+    async def find_model_migration(self, model_info: ModelInfo) -> ModelInfo | None:
+        """Resolve a legacy canonical model id to its replacement using library metadata."""
+        manufacturers = await self._loader.find_manufacturers(model_info.manufacturer)
+        if not manufacturers:
+            return None
+
+        matches: set[ModelInfo] = set()
+        for manufacturer in manufacturers:
+            migrated_model = await self._loader.find_model_migration(manufacturer, model_info.model)
+            if migrated_model:
+                matches.add(ModelInfo(manufacturer, migrated_model))
+
+        if len(matches) != 1:
+            return None
+
+        return next(iter(matches))
+
     async def _load_model_data(self, manufacturer: str, model: str, custom_directory: str | None) -> tuple[dict, str]:
         """Load the model data from the appropriate directory."""
         loader = LocalLoader(self._hass, custom_directory, is_custom_directory=True) if custom_directory else self._loader

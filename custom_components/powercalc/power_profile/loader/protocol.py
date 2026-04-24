@@ -30,3 +30,6 @@ class Loader(Protocol):
 
     async def find_model(self, manufacturer: str, search: set[str]) -> list[str]:
         """Check if a model is available. Also must check aliases."""
+
+    async def find_model_migration(self, manufacturer: str, model: str) -> str | None:
+        """Return the canonical model id for a legacy profile id using library metadata."""

@@ -18,6 +18,13 @@
       },
       "description": "Aliases for this model"
     },
+    "legacy_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Legacy canonical model ids which should migrate to this model"
+    },
     "compatible_integrations": {
       "type": "array",
       "items": {

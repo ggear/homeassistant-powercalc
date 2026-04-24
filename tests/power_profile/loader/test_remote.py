@@ -144,6 +144,36 @@ async def test_get_model_listing(remote_loader: RemoteLoader) -> None:
     assert ("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)") not in device_models
 
 
+async def test_find_model_migration(hass: HomeAssistant, mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        ENDPOINT_LIBRARY,
+        status=200,
+        payload={
+            "manufacturers": [
+                {
+                    "name": "eglo",
+                    "dir_name": "eglo",
+                    "aliases": ["EGLO Leuchten"],
+                    "models": [
+                        {
+                            "id": "900053",
+                            "device_type": "light",
+                            "legacy_ids": ["33955"],
+                            "updated_at": "2026-03-25T15:08:09Z",
+                            "hash": "dummy",
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+
+    library = await ProfileLibrary.factory(hass)
+
+    assert await library.find_model_migration(ModelInfo("eglo", "33955")) == ModelInfo("eglo", "900053", None)
+    assert await library.find_model_migration(ModelInfo("EGLO Leuchten".lower(), "33955")) == ModelInfo("eglo", "900053", None)
+
+
 async def test_load_model_raises_library_exception_on_non_existing_model(remote_loader: RemoteLoader) -> None:
     with pytest.raises(LibraryLoadingError):
         await remote_loader.load_model("signify", "NON_EXISTING_MODEL")
