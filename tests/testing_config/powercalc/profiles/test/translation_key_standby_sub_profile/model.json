@@ -1,0 +1,14 @@
+{
+  "calculation_strategy": "fixed",
+  "name": "Translation key standby sub profile",
+  "sub_profile_select": {
+    "default": "main",
+    "matchers": [
+      {
+        "pattern": ".*_nightlight$",
+        "profile": "nightlight",
+        "type": "entity_id"
+      }
+    ]
+  }
+}

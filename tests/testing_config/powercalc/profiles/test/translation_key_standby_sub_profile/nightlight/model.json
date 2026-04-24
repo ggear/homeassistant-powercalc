@@ -1,0 +1,6 @@
+{
+  "fixed_config": {
+    "power": 1.24
+  },
+  "standby_power": 0
+}
