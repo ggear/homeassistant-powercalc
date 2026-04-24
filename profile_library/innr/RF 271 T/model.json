@@ -12,5 +12,10 @@
     "VERSION": "v1.20.13:docker"
   },
   "name": "Smart Filament Bulb E27 Tunable Globe",
-  "standby_power": 0.21
+  "standby_power": 0.21,
+  "author_info": {
+    "name": "Manu",
+    "github": "tr4nt0r"
+  },
+  "author": "Manu"
 }
