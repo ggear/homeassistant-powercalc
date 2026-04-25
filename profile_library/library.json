@@ -4227,10 +4227,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "e3198eec5cadab0a61d9196de9c1065f"
+          "hash": "bf03eaaeca20ecc2e1287c381078c0fc"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -11616,6 +11616,30 @@
           "hash": "5dfe1a1d5bd9017bcefebe7c558e06e9"
         },
         {
+          "calculation_strategy": "lut",
+          "created_at": "2026-04-21T17:42:12Z",
+          "device_type": "light",
+          "measure_device": "Shelly 1PM Mini Gen4",
+          "measure_method": "script",
+          "measure_settings": {
+            "SAMPLE_COUNT": 1,
+            "SLEEP_TIME": 3,
+            "VERSION": "v1.20.13:docker"
+          },
+          "name": "Hue white ambiance Aurelle square panel light 120x30",
+          "standby_power": 0.43,
+          "author": "EpicFazer",
+          "id": "929003099102",
+          "manufacturer": "signify",
+          "updated_at": "2026-04-25T08:02:42",
+          "max_power": 38.76,
+          "sub_profile_count": 0,
+          "color_modes": [
+            "color_temp"
+          ],
+          "hash": "11db02e546c8cf45e4dc2a8c8b691d2b"
+        },
+        {
           "aliases": [
             "8718699688882",
             "9290022414"
@@ -14917,10 +14941,10 @@
           "max_power": 42.49,
           "sub_profile_count": 2,
           "color_modes": [
-            "hsv",
-            "color_temp"
+            "color_temp",
+            "hsv"
           ],
-          "hash": "b251dc0be1a14126c86df718939fdab2"
+          "hash": "3e464c0176ec662f83574fc0a53ed9a7"
         },
         {
           "aliases": [
@@ -19285,10 +19309,10 @@
           "max_power": 30.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "hs",
-            "color_temp"
+            "color_temp",
+            "hs"
           ],
-          "hash": "c55dada3b3842a722f7b82149075fc2b"
+          "hash": "8f0a9c7b0973278842f34a10e6f13321"
         },
         {
           "aliases": [
@@ -20848,10 +20872,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "c835365008fd19155e8884933d36a213"
+          "hash": "a5c6eba98484c0d0e80abf7ece57775c"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20909,10 +20933,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "4b65e10e693f49107b69ca124b7e566d"
+          "hash": "adeed99661a7df5505181e398612a632"
         },
         {
           "author": "gobbli",
@@ -20939,10 +20963,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "71fcc13f8e8cd86bc0ad5195a8d3a4fb"
+          "hash": "f37a7dfbce76801a9228ffd96c12ef87"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -21180,10 +21204,10 @@
           "sub_profile_count": 0,
           "color_modes": [
             "hs",
-            "color_temp",
-            "effect"
+            "effect",
+            "color_temp"
           ],
-          "hash": "b85db766803a8f6a53d90fd2f034065d"
+          "hash": "6ccfe83c3b4364ec7e8c218945242848"
         }
       ],
       "device_types": [
