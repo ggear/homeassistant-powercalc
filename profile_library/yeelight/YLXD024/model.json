@@ -1,0 +1,32 @@
+{
+  "calculation_strategy": "lut",
+  "created_at": "2026-04-20T14:23:54Z",
+  "device_type": "light",
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "IKEA INSPELNING smart plug",
+  "measure_method": "script",
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 5,
+    "VERSION": "v1.20.13:docker"
+  },
+  "min_version": "v1.20.14",
+  "supported_integrations": [
+    "yeelight"
+  ],
+  "name": "Yeelight LED Smart Ceiling Light(8-jō size)",
+  "aliases": [
+    "ceild"
+  ],
+  "sub_profile_select": {
+    "default": "main_light",
+    "matchers": [
+      {
+        "type": "entity_registry",
+        "property": "translation_key",
+        "value": "nightlight",
+        "profile": "night_light"
+      }
+    ]
+  }
+}
