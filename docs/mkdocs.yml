@@ -115,6 +115,7 @@ nav:
       - 'actions/calibrate-energy.md'
       - 'actions/calibrate-utility-meter.md'
       - 'actions/change-gui-configuration.md'
+      - 'actions/debug-group.md'
       - 'actions/get-group-entities.md'
       - 'actions/increase-daily-energy.md'
       - 'actions/reload.md'
