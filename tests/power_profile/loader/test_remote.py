@@ -18,7 +18,7 @@ from custom_components.powercalc.helpers import get_library_json_path, get_libra
 from custom_components.powercalc.power_profile.error import LibraryLoadingError, ProfileDownloadError
 from custom_components.powercalc.power_profile.library import ModelInfo, ProfileLibrary
 from custom_components.powercalc.power_profile.loader.remote import ENDPOINT_DOWNLOAD, ENDPOINT_LIBRARY, RemoteLoader
-from custom_components.powercalc.power_profile.power_profile import DeviceType
+from custom_components.powercalc.power_profile.power_profile import DeviceType, DiscoveryBy
 from tests.common import get_test_config_dir, get_test_profile_dir
 
 pytestmark = pytest.mark.skip_remote_loader_mocking
@@ -132,12 +132,46 @@ async def test_get_manufacturer_listing(remote_loader: RemoteLoader) -> None:
     manufacturers = await remote_loader.get_manufacturer_listing({DeviceType.LIGHT})
     assert ("signify", "Signify") in manufacturers
     assert len(manufacturers) > 40
+    assert ("signify", "Signify") in await remote_loader.get_manufacturer_listing(None, DiscoveryBy.DEVICE)
 
 
 async def test_get_model_listing(remote_loader: RemoteLoader) -> None:
     models = await remote_loader.get_model_listing("signify", {DeviceType.LIGHT})
-    assert "LCT010" in models
+    assert ("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)") in models
     assert len(models) > 40
+    device_models = await remote_loader.get_model_listing("signify", None, DiscoveryBy.DEVICE)
+    assert ("BSB002", "Hue Bridge V2") in device_models
+    assert ("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)") not in device_models
+
+
+async def test_find_model_migration(hass: HomeAssistant, mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        ENDPOINT_LIBRARY,
+        status=200,
+        payload={
+            "manufacturers": [
+                {
+                    "name": "eglo",
+                    "dir_name": "eglo",
+                    "aliases": ["EGLO Leuchten"],
+                    "models": [
+                        {
+                            "id": "900053",
+                            "device_type": "light",
+                            "legacy_ids": ["33955"],
+                            "updated_at": "2026-03-25T15:08:09Z",
+                            "hash": "dummy",
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+
+    library = await ProfileLibrary.factory(hass)
+
+    assert await library.find_model_migration(ModelInfo("eglo", "33955")) == ModelInfo("eglo", "900053", None)
+    assert await library.find_model_migration(ModelInfo("EGLO Leuchten".lower(), "33955")) == ModelInfo("eglo", "900053", None)
 
 
 async def test_load_model_raises_library_exception_on_non_existing_model(remote_loader: RemoteLoader) -> None:
@@ -642,6 +676,6 @@ async def test_min_version(hass: HomeAssistant, version: str, expect_model: bool
 
             models = await loader.get_model_listing("test_manu", None)
             if expect_model:
-                assert "min_version" in models
+                assert ("min_version", "Test profile") in models
             else:
-                assert "min_version" not in models
+                assert ("min_version", "Test profile") not in models

@@ -1,0 +1,6 @@
+{
+  "fixed_config": {
+    "power": 5
+  },
+  "standby_power": "{{ 0.4 if is_state('[[entity_by_translation_key:nightlight]]', 'off') else 0 }}"
+}

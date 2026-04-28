@@ -90,6 +90,27 @@ Examples:
 }
 ```
 
+## Entity registry property
+
+Use this when a sub profile depends on any field from the Home Assistant entity registry entry,
+for example `translation_key`, `device_class`, `entity_category`, `original_name`, or `aliases`.
+
+```json
+{
+    "sub_profile_select": {
+        "matchers": [
+            {
+                "type": "entity_registry",
+                "property": "translation_key",
+                "value": "smart_plug",
+                "profile": "smart_plug"
+            }
+        ],
+        "default": "default"
+    }
+}
+```
+
 ## Model ID
 
 Could be used when a single physical device is represented by multiple devices in Home Assistant.

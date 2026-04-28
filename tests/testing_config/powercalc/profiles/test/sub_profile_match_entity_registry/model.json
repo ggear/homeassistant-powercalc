@@ -1,0 +1,16 @@
+{
+  "calculation_strategy": "lut",
+  "name": "Sub profile match entity registry property",
+  "standby_power": 0.47,
+  "sub_profile_select": {
+    "default": "default",
+    "matchers": [
+      {
+        "type": "entity_registry",
+        "property": "translation_key",
+        "value": "smart_plug",
+        "profile": "translation_key_match"
+      }
+    ]
+  }
+}

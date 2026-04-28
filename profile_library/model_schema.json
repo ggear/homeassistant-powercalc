@@ -18,6 +18,13 @@
       },
       "description": "Aliases for this model"
     },
+    "legacy_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Legacy canonical model ids which should migrate to this model"
+    },
     "compatible_integrations": {
       "type": "array",
       "items": {
@@ -145,7 +152,8 @@
         "network",
         "vacuum_robot",
         "lawn_mower_robot",
-        "heating"
+        "heating",
+        "ups"
       ],
       "description": "Type of device"
     },
@@ -386,6 +394,7 @@
                 "enum": [
                   "attribute",
                   "entity_id",
+                  "entity_registry",
                   "entity_state",
                   "integration",
                   "model_id"
@@ -400,12 +409,16 @@
               "pattern": {
                 "type": "string"
               },
+              "property": {
+                "type": "string"
+              },
               "profile": {
                 "type": "string"
               },
               "integration": {
                 "type": "string"
               },
+              "value": {},
               "model_id": {
                 "type": "string"
               }

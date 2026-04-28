@@ -45,7 +45,7 @@ from custom_components.powercalc.const import (
     DUMMY_ENTITY_ID,
     SensorType,
 )
-from custom_components.powercalc.discovery import DiscoveryStatus, get_power_profile_by_source_entity
+from custom_components.powercalc.discovery import DiscoveryStatus, get_power_profile_by_source_device, get_power_profile_by_source_entity
 from custom_components.powercalc.power_profile.library import ModelInfo
 from custom_components.test.light import MockLight
 
@@ -434,6 +434,31 @@ async def test_load_model_with_slashes(
     assert profile
     assert profile.manufacturer == "ikea"
     assert profile.model == "LED1649C5"
+
+
+async def test_get_power_profile_by_source_device_returns_none_without_required_entries(hass: HomeAssistant) -> None:
+    device_entry = DeviceEntry(
+        id="test-device",
+        manufacturer="test",
+        model="discovery_type_device",
+    )
+    mock_device_registry(hass, {device_entry.id: device_entry})
+    mock_registry(
+        hass,
+        {
+            "sensor.test": RegistryEntryWithDefaults(
+                entity_id="sensor.test",
+                unique_id="test-entity",
+                device_id=device_entry.id,
+                platform="test",
+            ),
+        },
+    )
+
+    source_entity = await create_source_entity("sensor.test", hass)
+
+    assert await get_power_profile_by_source_device(hass, source_entity._replace(device_entry=None)) is None
+    assert await get_power_profile_by_source_device(hass, source_entity._replace(entity_entry=None)) is None
 
 
 @pytest.mark.parametrize(

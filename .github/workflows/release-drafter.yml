@@ -37,9 +37,5 @@ jobs:
         with:
           footer: ${{ steps.supporters.outputs.value }}
           config-name: release-drafter.yml
-
-          # Mark beta as prerelease and auto-increment beta.N
-          prerelease: ${{ github.ref_name == 'beta' }}
-          prerelease-identifier: beta
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

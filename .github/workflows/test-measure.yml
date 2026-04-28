@@ -16,13 +16,13 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.1.0
         with:
           working-directory: './utils/measure'
           python-version: '3.13'
       - name: Run tests
         run: |
-          cd ./utils/measure && uv run pytest \
+          cd ./utils/measure && uv run --extra dev pytest \
             -qq \
             --durations=10 \
             -o console_output_style=count \

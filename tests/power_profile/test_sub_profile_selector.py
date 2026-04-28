@@ -9,7 +9,7 @@ from custom_components.powercalc.common import SourceEntity
 from custom_components.powercalc.errors import PowercalcSetupError
 from custom_components.powercalc.power_profile.library import ModelInfo, ProfileLibrary
 from custom_components.powercalc.power_profile.power_profile import PowerProfile
-from custom_components.powercalc.power_profile.sub_profile_selector import ModelIdMatcher, SubProfileSelector
+from custom_components.powercalc.power_profile.sub_profile_selector import EntityRegistryMatcher, ModelIdMatcher, SubProfileSelector
 from tests.common import get_test_profile_dir
 
 
@@ -105,6 +105,81 @@ async def test_matcher_integration(
 
     state = State("switch.test", STATE_ON)
     assert selector.select_sub_profile(state) == expected_profile
+
+
+@pytest.mark.parametrize(
+    ("registry_entry", "expected_profile"),
+    [
+        (
+            RegistryEntryWithDefaults(
+                entity_id="switch.test",
+                platform="tasmota",
+                translation_key="smart_plug",
+                unique_id="111",
+            ),
+            "translation_key_match",
+        ),
+        (
+            RegistryEntryWithDefaults(
+                entity_id="switch.test",
+                platform="tasmota",
+                translation_key="other",
+                unique_id="111",
+            ),
+            "default",
+        ),
+        (None, "default"),
+    ],
+)
+async def test_matcher_entity_registry_property(
+    hass: HomeAssistant,
+    registry_entry: RegistryEntry | None,
+    expected_profile: str,
+) -> None:
+    library = await ProfileLibrary.factory(hass)
+    power_profile = await library.get_profile(
+        ModelInfo("Test", "Test"),
+        custom_directory=get_test_profile_dir("sub_profile_match_entity_registry"),
+    )
+
+    source_entity = SourceEntity(
+        entity_id="switch.test",
+        domain="switch",
+        object_id="test",
+        entity_entry=registry_entry,
+    )
+
+    selector = SubProfileSelector(
+        hass,
+        power_profile.sub_profile_select,
+        source_entity,
+    )
+    assert len(selector.get_tracking_entities()) == 0
+
+    state = State("switch.test", STATE_ON)
+    assert selector.select_sub_profile(state) == expected_profile
+
+
+def test_matcher_entity_registry_list_value() -> None:
+    entry = RegistryEntryWithDefaults(entity_id="switch.test", unique_id="1111", platform="test", aliases=["abc", "def"], suggested_object_id="test")
+
+    matcher = EntityRegistryMatcher("aliases", "abc", "my_profile")
+    result = matcher.match(
+        State("switch.test", STATE_ON),
+        SourceEntity(entity_id="switch.test", object_id="test", domain="switch", entity_entry=entry),
+    )
+    assert result == "my_profile"
+
+
+def test_matcher_entity_registry_no_value() -> None:
+    entry = RegistryEntryWithDefaults(entity_id="switch.test", unique_id="1111", platform="test", entity_category=None, suggested_object_id="test")
+
+    matcher = EntityRegistryMatcher("entity_category", "abc", "my_profile")
+    result = matcher.match(
+        State("switch.test", STATE_ON),
+        SourceEntity(entity_id="switch.test", object_id="test", domain="switch", entity_entry=entry),
+    )
+    assert result is None
 
 
 @pytest.mark.parametrize(

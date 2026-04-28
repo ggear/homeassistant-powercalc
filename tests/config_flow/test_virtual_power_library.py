@@ -1,12 +1,13 @@
 import logging
 
 from homeassistant import data_entry_flow
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import CONF_ENTITY_ID, CONF_NAME, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.selector import SelectSelector
 import pytest
-from pytest_homeassistant_custom_component.common import mock_device_registry
+from pytest_homeassistant_custom_component.common import RegistryEntryWithDefaults, mock_device_registry, mock_registry
 import voluptuous as vol
 
 from custom_components.powercalc.common import create_source_entity
@@ -143,6 +144,26 @@ async def test_manufacturer_listing_is_filtered_by_entity_domain2(
     assert {"value": "shelly", "label": "Shelly"} in manufacturer_options
 
 
+async def test_model_listing_falls_back_to_model_id_when_name_missing(hass: HomeAssistant) -> None:
+    result = await select_menu_item(hass, Step.MENU_LIBRARY)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTITY_ID: "light.test"},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_MANUFACTURER: "test"},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MODEL
+
+    data_schema: vol.Schema = result["data_schema"]
+    model_select: SelectSelector = data_schema.schema["model"]
+    model_options = model_select.config["options"]
+    assert {"value": "composite_lut", "label": "composite_lut"} in model_options
+
+
 async def test_fixed_power_is_skipped_when_only_self_usage_true(hass: HomeAssistant) -> None:
     result = await select_menu_item(hass, Step.MENU_LIBRARY)
     result = await hass.config_entries.flow.async_configure(
@@ -173,6 +194,63 @@ async def test_library_options_flow_raises_error_on_non_existing_power_profile(
 
     assert result["type"] == data_entry_flow.FlowResultType.ABORT
     assert result["reason"] == "model_not_supported"
+
+
+async def test_composite_library_profile_options_flow_builds_menu(
+    hass: HomeAssistant,
+) -> None:
+    mock_device_registry(
+        hass,
+        {
+            "vacuum1": DeviceEntry(
+                id="vacuum1",
+                manufacturer="roborock",
+                model="rockrobo.vacuum.v1",
+            ),
+        },
+    )
+
+    mock_registry(
+        hass,
+        {
+            "vacuum.robi": RegistryEntryWithDefaults(
+                entity_id="vacuum.robi",
+                unique_id="1111",
+                device_id="vacuum1",
+                platform="test",
+            ),
+            "sensor.robi_battery": RegistryEntryWithDefaults(
+                entity_id="sensor.robi_battery",
+                unique_id="2222",
+                device_id="vacuum1",
+                device_class=SensorDeviceClass.BATTERY,
+                platform="test",
+            ),
+        },
+    )
+
+    entry = create_mock_entry(
+        hass,
+        {
+            CONF_ENTITY_ID: "vacuum.robi",
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_MANUFACTURER: "roborock",
+            CONF_MODEL: "rockrobo.vacuum.v1",
+        },
+    )
+
+    result = await hass.config_entries.options.async_init(
+        entry.entry_id,
+        data=None,
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.MENU
+    assert result["step_id"] == Step.INIT
+    assert result["menu_options"] == [
+        Step.BASIC_OPTIONS,
+        Step.LIBRARY_OPTIONS,
+        Step.ADVANCED_OPTIONS,
+    ]
 
 
 async def test_change_manufacturer_model_from_options_flow(hass: HomeAssistant) -> None:
@@ -212,6 +290,45 @@ async def test_change_manufacturer_model_from_options_flow(hass: HomeAssistant) 
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_MANUFACTURER] == "signify"
     assert entry.data[CONF_MODEL] == "LWB010"
+
+
+async def test_device_discovered_entry_keeps_device_type_filter_in_library_options(hass: HomeAssistant) -> None:
+    entry = create_mock_entry(
+        hass,
+        {
+            CONF_ENTITY_ID: DUMMY_ENTITY_ID,
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_MANUFACTURER: "signify",
+            CONF_MODEL: "BSB002",
+        },
+    )
+
+    result = await initialize_options_flow(hass, entry, Step.LIBRARY_OPTIONS)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MANUFACTURER
+
+    manufacturer_select: SelectSelector = result["data_schema"].schema[CONF_MANUFACTURER]
+    manufacturer_options = manufacturer_select.config["options"]
+    assert {"value": "signify", "label": "Signify"} in manufacturer_options
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_MANUFACTURER: "signify"},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.MODEL
+
+    model_select: SelectSelector = result["data_schema"].schema[CONF_MODEL]
+    model_options = model_select.config["options"]
+    option_values = [option["value"] for option in model_options]
+    assert "BSB002" in option_values
+    assert "LCT010" not in option_values
 
 
 async def test_change_sub_profile_options_flow(hass: HomeAssistant) -> None:
@@ -288,6 +405,10 @@ async def test_configured_model_populated_in_options_flow(hass: HomeAssistant) -
     assert schema_keys[schema_keys.index(CONF_MODEL)].description == {
         "suggested_value": "LCT010",
     }
+    model_select: SelectSelector = result["data_schema"].schema[CONF_MODEL]
+    model_options = model_select.config["options"]
+    assert {"value": "LCT010", "label": "LCT010 (Hue White and Color Ambiance A19 E26 (Gen 3))"} in model_options
+    assert {"value": "LCA001", "label": "LCA001 (Hue White and Color Ambiance A19 E26/E27 (Gen 5))"} in model_options
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -364,6 +485,92 @@ async def test_profile_with_custom_fields(
     }
 
     assert not caplog.records
+
+
+async def test_manual_library_flow_autodiscovers_device_profile_with_custom_fields(
+    hass: HomeAssistant,
+) -> None:
+    mock_device_registry(
+        hass,
+        {
+            "test-device": DeviceEntry(
+                id="test-device",
+                manufacturer="test",
+                model="device_custom_fields",
+            ),
+        },
+    )
+    mock_registry(
+        hass,
+        {
+            "switch.test_device": RegistryEntryWithDefaults(
+                entity_id="switch.test_device",
+                unique_id="test-switch",
+                platform="test",
+                device_id="test-device",
+            ),
+            "sensor.test_dependency": RegistryEntryWithDefaults(
+                entity_id="sensor.test_dependency",
+                unique_id="test-dependency",
+                platform="test",
+                device_id="test-device",
+            ),
+        },
+    )
+
+    result = await select_menu_item(hass, Step.MENU_LIBRARY)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTITY_ID: "switch.test_device"},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.LIBRARY
+
+
+async def test_manual_library_flow_defers_device_profile_custom_field_validation(
+    hass: HomeAssistant,
+) -> None:
+    mock_device_registry(
+        hass,
+        {
+            "test-device": DeviceEntry(
+                id="test-device",
+                manufacturer="test",
+                model="device_custom_fields",
+            ),
+        },
+    )
+    mock_registry(
+        hass,
+        {
+            "switch.test_device": RegistryEntryWithDefaults(
+                entity_id="switch.test_device",
+                unique_id="test-switch",
+                platform="test",
+                device_id="test-device",
+            ),
+            "sensor.test_dependency": RegistryEntryWithDefaults(
+                entity_id="sensor.test_dependency",
+                unique_id="test-dependency",
+                platform="test",
+                device_id="test-device",
+            ),
+        },
+    )
+
+    result = await select_menu_item(hass, Step.MENU_LIBRARY)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTITY_ID: "switch.test_device"},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_CONFIRM_AUTODISCOVERED_MODEL: True},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.LIBRARY_CUSTOM_FIELDS
 
 
 async def test_sub_profiles_select_options(hass: HomeAssistant) -> None:
@@ -456,6 +663,93 @@ async def test_sub_profile_selection_discovery_by_device(
     )
 
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+
+
+async def test_discovery_flow_documentation_url_in_remarks(hass: HomeAssistant) -> None:
+    """When model.json has documentation_url, it should appear as a link in the discovery remarks."""
+    source_entity = await create_source_entity("sensor.test", hass)
+    power_profile = await get_power_profile(hass, {}, source_entity, ModelInfo("test", "ups"), process_variables=False)
+    result = await initialize_discovery_flow(hass, source_entity, power_profile)
+
+    assert result["step_id"] == Step.LIBRARY
+    remarks = result["description_placeholders"]["remarks"]
+    assert "[Documentation](https://docs.powercalc.nl/cookbook/ups/)" in remarks
+
+
+async def test_custom_fields_documentation_url_placeholder(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+) -> None:
+    """When model.json has documentation_url, the custom fields step should include it in description_placeholders."""
+    mock_entity_with_model_information(
+        ["sensor.test", "sensor.load"],
+        "test",
+        "ups",
+    )
+
+    result = await select_menu_item(hass, Step.MENU_LIBRARY)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTITY_ID: "sensor.test"},
+    )
+    assert result["step_id"] == Step.LIBRARY
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_CONFIRM_AUTODISCOVERED_MODEL: True},
+    )
+    assert result["step_id"] == Step.LIBRARY_CUSTOM_FIELDS
+    assert result["description_placeholders"]["documentation_url"] == "https://docs.powercalc.nl/cookbook/ups/"
+
+
+async def test_options_flow_initializes_profile_with_custom_fields(
+    hass: HomeAssistant,
+) -> None:
+    mock_device_registry(
+        hass,
+        {
+            "test-device": DeviceEntry(
+                id="test-device",
+                manufacturer="test",
+                model="device_custom_fields",
+            ),
+        },
+    )
+    mock_registry(
+        hass,
+        {
+            "switch.test_device": RegistryEntryWithDefaults(
+                entity_id="switch.test_device",
+                unique_id="test-switch",
+                platform="test",
+                device_id="test-device",
+            ),
+            "sensor.test_dependency": RegistryEntryWithDefaults(
+                entity_id="sensor.test_dependency",
+                unique_id="test-dependency",
+                platform="test",
+                device_id="test-device",
+            ),
+        },
+    )
+
+    entry = create_mock_entry(
+        hass,
+        {
+            CONF_ENTITY_ID: "switch.test_device",
+            CONF_MANUFACTURER: "test",
+            CONF_MODEL: "device_custom_fields",
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_VARIABLES: {
+                "some_entity": "sensor.test_dependency",
+            },
+        },
+    )
+
+    result = await initialize_options_flow(hass, entry, Step.LIBRARY_OPTIONS)
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == Step.LIBRARY_OPTIONS
 
 
 async def test_availability_entity_step_skipped(hass: HomeAssistant) -> None:

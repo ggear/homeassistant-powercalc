@@ -1,0 +1,22 @@
+{
+  "calculation_strategy": "fixed",
+  "device_type": "generic_iot",
+  "discovery_by": "device",
+  "fields": {
+    "some_entity": {
+      "description": "Select some entity",
+      "label": "Some entity",
+      "selector": {
+        "entity": {
+          "domain": "sensor"
+        }
+      }
+    }
+  },
+  "fixed_config": {
+    "power": 20
+  },
+  "measure_device": "xx",
+  "measure_method": "manual",
+  "name": "Device custom fields"
+}

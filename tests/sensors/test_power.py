@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 import logging
 import uuid
 
@@ -33,6 +34,7 @@ from homeassistant.const import (
 from homeassistant.core import EVENT_HOMEASSISTANT_START, CoreState, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_registry import EntityRegistry
+from homeassistant.helpers.template import Template
 from homeassistant.util import dt
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -84,6 +86,45 @@ from tests.common import (
     setup_config_entry,
 )
 from tests.conftest import MockEntityWithModel
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_type", "expected_value"),
+    [
+        ("template", Template, None),
+        ("template_string", Template, None),
+        (None, Decimal, Decimal(0)),
+        (Decimal("1.5"), Decimal, Decimal("1.5")),
+        (2.5, Decimal, Decimal("2.5")),
+        (3, Decimal, Decimal(3)),
+    ],
+)
+async def test_resolve_standby_power_value(
+    hass: HomeAssistant,
+    case: Template | Decimal | str | float | None,
+    expected_type: type[Template] | type[Decimal],
+    expected_value: Decimal | None,
+) -> None:
+    from custom_components.powercalc.sensors.power import _resolve_standby_power_value
+
+    value: Template | Decimal | str | float | int | None
+    if case == "template":
+        value = Template("{{ 10 }}", hass)
+    elif case == "template_string":
+        value = "{{ 20 }}"
+    else:
+        value = case
+
+    resolved = _resolve_standby_power_value(hass, value)
+
+    assert isinstance(resolved, expected_type)
+    if isinstance(resolved, Template):
+        if isinstance(value, Template):
+            assert resolved is value
+        else:
+            assert resolved.template == value
+    else:
+        assert resolved == expected_value
 
 
 async def test_use_real_power_sensor_in_group(hass: HomeAssistant) -> None:
@@ -827,6 +868,28 @@ async def test_availability_entity(hass: HomeAssistant) -> None:
     assert hass.states.get("sensor.test_power").state == STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.availability", STATE_ON)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_power").state == "10.00"
+
+
+async def test_dummy_source_ignores_availability_entity_state_for_power_calculation(hass: HomeAssistant) -> None:
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_ENTITY_ID: DUMMY_ENTITY_ID,
+            CONF_NAME: "Test",
+            CONF_AVAILABILITY_ENTITY: "binary_sensor.availability",
+            CONF_FIXED: {CONF_POWER: 10},
+        },
+    )
+
+    hass.states.async_set("binary_sensor.availability", STATE_OFF)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_power").state == "10.00"
+
+    hass.states.async_set("binary_sensor.availability", STATE_ON)
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.test_power").state == "10.00"
