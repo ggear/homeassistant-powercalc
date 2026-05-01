@@ -3658,11 +3658,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "brightness",
+            "hs",
             "color_temp"
           ],
-          "hash": "594b9d5f9fb1dfa92fa29f984aa58332"
+          "hash": "7d6df058244cf0fb69cf220a11d00f37"
         }
       ],
       "device_types": [
@@ -4226,11 +4226,11 @@
           "max_power": null,
           "sub_profile_count": 0,
           "color_modes": [
+            "effect",
             "hs",
-            "color_temp",
-            "effect"
+            "color_temp"
           ],
-          "hash": "e3198eec5cadab0a61d9196de9c1065f"
+          "hash": "0b0b2f31adc0315a5a7b9aa5b192b851"
         },
         {
           "author": "Jari Eskelinen <jari.eskelinen@iki.fi>",
@@ -5133,6 +5133,79 @@
       ],
       "device_types": [
         "generic_iot"
+      ]
+    },
+    {
+      "aliases": [
+        "American Power Conversion",
+        "Schneider Electric"
+      ],
+      "name": "apc",
+      "full_name": "APC",
+      "dir_name": "apc",
+      "models": [
+        {
+          "name": "APC Back-UPS ES 650G1",
+          "aliases": [
+            "Back-UPS ES 650G1"
+          ],
+          "description": "Power profile for the APC Back-UPS ES 650G1 (650 VA / 390 W). Estimates real-time output power from NUT load percentage.",
+          "device_type": "ups",
+          "calculation_strategy": "fixed",
+          "compatible_integrations": [
+            "nut"
+          ],
+          "created_at": "2026-04-28T00:00:00Z",
+          "measure_method": "manual",
+          "measure_device": "N/A",
+          "fields": {
+            "load_entity": {
+              "label": "Load percentage entity",
+              "description": "The NUT sensor showing UPS load percentage (0-100%)",
+              "selector": {
+                "entity": {
+                  "domain": "sensor"
+                }
+              }
+            },
+            "nominal_va": {
+              "label": "Nominal Power (VA)",
+              "description": "The VA rating of your UPS. Default: 650",
+              "selector": {
+                "number": {
+                  "min": 100,
+                  "max": 10000
+                }
+              }
+            },
+            "power_factor": {
+              "label": "Power Factor",
+              "description": "Ratio of real power to apparent power. Use 0.6 for computers/electronics, 1.0 for resistive loads like heaters. Default: 0.6",
+              "selector": {
+                "number": {
+                  "min": 0.1,
+                  "max": 1.0,
+                  "step": 0.1
+                }
+              }
+            }
+          },
+          "author_info": {
+            "name": "Brian Egge",
+            "github": "brianegge",
+            "email": "brianegge@gmail.com"
+          },
+          "author": "Brian Egge",
+          "id": "BE650G1",
+          "manufacturer": "apc",
+          "updated_at": "2026-05-01T07:59:37",
+          "max_power": 0,
+          "sub_profile_count": 0,
+          "hash": "1858365605475a72147f05be9bab31bc"
+        }
+      ],
+      "device_types": [
+        "ups"
       ]
     },
     {
@@ -7951,11 +8024,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "brightness",
+            "hs",
             "color_temp"
           ],
-          "hash": "7a9e12b9cee1380a419bdc1e032430f4"
+          "hash": "c9cf5aa69a73b3a6b6a7d4899501ace8"
         },
         {
           "author": "belledesire",
@@ -13622,10 +13695,10 @@
           "max_power": 9.7,
           "sub_profile_count": 0,
           "color_modes": [
-            "brightness",
-            "effect"
+            "effect",
+            "brightness"
           ],
-          "hash": "a3332c8e530d5681ac2319f7dcad807f"
+          "hash": "f11e61658021e57c881a6766b6bab27e"
         },
         {
           "aliases": [
@@ -19703,10 +19776,10 @@
           "max_power": 26.1,
           "sub_profile_count": 2,
           "color_modes": [
-            "brightness",
-            "color_temp"
+            "color_temp",
+            "brightness"
           ],
-          "hash": "a803a0424627baf0efcf5e7c682be4f8"
+          "hash": "c5ca2ab9fef230d19eb19dbfdb6bbc98"
         },
         {
           "author": "Pasquale Cuorpo <maverick1982@users.noreply.github.com>",
@@ -20913,11 +20986,11 @@
           "max_power": 20.4,
           "sub_profile_count": 0,
           "color_modes": [
+            "effect",
             "hs",
-            "color_temp",
-            "effect"
+            "color_temp"
           ],
-          "hash": "c835365008fd19155e8884933d36a213"
+          "hash": "76c87cbf39b8499112a77525311f2b7f"
         },
         {
           "author": "Benjamin Neff <benjamin@coding4coffee.ch>",
@@ -20974,11 +21047,11 @@
           "max_power": 39.0,
           "sub_profile_count": 0,
           "color_modes": [
+            "effect",
             "hs",
-            "color_temp",
-            "effect"
+            "color_temp"
           ],
-          "hash": "4b65e10e693f49107b69ca124b7e566d"
+          "hash": "4ba1ff3b8dd16bbad33691d017d63e5b"
         },
         {
           "author": "gobbli",
@@ -21004,11 +21077,11 @@
           "max_power": 23.35,
           "sub_profile_count": 0,
           "color_modes": [
+            "effect",
             "hs",
-            "color_temp",
-            "effect"
+            "color_temp"
           ],
-          "hash": "71fcc13f8e8cd86bc0ad5195a8d3a4fb"
+          "hash": "4bf5058fbc6b6012c8fcb7805f1139a0"
         },
         {
           "author": "Chris Hallgren <challgren@gmail.com>",
@@ -21185,10 +21258,10 @@
           "max_power": 24.11,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
-            "effect"
+            "effect",
+            "hs"
           ],
-          "hash": "4c36aaae24715c4f9bc1ea0dcf35e520"
+          "hash": "b8ba79c307b90439d3849a26bc5a829e"
         },
         {
           "author": "Sku1ly <45756272+Sku1ly@users.noreply.github.com>",
@@ -21214,11 +21287,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "hs",
             "brightness",
+            "hs",
             "color_temp"
           ],
-          "hash": "eeae56542e64a5be400868d36acec9ee"
+          "hash": "c5a4aa00980a86307c4756ec23fe2082"
         },
         {
           "calculation_strategy": "lut",
@@ -21245,11 +21318,11 @@
           "max_power": 36.45,
           "sub_profile_count": 0,
           "color_modes": [
+            "effect",
             "hs",
-            "color_temp",
-            "effect"
+            "color_temp"
           ],
-          "hash": "b85db766803a8f6a53d90fd2f034065d"
+          "hash": "490ea96b2575de8d2b16b70d69995526"
         }
       ],
       "device_types": [
