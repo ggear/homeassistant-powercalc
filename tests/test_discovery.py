@@ -997,7 +997,9 @@ async def test_discovery_enable_runtime(
 async def test_discovery_disable_runtime(
     hass: HomeAssistant,
     mock_entity_with_model_information: MockEntityWithModel,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level(logging.DEBUG)
     mock_entity_with_model_information("light.test", "signify", "LCT010")
 
     entry = create_mock_global_config_entry(
@@ -1018,6 +1020,12 @@ async def test_discovery_disable_runtime(
     flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert len(flows) == 0
 
+    caplog.clear()
+    async_fire_time_changed(hass, dt.utcnow() + timedelta(hours=2))
+    await hass.async_block_till_done(True)
+
+    assert "Start auto discovery" not in caplog.text
+
 
 @pytest.mark.parametrize(
     "global_config",
@@ -1037,6 +1045,18 @@ async def test_discovery_disabled(
 
     flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert len(flows) == 0
+
+
+async def test_discovery_skips_run_when_disabled(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    discovery_manager = DiscoveryManager(hass, {}, enabled=False)
+    await discovery_manager.start_discovery()
+
+    assert "Discovery manager is disabled, skipping discovery run" in caplog.text
 
 
 async def test_discovery_process_is_locked(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
