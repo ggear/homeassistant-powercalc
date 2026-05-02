@@ -5,7 +5,7 @@
 ![hacs installs](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Flauwbier.nl%2Fhacs%2Fpowercalc&style=for-the-badge)
 [![Coverage Status](https://img.shields.io/coveralls/github/bramstroker/homeassistant-powercalc/badge.svg?branch=master&style=for-the-badge)](https://coveralls.io/github/bramstroker/homeassistant-powercalc?branch=master)
 
-# <img src="https://docs.powercalc.nl/img/logo2_light.svg" width="400">
+# <img src="https://docs.powercalc.nl/img/logo2_light.svg" width="300">
 
 ## ⚡ Turn any device into an energy monitor, no smart plug required
 
