@@ -3658,11 +3658,11 @@
           "max_power": 9.57,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "6dc3690f8a3008d64f9532292562ba8f"
+          "hash": "ed8c6f8ad83348d686cdce499f97ea56"
         }
       ],
       "device_types": [
@@ -3724,73 +3724,6 @@
       ],
       "device_types": [
         "smart_switch"
-      ]
-    },
-    {
-      "aliases": [],
-      "name": "tripp_lite",
-      "full_name": "Tripp Lite",
-      "dir_name": "tripp_lite",
-      "models": [
-        {
-          "name": "Tripp Lite UPS",
-          "description": "Generic power profile for Tripp Lite UPS devices. Estimates real-time power consumption from load percentage, nominal VA rating, and power factor.",
-          "device_type": "ups",
-          "calculation_strategy": "fixed",
-          "compatible_integrations": [
-            "nut"
-          ],
-          "created_at": "2026-03-20T00:00:00Z",
-          "measure_method": "manual",
-          "measure_device": "N/A",
-          "fields": {
-            "load_entity": {
-              "label": "Load percentage entity",
-              "description": "The NUT sensor showing UPS load percentage (0-100%)",
-              "selector": {
-                "entity": {
-                  "domain": "sensor"
-                }
-              }
-            },
-            "nominal_va": {
-              "label": "Nominal Power (VA)",
-              "description": "The VA rating of your UPS (found on the label or the Nominal Power entity)",
-              "selector": {
-                "number": {
-                  "min": 100,
-                  "max": 10000
-                }
-              }
-            },
-            "power_factor": {
-              "label": "Power Factor",
-              "description": "Ratio of real power to apparent power. Use 0.6 for computers/electronics, 1.0 for resistive loads like heaters. Default: 0.6",
-              "selector": {
-                "number": {
-                  "min": 0.1,
-                  "max": 1.0,
-                  "step": 0.1
-                }
-              }
-            }
-          },
-          "author_info": {
-            "name": "Brian Egge",
-            "github": "brianegge",
-            "email": "brianegge@gmail.com"
-          },
-          "author": "Brian Egge",
-          "id": "Tripplite",
-          "manufacturer": "tripp_lite",
-          "updated_at": "2026-04-10T05:53:40",
-          "max_power": 0,
-          "sub_profile_count": 0,
-          "hash": "26ba073500247c07890028ec5583271b"
-        }
-      ],
-      "device_types": [
-        "ups"
       ]
     },
     {
@@ -8024,11 +7957,11 @@
           "max_power": 10.65,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "1e47e11c48244e5b0ba6b285c30fe2f1"
+          "hash": "21e279d64e6840a6f75b4f41fe8ce9c6"
         },
         {
           "author": "belledesire",
@@ -21287,11 +21220,11 @@
           "max_power": 23.14,
           "sub_profile_count": 0,
           "color_modes": [
-            "color_temp",
             "brightness",
+            "color_temp",
             "hs"
           ],
-          "hash": "e428a7720168f9b3f09af8f1cf3e83e9"
+          "hash": "7a39dbf6da62530b8a004e954f9cfc8d"
         },
         {
           "calculation_strategy": "lut",
