@@ -28,11 +28,11 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.power_profile.factory import get_power_profile
 from custom_components.powercalc.power_profile.library import ModelInfo
-from tests.common import run_powercalc_setup
+from tests.common import assert_entity_state, create_mock_config_entry, run_powercalc_setup, set_states
 from tests.config_flow.common import (
     DEFAULT_UNIQUE_ID,
-    create_mock_entry,
     goto_virtual_power_strategy_step,
+    handle_options_flow_update,
     initialize_discovery_flow,
     initialize_options_flow,
     set_virtual_power_configuration,
@@ -42,6 +42,7 @@ from tests.conftest import MockEntityWithModel
 
 async def test_create_multi_switch_sensor_entry(hass: HomeAssistant, entity_registry: EntityRegistry) -> None:
     result = await goto_virtual_power_strategy_step(hass, CalculationStrategy.MULTI_SWITCH, {CONF_NAME: "test"})
+    assert result.get("preview") is None
     result = await set_virtual_power_configuration(
         hass,
         result,
@@ -52,9 +53,12 @@ async def test_create_multi_switch_sensor_entry(hass: HomeAssistant, entity_regi
     entry_data = result["data"]
     assert entry_data[CONF_SENSOR_TYPE] == SensorType.VIRTUAL_POWER
     assert entry_data[CONF_MODE] == CalculationStrategy.MULTI_SWITCH
-    assert entry_data[CONF_MULTI_SWITCH] == {CONF_ENTITIES: ["switch.a", "switch.b"], CONF_POWER: 0.8, CONF_POWER_OFF: 0.5}
+    assert entry_data[CONF_MULTI_SWITCH] == {
+        CONF_ENTITIES: ["switch.a", "switch.b"],
+        CONF_POWER: 0.8,
+        CONF_POWER_OFF: 0.5,
+    }
 
-    await hass.async_block_till_done()
     assert hass.states.get("sensor.test_power")
     assert hass.states.get("sensor.test_energy")
 
@@ -100,17 +104,13 @@ async def test_discovery_flow(
         },
     }
 
-    assert hass.states.get("sensor.test_power")
+    assert hass.states.get("sensor.test_device_power")
 
-    hass.states.async_set("switch.test1", STATE_ON)
-    await hass.async_block_till_done()
+    await set_states(hass, [("switch.test1", STATE_ON)])
+    assert_entity_state(hass, "sensor.test_device_power", "1.22")
 
-    assert hass.states.get("sensor.test_power").state == "1.22"
-
-    hass.states.async_set("switch.test2", STATE_ON)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.test_power").state == "1.95"
+    await set_states(hass, [("switch.test2", STATE_ON)])
+    assert_entity_state(hass, "sensor.test_device_power", "1.95")
 
 
 async def test_switch_entities_automatically_populated_from_device(hass: HomeAssistant) -> None:
@@ -150,7 +150,7 @@ async def test_discovery_flow_once_per_unique_device(
 
 
 async def test_options_flow(hass: HomeAssistant) -> None:
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "switch.test",
@@ -161,14 +161,15 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     )
 
     result = await initialize_options_flow(hass, entry, Step.MULTI_SWITCH)
+    assert result.get("preview") is None
 
-    user_input = {CONF_POWER_OFF: 20, CONF_POWER: 5, CONF_ENTITIES: ["switch.a", "switch.c"]}
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.MULTI_SWITCH,
+        {CONF_POWER_OFF: 20, CONF_POWER: 5, CONF_ENTITIES: ["switch.a", "switch.c"]},
     )
 
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_MULTI_SWITCH] == {CONF_POWER: 5, CONF_POWER_OFF: 20, CONF_ENTITIES: ["switch.a", "switch.c"]}
 
 
@@ -186,7 +187,7 @@ async def test_regression_2612(hass: HomeAssistant, mock_entity_with_model_infor
         unique_id=DEFAULT_UNIQUE_ID,
     )
 
-    create_mock_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "switch.test",
@@ -207,7 +208,10 @@ async def test_regression_2612(hass: HomeAssistant, mock_entity_with_model_infor
     assert hass.states.get("sensor.foo_bar_energy")
 
 
-async def test_setup_without_switches(hass: HomeAssistant, mock_entity_with_model_information: MockEntityWithModel) -> None:
+async def test_setup_without_switches(
+    hass: HomeAssistant,
+    mock_entity_with_model_information: MockEntityWithModel,
+) -> None:
     """
     See https://github.com/bramstroker/homeassistant-powercalc/issues/3218
 
@@ -225,9 +229,7 @@ async def test_setup_without_switches(hass: HomeAssistant, mock_entity_with_mode
 
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
 
-    state = hass.states.get("sensor.test_power")
-    assert state
-    assert state.state == "0.50"
+    assert_entity_state(hass, "sensor.test_device_power", "0.50")
 
 
 async def test_light_switches_selectable(hass: HomeAssistant) -> None:
@@ -312,7 +314,12 @@ async def initialize_device_discovery_flow(hass: HomeAssistant, device_entry: De
     )
 
 
-def mock_device_with_switches(hass: HomeAssistant, num_switches: int = 2, manufacturer: str = "test", model: str = "multi_switch") -> DeviceEntry:
+def mock_device_with_switches(
+    hass: HomeAssistant,
+    num_switches: int = 2,
+    manufacturer: str = "test",
+    model: str = "multi_switch",
+) -> DeviceEntry:
     device_id = "abcdef"
     device_entry = DeviceEntry(
         id=device_id,

@@ -1,23 +1,27 @@
-name: PR comment - Generate plots
+name: Generate PR plots
 
 on:
   pull_request:
     paths:
-       - '**/*.csv.gz'
+      - '**/*.csv.gz'
+
+permissions:
+  contents: read
 
 jobs:
   generate-plots:
     name: Generate plots
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v8.1.0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           working-directory: './utils/visualize'
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         name: List changed files from the PR
         id: list-files
         with:
@@ -30,21 +34,16 @@ jobs:
       - name: Run visualization tool
         run: |
           cd ./utils/visualize
-          for file in ${{ steps.list-files.outputs.changedFiles }}; do
+          for file in ${STEPS_LIST_FILES_OUTPUTS_CHANGEDFILES}; do
             echo "Generating plot for - ${file}."
             if [ -f "${{ github.workspace }}/${file}" ]; then
               uv run python plot.py "${{ github.workspace }}/${file}" --output=auto
             fi
           done
-      - name: Save PR number
         env:
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          echo $PR_NUMBER > pr_number.txt
+          STEPS_LIST_FILES_OUTPUTS_CHANGEDFILES: ${{ steps.list-files.outputs.changedFiles }}
       - name: Upload Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: plots
-          path: |
-            ./pr_number.txt
-            ./utils/visualize/*.png
+          path: ./utils/visualize/*.png

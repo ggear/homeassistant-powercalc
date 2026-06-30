@@ -38,7 +38,7 @@ from custom_components.powercalc.const import (
     PowerProfileSource,
     SensorType,
 )
-from tests.common import get_simple_fixed_config, run_powercalc_setup, setup_config_entry
+from tests.common import create_mock_config_entry, get_simple_fixed_config, run_powercalc_setup
 
 MOCK_PAYLOAD = {
     "test": "data",
@@ -104,7 +104,10 @@ async def test_send_analytics_success(
     assert posted_json["counts"]["by_device_type"] == {DeviceType.LIGHT: 1}
     assert posted_json["counts"]["by_source_domain"] == {"light": 1, "switch": 1}
     assert posted_json["counts"]["by_entity_type"] == {EntityType.POWER_SENSOR: 2, EntityType.ENERGY_SENSOR: 2}
-    assert posted_json["counts"]["by_power_profile_source"] == {PowerProfileSource.MANUAL: 1, PowerProfileSource.LIBRARY_BUILTIN: 1}
+    assert posted_json["counts"]["by_power_profile_source"] == {
+        PowerProfileSource.MANUAL: 1,
+        PowerProfileSource.LIBRARY_BUILTIN: 1,
+    }
 
 
 @pytest.mark.usefixtures("payload_mock")
@@ -193,7 +196,7 @@ async def test_send_analytics_disabled(
 
 
 async def test_no_duplicate_count_after_entry_reload(hass: HomeAssistant) -> None:
-    entry = await setup_config_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
@@ -234,7 +237,6 @@ async def test_no_duplicate_count_after_config_reload(hass: HomeAssistant) -> No
             SERVICE_RELOAD,
             blocking=True,
         )
-        await hass.async_block_till_done()
 
     analytics = Analytics(hass)
     payload = await analytics._prepare_payload()  # noqa: SLF001
@@ -297,7 +299,7 @@ async def test_entity_types(hass: HomeAssistant) -> None:
 async def test_install_date(hass: HomeAssistant) -> None:
     past_date = dt.parse_date("2023-01-15")
     with freeze_time(past_date):
-        await setup_config_entry(
+        await create_mock_config_entry(
             hass,
             {
                 CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
@@ -307,7 +309,7 @@ async def test_install_date(hass: HomeAssistant) -> None:
             },
         )
 
-    await setup_config_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,

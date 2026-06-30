@@ -23,7 +23,10 @@ dependencies = ["homeassistant"]
 license = "MIT"
 
 [tool.pytest.ini_options]
-testpaths = "tests"
+testpaths = [
+    "tests",
+    "utils/library/tests",
+]
 norecursedirs = ".git"
 asyncio_mode = "auto"
 markers = [
@@ -37,6 +40,11 @@ known-first-party = ["custom_components", "powercalc"]
 known-third-party = ["homeassistant"]
 force-sort-within-sections = true
 combine-as-imports = true
+
+[tool.ty.analysis]
+allowed-unresolved-imports = [
+    "homeassistant.components.**",
+]
 
 [tool.mypy]
 python_version = "3.14"
@@ -70,25 +78,26 @@ disable_error_code = "return-value"
 source = ["custom_components/powercalc", "utils", "tests"]
 
 [tool.ruff]
-line-length = 150
-target-version = "py313"
+line-length = 120
+target-version = "py314"
 exclude = ["utils/measure/playground", "utils/visualize", ".github", "docs"]
 
 [tool.ruff.lint]
 select = ["A", "ANN", "ASYNC", "B", "BLE", "C", "C4", "COM", "E", "F", "FIX", "FURB", "G", "ICN", "I", "INP", "ISC", "LOG", "N", "NPY", "PERF", "PIE", "PYI", "Q", "RET", "RUF", "S", "SIM", "SLF", "SLOT", "T10", "T20", "TID", "UP", "W"]
-ignore = ["S101", "ASYNC240", "COM812"]
+ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "utils/measure/**.py" = ["T201"]
 "tests/**.py" = ["ASYNC230"]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 15
+max-complexity = 10
 
 [tool.uv]
 prerelease = "allow"
 override-dependencies = [
   "mashumaro[msgpack]==3.17",
+  "habluetooth>=6.8.1",
 ]
 
 [dependency-groups]
@@ -98,15 +107,16 @@ docs = [
 dev = [
     "prek",
     "ruff>=0.15.0",
-    "mypy==1.20.2",
+    "mypy==2.1.0",
     "voluptuous-stubs>=0.1",
     "homeassistant-stubs",
-    "pytest-homeassistant-custom-component==0.13.325",
+    "pytest-homeassistant-custom-component==0.13.340",
     "types-pytz>=2024.1",
     "types-croniter>=2.0",
     "croniter>=6.0.0",
     "aioresponses>=0.7.6",
-    "pyturbojpeg>=1.8.2"
+    "pyturbojpeg>=1.8.2",
+    "ty>=0.0.39",
 ]
 
 [tool.setuptools]
@@ -119,4 +129,4 @@ build-backend = "setuptools.build_meta"
 [tool.codespell]
 ignore-words-list = 'hass'
 check-filenames = true
-skip = '*/translations/*.json,*/package-lock.json,*/model.json,*/library.json'
+skip = '*/translations/*.json,*/package-lock.json,*/model.json,*/library.json,uv.lock'

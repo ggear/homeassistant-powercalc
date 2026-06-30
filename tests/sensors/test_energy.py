@@ -17,14 +17,12 @@ from homeassistant.const import (
     UnitOfPower,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry
 from homeassistant.util import dt
 import pytest
 from pytest_homeassistant_custom_component.common import (
     RegistryEntryWithDefaults,
     async_fire_time_changed,
-    mock_device_registry,
     mock_registry,
 )
 
@@ -51,26 +49,20 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.sensors.energy import VirtualEnergySensor
 from tests.common import (
+    assert_entity_state,
     create_input_boolean,
     get_simple_fixed_config,
+    mock_device,
     mock_sensors_in_registry,
     run_powercalc_setup,
+    set_states,
 )
 
 
 async def test_related_energy_sensor_is_used_for_existing_power_sensor(
     hass: HomeAssistant,
 ) -> None:
-    mock_device_registry(
-        hass,
-        {
-            "shelly-device": DeviceEntry(
-                id="shelly-device-id",
-                manufacturer="Shelly",
-                model="Plug S",
-            ),
-        },
-    )
+    mock_device(hass, "shelly-device-id", "Shelly", "Plug S")
 
     mock_registry(
         hass,
@@ -92,8 +84,6 @@ async def test_related_energy_sensor_is_used_for_existing_power_sensor(
         },
     )
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {
@@ -107,8 +97,6 @@ async def test_related_energy_sensor_is_used_for_existing_power_sensor(
             CONF_IGNORE_UNAVAILABLE_STATE: True,
         },
     )
-
-    await hass.async_block_till_done()
 
     power_state = hass.states.get("sensor.testgroup_power")
     assert power_state
@@ -132,16 +120,7 @@ async def test_force_create_energy_sensor_for_existing_power_sensor(
     """
     await create_input_boolean(hass)
 
-    mock_device_registry(
-        hass,
-        {
-            "shelly-device": DeviceEntry(
-                id="shelly-device-id",
-                manufacturer="Shelly",
-                model="Plug S",
-            ),
-        },
-    )
+    mock_device(hass, "shelly-device-id", "Shelly", "Plug S")
 
     mock_registry(
         hass,
@@ -163,8 +142,6 @@ async def test_force_create_energy_sensor_for_existing_power_sensor(
         },
     )
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {
@@ -179,8 +156,6 @@ async def test_force_create_energy_sensor_for_existing_power_sensor(
             CONF_IGNORE_UNAVAILABLE_STATE: True,
         },
     )
-
-    await hass.async_block_till_done()
 
     power_state = hass.states.get("sensor.testgroup_power")
     assert power_state
@@ -224,7 +199,6 @@ async def test_force_create_energy_sensor_overrides_create_energy_sensors_option
             CONF_CREATE_ENERGY_SENSORS: False,
         },
     )
-    await hass.async_block_till_done()
 
     energy_state = hass.states.get("sensor.bedroom_airco_energy")
     assert energy_state
@@ -263,8 +237,6 @@ async def test_real_energy_sensor(hass: HomeAssistant) -> None:
 
     mock_sensors_in_registry(hass, energy_entities=["sensor.existing_energy"])
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {
@@ -281,7 +253,6 @@ async def test_real_energy_sensor(hass: HomeAssistant) -> None:
     )
 
     await hass.async_block_till_done()
-
     energy_state = hass.states.get("sensor.testgroup_energy")
     assert energy_state
     assert energy_state.attributes.get(ATTR_ENTITIES) == {
@@ -297,8 +268,6 @@ async def test_real_energy_sensor_error_on_non_existing_entity(
 
     caplog.set_level(logging.ERROR)
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {
@@ -312,8 +281,6 @@ async def test_real_energy_sensor_error_on_non_existing_entity(
             ],
         },
     )
-
-    await hass.async_block_till_done()
 
     assert "No energy sensor with id" in caplog.text
 
@@ -332,10 +299,7 @@ async def test_unit_prefix_none(hass: HomeAssistant) -> None:
         dt.utcnow() + timedelta(hours=1),
     )
 
-    hass.states.async_set("sensor.test_power", "50.00", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-
-    await hass.async_block_till_done()
-
+    await set_states(hass, [("sensor.test_power", "50.00", {ATTR_UNIT_OF_MEASUREMENT: "W"})])
     state_attributes = hass.states.get("sensor.test_energy").attributes
     assert state_attributes.get("unit_of_measurement") == UnitOfEnergy.WATT_HOUR
 
@@ -354,15 +318,12 @@ async def test_unit_prefix_kwh_default(hass: HomeAssistant) -> None:
         dt.utcnow() + timedelta(hours=1),
     )
 
-    hass.states.async_set("sensor.test_power", "50.00", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-
-    await hass.async_block_till_done()
-
+    await set_states(hass, [("sensor.test_power", "50.00", {ATTR_UNIT_OF_MEASUREMENT: "W"})])
     state_attributes = hass.states.get("sensor.test_energy").attributes
     assert state_attributes.get("unit_of_measurement") == UnitOfEnergy.KILO_WATT_HOUR
 
 
-async def test_set_entity_category(hass: HomeAssistant) -> None:
+def test_set_entity_category(hass: HomeAssistant) -> None:
     energy_sensor = VirtualEnergySensor(
         hass=hass,
         source_entity="sensor.test_power",
@@ -397,9 +358,8 @@ async def test_calibrate_service(hass: HomeAssistant) -> None:
         },
         blocking=True,
     )
-    await hass.async_block_till_done()
 
-    assert hass.states.get(entity_id).state == "100.0000"
+    assert_entity_state(hass, entity_id, "100.0000")
 
 
 async def test_real_power_sensor_kw(hass: HomeAssistant) -> None:
@@ -430,36 +390,70 @@ async def test_real_power_sensor_kw(hass: HomeAssistant) -> None:
         },
     )
 
-    hass.states.async_set(
-        "sensor.test_power",
-        "100",
-        {
-            ATTR_UNIT_OF_MEASUREMENT: UnitOfPower.KILO_WATT,
-            ATTR_DEVICE_CLASS: SensorDeviceClass.POWER,
-            ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
-        },
+    await set_states(
+        hass,
+        [
+            (
+                "sensor.test_power",
+                "100",
+                {
+                    ATTR_UNIT_OF_MEASUREMENT: UnitOfPower.KILO_WATT,
+                    ATTR_DEVICE_CLASS: SensorDeviceClass.POWER,
+                    ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
+                },
+            ),
+        ],
     )
-    await hass.async_block_till_done()
-
     state = hass.states.get("sensor.test_energy")
     assert state
 
     now = dt.utcnow() + timedelta(minutes=60)
     with patch("homeassistant.util.dt.utcnow", return_value=now):
-        hass.states.async_set(
-            "sensor.test_power",
-            "200",
-            {
-                ATTR_UNIT_OF_MEASUREMENT: UnitOfPower.KILO_WATT,
-                ATTR_DEVICE_CLASS: SensorDeviceClass.POWER,
-                ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
-            },
+        await set_states(
+            hass,
+            [
+                (
+                    "sensor.test_power",
+                    "200",
+                    {
+                        ATTR_UNIT_OF_MEASUREMENT: UnitOfPower.KILO_WATT,
+                        ATTR_DEVICE_CLASS: SensorDeviceClass.POWER,
+                        ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
+                    },
+                ),
+            ],
         )
-        await hass.async_block_till_done()
-
     state = hass.states.get("sensor.test_energy")
     assert state
     assert state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfEnergy.KILO_WATT_HOUR
+
+
+async def test_real_power_sensor_invalid_unit(hass: HomeAssistant) -> None:
+    """Test that an invalid unit on the source power sensor falls back gracefully."""
+    mock_registry(
+        hass,
+        {
+            "sensor.test_power": RegistryEntryWithDefaults(
+                entity_id="sensor.test_power",
+                unique_id="12345",
+                platform="sensor",
+                device_class=SensorDeviceClass.POWER,
+                unit_of_measurement="bogus_unit",
+            ),
+        },
+    )
+
+    await run_powercalc_setup(
+        hass,
+        {
+            CONF_NAME: "Test",
+            CONF_UNIQUE_ID: "1234353",
+            CONF_POWER_SENSOR_ID: "sensor.test_power",
+        },
+    )
+
+    state = hass.states.get("sensor.test_energy")
+    assert state
 
 
 async def test_device_class_is_set_after_startup(hass: HomeAssistant) -> None:
@@ -498,15 +492,11 @@ async def test_force_updated_at_interval(hass: HomeAssistant) -> None:
     power_sensor_id = "sensor.test_power"
     energy_sensor_id = "sensor.test_energy"
 
-    hass.states.async_set(power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    await hass.async_block_till_done()
-
+    await set_states(hass, [(power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"})])
     async_fire_time_changed(hass, dt.utcnow() + timedelta(minutes=60))
-    await hass.async_block_till_done()
-    assert hass.states.get(energy_sensor_id).state == "0.1000"
+    assert_entity_state(hass, energy_sensor_id, "0.1000")
     async_fire_time_changed(hass, dt.utcnow() + timedelta(seconds=40))
-    await hass.async_block_till_done()
-    assert hass.states.get(energy_sensor_id).state == "0.1011"
+    assert_entity_state(hass, energy_sensor_id, "0.1011")
 
 
 async def test_outlier_filtering(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
@@ -522,17 +512,20 @@ async def test_outlier_filtering(hass: HomeAssistant, caplog: pytest.LogCaptureF
         },
     )
 
-    hass.states.async_set(power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "120", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "1200", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "200", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "400", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "7000000", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "1100", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "20", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    hass.states.async_set(power_sensor_id, "80", {ATTR_UNIT_OF_MEASUREMENT: "W"})
-    await hass.async_block_till_done()
-
+    await set_states(
+        hass,
+        [
+            (power_sensor_id, "100", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "120", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "1200", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "200", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "400", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "7000000", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "500", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "1100", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "20", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+            (power_sensor_id, "80", {ATTR_UNIT_OF_MEASUREMENT: "W"}),
+        ],
+    )
     assert "Rejecting power value 7000000 as outlier for energy integration" in caplog.text

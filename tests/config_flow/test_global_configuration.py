@@ -5,7 +5,7 @@ from typing import Any
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.components.utility_meter.const import DAILY
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ENABLED, CONF_ENTITY_ID, CONF_NAME, CONF_UNIQUE_ID, STATE_ON, EntityCategory
+from homeassistant.const import CONF_ENABLED, CONF_ENTITY_ID, CONF_NAME, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -64,9 +64,15 @@ from custom_components.powercalc.const import (
     SensorType,
     UnitPrefix,
 )
-from tests.common import get_simple_fixed_config, run_powercalc_setup
+from tests.common import (
+    assert_entity_state,
+    create_mock_config_entry,
+    get_simple_fixed_config,
+    run_powercalc_setup,
+    set_states,
+)
 from tests.config_flow.common import (
-    create_mock_entry,
+    handle_options_flow_update,
     initialize_options_flow,
     select_menu_item,
 )
@@ -171,13 +177,20 @@ async def test_config_flow(hass: HomeAssistant) -> None:
 @pytest.mark.parametrize(
     "user_input,expected_step",
     [
-        ({CONF_CREATE_ENERGY_SENSORS: False, CONF_CREATE_UTILITY_METERS: True}, Step.GLOBAL_CONFIGURATION_UTILITY_METER),
+        (
+            {CONF_CREATE_ENERGY_SENSORS: False, CONF_CREATE_UTILITY_METERS: True},
+            Step.GLOBAL_CONFIGURATION_UTILITY_METER,
+        ),
         ({CONF_CREATE_ENERGY_SENSORS: True, CONF_CREATE_UTILITY_METERS: True}, Step.GLOBAL_CONFIGURATION_ENERGY),
         ({CONF_CREATE_ENERGY_SENSORS: True, CONF_CREATE_UTILITY_METERS: False}, Step.GLOBAL_CONFIGURATION_ENERGY),
         ({CONF_CREATE_ENERGY_SENSORS: False, CONF_CREATE_UTILITY_METERS: False}, None),
     ],
 )
-async def test_energy_and_utility_options_skipped(hass: HomeAssistant, user_input: dict[str, Any], expected_step: Step | None) -> None:
+async def test_energy_and_utility_options_skipped(
+    hass: HomeAssistant,
+    user_input: dict[str, Any],
+    expected_step: Step | None,
+) -> None:
     """Test the energy and utility_meter options are only shown when relevant."""
     result = await select_menu_item(hass, Step.GLOBAL_CONFIGURATION)
 
@@ -207,9 +220,9 @@ async def test_energy_and_utility_options_skipped(hass: HomeAssistant, user_inpu
 
 async def test_initialize_options_succeeds_with_yaml_sensors_in_config(hass: HomeAssistant) -> None:
     """Test options flow is initialized when sensors are defined in YAML configuration."""
-    entry = create_mock_global_config_entry(hass, {})
+    entry = await create_mock_global_config_entry(hass, {})
 
-    await run_powercalc_setup(hass, get_simple_fixed_config("input_boolean.test", 50), {})
+    await run_powercalc_setup(hass, get_simple_fixed_config("input_boolean.test", 50))
 
     result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION)
     assert result["type"] == data_entry_flow.FlowResultType.FORM
@@ -217,7 +230,7 @@ async def test_initialize_options_succeeds_with_yaml_sensors_in_config(hass: Hom
 
 async def test_global_configuration_can_only_be_configured_once(hass: HomeAssistant) -> None:
     """Test global configuration can only be configured once."""
-    create_mock_global_config_entry(hass, {})
+    await create_mock_global_config_entry(hass, {})
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -228,32 +241,30 @@ async def test_global_configuration_can_only_be_configured_once(hass: HomeAssist
 
 async def test_basic_options_flow(hass: HomeAssistant) -> None:
     """Test basic options flow."""
-    entry = create_mock_global_config_entry(hass, {})
+    entry = await create_mock_global_config_entry(hass, {})
 
-    result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION)
-
-    user_input = {
-        CONF_POWER_SENSOR_PRECISION: 4,
-        CONF_POWER_SENSOR_NAMING: "{} power_watt",
-        CONF_POWER_SENSOR_FRIENDLY_NAMING: "{} friendly",
-        CONF_POWER_SENSOR_CATEGORY: EntityCategory.CONFIG,
-        CONF_IGNORE_UNAVAILABLE_STATE: True,
-        CONF_INCLUDE_NON_POWERCALC_SENSORS: False,
-        CONF_DISABLE_EXTENDED_ATTRIBUTES: True,
-        CONF_DISABLE_LIBRARY_DOWNLOAD: False,
-        CONF_CREATE_ENERGY_SENSORS: False,
-    }
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION,
+        {
+            CONF_POWER_SENSOR_PRECISION: 4,
+            CONF_POWER_SENSOR_NAMING: "{} power_watt",
+            CONF_POWER_SENSOR_FRIENDLY_NAMING: "{} friendly",
+            CONF_POWER_SENSOR_CATEGORY: EntityCategory.DIAGNOSTIC,
+            CONF_IGNORE_UNAVAILABLE_STATE: True,
+            CONF_INCLUDE_NON_POWERCALC_SENSORS: False,
+            CONF_DISABLE_EXTENDED_ATTRIBUTES: True,
+            CONF_DISABLE_LIBRARY_DOWNLOAD: False,
+            CONF_CREATE_ENERGY_SENSORS: False,
+        },
     )
 
     # Check if config entry data is updated.
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_POWER_SENSOR_PRECISION] == 4
     assert entry.data[CONF_POWER_SENSOR_NAMING] == "{} power_watt"
     assert entry.data[CONF_POWER_SENSOR_FRIENDLY_NAMING] == "{} friendly"
-    assert entry.data[CONF_POWER_SENSOR_CATEGORY] == EntityCategory.CONFIG
+    assert entry.data[CONF_POWER_SENSOR_CATEGORY] == EntityCategory.DIAGNOSTIC
     assert entry.data[CONF_IGNORE_UNAVAILABLE_STATE]
     assert not entry.data[CONF_INCLUDE_NON_POWERCALC_SENSORS]
     assert entry.data[CONF_DISABLE_EXTENDED_ATTRIBUTES]
@@ -266,7 +277,7 @@ async def test_basic_options_flow(hass: HomeAssistant) -> None:
 
 async def test_energy_options_flow(hass: HomeAssistant) -> None:
     """Test energy options flow."""
-    entry = create_mock_global_config_entry(
+    entry = await create_mock_global_config_entry(
         hass,
         {
             CONF_CREATE_ENERGY_SENSORS: True,
@@ -274,19 +285,17 @@ async def test_energy_options_flow(hass: HomeAssistant) -> None:
         },
     )
 
-    result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION_ENERGY)
-
-    user_input = {
-        CONF_ENERGY_INTEGRATION_METHOD: ENERGY_INTEGRATION_METHOD_TRAPEZODIAL,
-        CONF_ENERGY_SENSOR_PRECISION: 5,
-    }
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION_ENERGY,
+        {
+            CONF_ENERGY_INTEGRATION_METHOD: ENERGY_INTEGRATION_METHOD_TRAPEZODIAL,
+            CONF_ENERGY_SENSOR_PRECISION: 5,
+        },
     )
 
     # Check if config entry data is updated.
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_ENERGY_INTEGRATION_METHOD] == ENERGY_INTEGRATION_METHOD_TRAPEZODIAL
     assert entry.data[CONF_ENERGY_SENSOR_PRECISION] == 5
 
@@ -295,30 +304,55 @@ async def test_energy_options_flow(hass: HomeAssistant) -> None:
     assert hass.data[DOMAIN][DOMAIN_CONFIG][CONF_ENERGY_SENSOR_PRECISION] == 5
 
 
+async def test_clear_energy_sensor_category(hass: HomeAssistant) -> None:
+    """Test clearing a previously set energy sensor category is persisted.
+
+    Regression test for https://github.com/bramstroker/homeassistant-powercalc/issues/4228
+    """
+    entry = await create_mock_global_config_entry(
+        hass,
+        {
+            CONF_CREATE_ENERGY_SENSORS: True,
+            CONF_ENERGY_SENSOR_CATEGORY: EntityCategory.DIAGNOSTIC,
+        },
+    )
+
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION_ENERGY,
+        {
+            CONF_ENERGY_INTEGRATION_METHOD: ENERGY_INTEGRATION_METHOD_TRAPEZODIAL,
+        },
+    )
+
+    # The category should no longer be set, both on the config entry and in the runtime config.
+    assert CONF_ENERGY_SENSOR_CATEGORY not in entry.data
+    assert not hass.data[DOMAIN][DOMAIN_CONFIG].get(CONF_ENERGY_SENSOR_CATEGORY)
+
+
 async def test_utility_meter_options_flow(hass: HomeAssistant) -> None:
     """Test utility meter options flow."""
-    entry = create_mock_global_config_entry(
+    entry = await create_mock_global_config_entry(
         hass,
         {
             CONF_CREATE_UTILITY_METERS: True,
         },
     )
 
-    result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION_UTILITY_METER)
-
-    user_input = {
-        CONF_UTILITY_METER_TYPES: [DAILY],
-        CONF_UTILITY_METER_TARIFFS: ["peak", "off_peak"],
-        CONF_UTILITY_METER_OFFSET: 1,
-        CONF_UTILITY_METER_NET_CONSUMPTION: True,
-    }
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION_UTILITY_METER,
+        {
+            CONF_UTILITY_METER_TYPES: [DAILY],
+            CONF_UTILITY_METER_TARIFFS: ["peak", "off_peak"],
+            CONF_UTILITY_METER_OFFSET: 1,
+            CONF_UTILITY_METER_NET_CONSUMPTION: True,
+        },
     )
 
     # Check if config entry data is updated.
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_UTILITY_METER_TYPES] == [DAILY]
     assert entry.data[CONF_UTILITY_METER_TARIFFS] == ["peak", "off_peak"]
     assert entry.data[CONF_UTILITY_METER_OFFSET] == 1
@@ -333,13 +367,13 @@ async def test_utility_meter_options_flow(hass: HomeAssistant) -> None:
 
 async def test_discovery_options_flow(hass: HomeAssistant) -> None:
     """Test discovery options flow."""
-    entry = create_mock_global_config_entry(hass, {})
+    entry = await create_mock_global_config_entry(hass, {})
 
-    result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION_DISCOVERY)
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION_DISCOVERY,
+        {
             CONF_ENABLED: True,
             CONF_EXCLUDE_SELF_USAGE: True,
             CONF_EXCLUDE_DEVICE_TYPES: [DeviceType.SMART_SWITCH],
@@ -347,7 +381,6 @@ async def test_discovery_options_flow(hass: HomeAssistant) -> None:
     )
 
     # Check if config entry data is updated.
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     discovery_options = entry.data[CONF_DISCOVERY]
     assert discovery_options[CONF_ENABLED]
     assert discovery_options[CONF_EXCLUDE_SELF_USAGE]
@@ -356,13 +389,13 @@ async def test_discovery_options_flow(hass: HomeAssistant) -> None:
 
 async def test_throttling_options_flow(hass: HomeAssistant) -> None:
     """Test throttling options flow."""
-    entry = create_mock_global_config_entry(hass, {})
+    entry = await create_mock_global_config_entry(hass, {})
 
-    result = await initialize_options_flow(hass, entry, Step.GLOBAL_CONFIGURATION_THROTTLING)
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.GLOBAL_CONFIGURATION_THROTTLING,
+        {
             CONF_ENERGY_UPDATE_INTERVAL: 20,
             CONF_GROUP_POWER_UPDATE_INTERVAL: 15,
             CONF_GROUP_ENERGY_UPDATE_INTERVAL: 30,
@@ -370,7 +403,6 @@ async def test_throttling_options_flow(hass: HomeAssistant) -> None:
     )
 
     # Check if config entry data is updated.
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_ENERGY_UPDATE_INTERVAL] == 20
     assert entry.data[CONF_GROUP_POWER_UPDATE_INTERVAL] == 15
     assert entry.data[CONF_GROUP_ENERGY_UPDATE_INTERVAL] == 30
@@ -379,25 +411,20 @@ async def test_throttling_options_flow(hass: HomeAssistant) -> None:
 async def test_entities_are_reloaded_reflecting_changes(hass: HomeAssistant) -> None:
     """Test entities are reloaded reflecting changes."""
 
-    hass.states.async_set("light.test", STATE_ON)
-    await hass.async_block_till_done()
+    await set_states(hass, [("light.test", STATE_ON)])
 
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
+    await create_mock_config_entry(
+        hass,
+        {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
-            CONF_UNIQUE_ID: "abcdef",
             CONF_ENTITY_ID: "light.test",
             CONF_NAME: "Test",
             CONF_MODE: CalculationStrategy.FIXED,
             CONF_FIXED: {CONF_POWER: 50},
         },
-        unique_id="abcdef",
-        title="Mock sensor",
     )
-    config_entry.add_to_hass(hass)
 
-    global_config_entry = create_mock_global_config_entry(
+    global_config_entry = await create_mock_global_config_entry(
         hass,
         {
             CONF_CREATE_ENERGY_SENSORS: True,
@@ -405,29 +432,25 @@ async def test_entities_are_reloaded_reflecting_changes(hass: HomeAssistant) -> 
             CONF_FORCE_UPDATE_FREQUENCY_DEPRECATED: 1200,
         },
     )
-    await hass.config_entries.async_setup(global_config_entry.entry_id)
 
     await run_powercalc_setup(hass)
 
-    assert hass.states.get("sensor.test_power").state == "50.00"
+    assert_entity_state(hass, "sensor.test_power", "50.00")
 
-    result = await initialize_options_flow(hass, global_config_entry, Step.GLOBAL_CONFIGURATION)
-
-    user_input = {
-        CONF_POWER_SENSOR_PRECISION: 4,
-    }
-    await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        global_config_entry,
+        Step.GLOBAL_CONFIGURATION,
+        {CONF_POWER_SENSOR_PRECISION: 4},
     )
     await asyncio.sleep(0.1)
 
-    assert hass.states.get("sensor.test_power").state == "50.0000"
+    assert_entity_state(hass, "sensor.test_power", "50.0000")
 
 
-def create_mock_global_config_entry(hass: HomeAssistant, data: dict[str, Any], add: bool = True) -> MockConfigEntry:
+async def create_mock_global_config_entry(hass: HomeAssistant, data: dict[str, Any]) -> MockConfigEntry:
     """Create a mock entry."""
-    entry = create_mock_entry(
+    return await create_mock_config_entry(
         hass,
         {
             CONF_POWER_SENSOR_NAMING: DEFAULT_POWER_NAME_PATTERN,
@@ -451,8 +474,5 @@ def create_mock_global_config_entry(hass: HomeAssistant, data: dict[str, Any], a
             **data,
         },
         unique_id=ENTRY_GLOBAL_CONFIG_UNIQUE_ID,
+        setup=False,
     )
-    if add:
-        entry.add_to_hass(hass)
-
-    return entry

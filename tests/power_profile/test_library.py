@@ -14,7 +14,7 @@ from custom_components.powercalc.power_profile.library import ModelInfo, Profile
 from custom_components.powercalc.power_profile.loader.composite import CompositeLoader
 from custom_components.powercalc.power_profile.loader.local import LocalLoader
 from custom_components.powercalc.power_profile.loader.remote import RemoteLoader
-from tests.common import get_test_profile_dir, run_powercalc_setup
+from tests.common import assert_entity_state, get_test_profile_dir, run_powercalc_setup, set_states
 from tests.conftest import MockEntityWithModel
 
 
@@ -29,7 +29,13 @@ async def test_manufacturer_listing(hass: HomeAssistant) -> None:
 @pytest.mark.parametrize(
     "manufacturer,expected_models",
     [
-        ("signify", [("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)"), ("LCA007", "Hue White and Color Ambiance A19 E26 1100lm")]),
+        (
+            "signify",
+            [
+                ("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)"),
+                ("LCA007", "Hue White and Color Ambiance A19 E26 1100lm"),
+            ],
+        ),
         ("Signify Netherlands B.V.", [("LCT010", "Hue White and Color Ambiance A19 E26 (Gen 3)")]),
     ],
 )
@@ -159,7 +165,7 @@ async def test_exception_is_raised_when_no_model_json_present(
     with pytest.raises(LibraryLoadingError):
         await library.create_power_profile(
             ModelInfo("foo", "bar"),
-            await create_source_entity("light.test", hass),
+            create_source_entity("light.test", hass),
             get_test_profile_dir("no_model_json"),
         )
 
@@ -187,7 +193,7 @@ async def test_create_power_raise_library_error_when_model_not_found(hass: HomeA
     with pytest.raises(LibraryError):
         await library.create_power_profile(
             ModelInfo("signify", "LCT010"),
-            await create_source_entity("light.test", hass),
+            create_source_entity("light.test", hass),
         )
 
 
@@ -201,7 +207,7 @@ async def test_create_power_raise_library_error_when_manufacturer_not_found(hass
     with pytest.raises(LibraryError):
         await library.create_power_profile(
             ModelInfo("signify", "LCT010"),
-            await create_source_entity("light.test", hass),
+            create_source_entity("light.test", hass),
         )
 
 
@@ -252,7 +258,10 @@ async def test_linked_profile_loading(hass: HomeAssistant) -> None:
 
     assert profile.get_model_directory().endswith("signify/LCA006")
 
-    assert os.path.exists(os.path.join(profile.get_model_directory(), "color_temp.csv.gz"))
+    assert await hass.async_add_executor_job(
+        os.path.exists,
+        os.path.join(profile.get_model_directory(), "color_temp.csv.gz"),
+    )
 
 
 async def test_linked_profile_loading_failed(hass: HomeAssistant) -> None:
@@ -261,7 +270,7 @@ async def test_linked_profile_loading_failed(hass: HomeAssistant) -> None:
     remote_loader_class = "custom_components.powercalc.power_profile.loader.remote.RemoteLoader"
     with patch(f"{remote_loader_class}.load_model") as mock_load_model:
 
-        async def async_load_model_patch(manufacturer: str, __: str) -> tuple[dict, str] | None:
+        def async_load_model_patch(manufacturer: str, __: str) -> tuple[dict, str] | None:
             if manufacturer == "foo":
                 return None
 
@@ -288,10 +297,10 @@ async def test_autodiscover_model_with_default_sub_profile(
         "Shelly Plus 1PM",
     )
 
-    hass.states.async_set("switch.test", STATE_ON)
+    await set_states(hass, [("switch.test", STATE_ON)])
     await run_powercalc_setup(hass, {CONF_ENTITY_ID: "switch.test"})
 
-    assert hass.states.get("sensor.test_device_power").state == "1.00"
+    assert_entity_state(hass, "sensor.test_device_power", "1.00")
 
 
 async def test_linked_profile_fixed(
@@ -315,7 +324,5 @@ async def test_linked_profile_fixed(
         },
     )
 
-    hass.states.async_set("switch.test", STATE_ON)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.test_device_power").state == "1.01"
+    await set_states(hass, [("switch.test", STATE_ON)])
+    assert_entity_state(hass, "sensor.test_device_power", "1.01")

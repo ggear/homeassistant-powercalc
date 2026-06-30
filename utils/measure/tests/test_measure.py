@@ -1,21 +1,30 @@
 from collections.abc import Iterator
 import csv
 from io import StringIO
+import json
 import logging
 import os
 import sys
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import inquirer
 from inquirer import events
 from inquirer.render import ConsoleRender
 from measure.config import MeasureConfig
-from measure.const import PROJECT_DIR, QUESTION_MODEL_ID, QUESTION_SELECTED_MEASURE_TYPE, MeasureType
+from measure.const import (
+    MODEL_JSON_MAX_VOLTAGE,
+    MODEL_JSON_MIN_VOLTAGE,
+    PROJECT_DIR,
+    QUESTION_MODEL_ID,
+    QUESTION_SELECTED_MEASURE_TYPE,
+    MeasureType,
+)
 from measure.controller.charging.const import ChargingDeviceType
 from measure.controller.light.const import LutMode
 from measure.measure import Measure
 from measure.powermeter.dummy import DummyPowerMeter
+from measure.powermeter.powermeter import PowerMeasurementResult, PowerMeter
 from measure.runner.const import (
     QUESTION_CHARGING_DEVICE_TYPE,
     QUESTION_COLOR_MODE,
@@ -25,9 +34,32 @@ from measure.runner.const import (
     QUESTION_MODE,
 )
 from measure.runner.speaker import QUESTION_DISABLE_STREAMING
-from measure.util.measure_util import MeasureUtil
+from measure.util.measure_util import (
+    AverageMeasurementConvergence,
+    AverageMeasurementSnapshot,
+    MeasurementResult,
+    MeasureUtil,
+)
 import pytest
 from readchar import key
+
+from tests.conftest import MockConfigFactory
+
+
+@pytest.fixture(autouse=True)
+def _mock_input() -> Iterator[None]:
+    with patch("builtins.input", return_value=""):
+        yield
+
+
+@pytest.fixture
+def mock_average_measurement() -> Iterator[MagicMock]:
+    with patch.object(
+        MeasureUtil,
+        "take_average_measurement",
+        return_value=MeasurementResult(power=1.5, voltages=[]),
+    ) as mock_take_measurement:
+        yield mock_take_measurement
 
 
 class EventGenerator:
@@ -42,7 +74,7 @@ def event_factory(*args: str) -> EventGenerator:
     return EventGenerator(*args)
 
 
-def test_wizard(mock_config_factory) -> None:  # noqa: ANN001
+def test_wizard(mock_config_factory: MockConfigFactory) -> None:
     """Test the CLI wizard, can we actually select certain options"""
     mock_config = mock_config_factory(
         set_question_defaults=False,
@@ -76,15 +108,13 @@ def test_wizard(mock_config_factory) -> None:  # noqa: ANN001
         ),
     )
 
-    with patch("builtins.input", return_value=""):
-        measure.start()
+    measure.start()
 
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/m/brightness.csv.gz"))
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/m/model.json"))
 
 
-@patch("time.sleep", return_value=None)
-def test_run_light(mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
+def test_run_light(mock_config_factory: MockConfigFactory) -> None:
     """Simulate a full run of the light measure using brightness mode"""
     mock_config = mock_config_factory()
 
@@ -92,12 +122,61 @@ def test_run_light(mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
     measure.start()
 
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/LCT010/brightness.csv.gz"))
-    assert os.path.exists(os.path.join(PROJECT_DIR, "export/LCT010/model.json"))
+    model_json_path = os.path.join(PROJECT_DIR, "export/LCT010/model.json")
+    assert os.path.exists(model_json_path)
+    with open(model_json_path) as model_json_file:
+        model_json = json.load(model_json_file)
+    assert model_json[MODEL_JSON_MIN_VOLTAGE] == 233.0
+    assert model_json[MODEL_JSON_MAX_VOLTAGE] == 233.0
 
 
-@patch("builtins.input", return_value="")
-@patch("time.sleep", return_value=None)
-def test_run_smart_speaker(mock_input, mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
+def test_take_measurement_tracks_voltage_range(mock_config_factory: MockConfigFactory) -> None:
+    mock_config = mock_config_factory(config_values={"sample_count": 3})
+    power_meter = SequencePowerMeter(
+        [
+            PowerMeasurementResult(power=1.0, updated=1.0, voltage=231.2),
+            PowerMeasurementResult(power=2.0, updated=2.0, voltage=229.9),
+            PowerMeasurementResult(power=3.0, updated=3.0, voltage=230.4),
+        ],
+    )
+    measure_util = MeasureUtil(
+        power_meter,
+        mock_config,
+        include_voltage=lambda: True,
+    )
+
+    result = measure_util.take_measurement()
+    assert result.power == 2.0
+    assert result.voltages == [231.2, 229.9, 230.4]
+
+
+@pytest.mark.parametrize(
+    ("absolute_threshold", "relative_threshold", "snapshots", "expected"),
+    [
+        pytest.param(0.1, 0.01, [(0, 10.0), (19, 10.0)], False, id="before-min"),
+        pytest.param(0.1, 0.01, [(5, 10.0), (20, 10.09)], True, id="abs-stable"),
+        pytest.param(0.01, 0.01, [(5, 100.0), (20, 100.5)], True, id="rel-stable"),
+        pytest.param(0.1, 0.01, [(5, 10.0), (20, 11.0)], False, id="unstable"),
+    ],
+)
+def test_average_convergence(
+    absolute_threshold: float,
+    relative_threshold: float,
+    snapshots: list[tuple[float, float]],
+    expected: bool,
+) -> None:
+    convergence = AverageMeasurementConvergence(
+        min_duration=20,
+        window_duration=15,
+        absolute_threshold=absolute_threshold,
+        relative_threshold=relative_threshold,
+    )
+    average_snapshots = [AverageMeasurementSnapshot(elapsed=elapsed, average=average) for elapsed, average in snapshots]
+
+    assert MeasureUtil.average_has_converged(average_snapshots, convergence) is expected
+
+
+def test_run_smart_speaker(mock_config_factory: MockConfigFactory, mock_average_measurement: MagicMock) -> None:
     """Simulate a full run of the speaker measure"""
     mock_config = mock_config_factory(
         question_defaults={
@@ -109,7 +188,6 @@ def test_run_smart_speaker(mock_input, mock_sleep, mock_config_factory) -> None:
     with (
         patch("measure.runner.speaker.SLEEP_PRE_MEASURE", 0),
         patch("measure.runner.speaker.SLEEP_MUTE", 0),
-        patch.object(MeasureUtil, "take_average_measurement", return_value=1.5),
     ):
         measure = _create_measure_instance(config=mock_config)
         measure.start()
@@ -117,9 +195,7 @@ def test_run_smart_speaker(mock_input, mock_sleep, mock_config_factory) -> None:
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/LCT010/model.json"))
 
 
-@patch("builtins.input", return_value="")
-@patch("time.sleep", return_value=None)
-def test_run_charging(mock_input, mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
+def test_run_charging(mock_config_factory: MockConfigFactory, mock_average_measurement: MagicMock) -> None:
     """Simulate a full run of the charging measure"""
     mock_config = mock_config_factory(
         question_defaults={
@@ -128,16 +204,13 @@ def test_run_charging(mock_input, mock_sleep, mock_config_factory) -> None:  # n
         },
     )
 
-    with patch.object(MeasureUtil, "take_average_measurement", return_value=1.5):
-        measure = _create_measure_instance(config=mock_config)
-        measure.start()
+    measure = _create_measure_instance(config=mock_config)
+    measure.start()
 
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/LCT010/model.json"))
 
 
-@patch("builtins.input", return_value="")
-@patch("time.sleep", return_value=None)
-def test_run_fan(mock_input, mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
+def test_run_fan(mock_config_factory: MockConfigFactory, mock_average_measurement: MagicMock) -> None:
     """Simulate a full run of the fan measure"""
     mock_config = mock_config_factory(
         question_defaults={
@@ -145,16 +218,13 @@ def test_run_fan(mock_input, mock_sleep, mock_config_factory) -> None:  # noqa: 
         },
     )
 
-    with patch.object(MeasureUtil, "take_average_measurement", return_value=1.5):
-        measure = _create_measure_instance(config=mock_config)
-        measure.start()
+    measure = _create_measure_instance(config=mock_config)
+    measure.start()
 
     assert os.path.exists(os.path.join(PROJECT_DIR, "export/LCT010/model.json"))
 
 
-@patch("builtins.input", return_value="")
-@patch("time.sleep", return_value=None)
-def test_run_recorder(mock_input, mock_sleep, mock_config_factory) -> None:  # noqa: ANN001
+def test_run_recorder(mock_config_factory: MockConfigFactory) -> None:
     """Simulate a full run of the recorder measure"""
     mock_config = mock_config_factory(
         question_defaults={
@@ -163,10 +233,11 @@ def test_run_recorder(mock_input, mock_sleep, mock_config_factory) -> None:  # n
         },
     )
 
-    def side_effect(_: Any) -> None:  # noqa: ANN401
+    def side_effect(_: object) -> MeasurementResult:
         if side_effect.counter >= 5:
             raise KeyboardInterrupt
         side_effect.counter += 1
+        return MeasurementResult(power=1.5, voltages=[])
 
     side_effect.counter = 0
 
@@ -185,8 +256,11 @@ def test_run_recorder(mock_input, mock_sleep, mock_config_factory) -> None:  # n
     assert len(lines) == 5
 
 
-@patch("builtins.input", return_value="")
-def test_run_average(mock_input, mock_config_factory, caplog: pytest.LogCaptureFixture) -> None:  # noqa: ANN001
+def test_run_average(
+    mock_config_factory: MockConfigFactory,
+    caplog: pytest.LogCaptureFixture,
+    mock_average_measurement: MagicMock,
+) -> None:
     """Simulate a full run of the average measure"""
     caplog.set_level(logging.INFO)
     mock_config = mock_config_factory(
@@ -196,18 +270,17 @@ def test_run_average(mock_input, mock_config_factory, caplog: pytest.LogCaptureF
         },
     )
 
-    with patch.object(MeasureUtil, "take_average_measurement", return_value=1.5) as mock_take_measurement:
-        measure = _create_measure_instance(config=mock_config)
-        measure.start()
+    measure = _create_measure_instance(config=mock_config)
+    measure.start()
 
-        mock_take_measurement.assert_called_once_with(30)
+    mock_average_measurement.assert_called_once_with(30)
 
     assert not os.path.exists(os.path.join(PROJECT_DIR, "export", "generic"))
     assert "Exporting to" not in caplog.text
     assert "Files exported to" not in caplog.text
 
 
-def _create_measure_instance(config: MeasureConfig, console_events: EventGenerator | None = None):  # noqa: ANN202
+def _create_measure_instance(config: MeasureConfig, console_events: EventGenerator | None = None) -> Measure:
     """Create instance of the Measure class"""
 
     sys.stdin = StringIO()
@@ -221,7 +294,26 @@ def _create_measure_instance(config: MeasureConfig, console_events: EventGenerat
     return Measure(power_meter, config, render)
 
 
-def test_ask_questions_with_no_predefined_answers(mock_config_factory) -> None:  # noqa: ANN001
+class SequencePowerMeter(PowerMeter):
+    def __init__(self, measurements: list[PowerMeasurementResult]) -> None:
+        self.measurements = measurements
+        self.index = 0
+
+    def get_power(self, include_voltage: bool = False) -> PowerMeasurementResult:
+        measurement = self.measurements[self.index]
+        self.index += 1
+        if include_voltage:
+            return measurement
+        return PowerMeasurementResult(power=measurement.power, updated=measurement.updated)
+
+    def has_voltage_support(self) -> bool:
+        return True
+
+    def process_answers(self, answers: dict[str, Any]) -> None:
+        pass
+
+
+def test_ask_questions_with_no_predefined_answers(mock_config_factory: MockConfigFactory) -> None:
     """Test asking questions when no answers are predefined in config"""
     mock_config = mock_config_factory()
     measure = _create_measure_instance(config=mock_config)
@@ -238,7 +330,7 @@ def test_ask_questions_with_no_predefined_answers(mock_config_factory) -> None: 
     assert answers[QUESTION_GZIP] is True
 
 
-def test_ask_questions_with_all_predefined_answers(mock_config_factory) -> None:  # noqa: ANN001
+def test_ask_questions_with_all_predefined_answers(mock_config_factory: MockConfigFactory) -> None:
     """Test asking questions when all answers are predefined in config"""
     mock_config = mock_config_factory(
         config_values={
@@ -259,7 +351,7 @@ def test_ask_questions_with_all_predefined_answers(mock_config_factory) -> None:
     assert answers[QUESTION_GZIP] is True
 
 
-def test_ask_questions_with_partial_predefined_answers(mock_config_factory) -> None:  # noqa: ANN001
+def test_ask_questions_with_partial_predefined_answers(mock_config_factory: MockConfigFactory) -> None:
     """Test asking questions when only some answers are predefined in config"""
     mock_config = mock_config_factory(
         config_values={
@@ -280,7 +372,7 @@ def test_ask_questions_with_partial_predefined_answers(mock_config_factory) -> N
     assert answers[QUESTION_GZIP] is True
 
 
-def test_ask_questions_with_list_type(mock_config_factory) -> None:  # noqa: ANN001
+def test_ask_questions_with_list_type(mock_config_factory: MockConfigFactory) -> None:
     """Test asking questions that include a List question type"""
     mock_config = mock_config_factory()
     measure = _create_measure_instance(config=mock_config)
@@ -297,7 +389,7 @@ def test_ask_questions_with_list_type(mock_config_factory) -> None:  # noqa: ANN
     assert answers[QUESTION_COLOR_MODE] == "brightness"
 
 
-def test_ask_questions_with_mode_converts_to_lut_mode_set(mock_config_factory) -> None:  # noqa: ANN001
+def test_ask_questions_with_mode_converts_to_lut_mode_set(mock_config_factory: MockConfigFactory) -> None:
     """Test that a mode answer is converted to a set containing a LutMode"""
     mock_config = mock_config_factory(set_question_defaults=False)
     measure = _create_measure_instance(config=mock_config)

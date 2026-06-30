@@ -18,14 +18,13 @@ from custom_components.powercalc.const import (
 )
 from custom_components.powercalc.flow_helper.flows.library import CONF_CONFIRM_AUTODISCOVERED_MODEL
 from custom_components.test.light import MockLight
-from tests.common import create_mock_light_entity
+from tests.common import create_mock_config_entry, create_mock_light_entity
 from tests.config_flow.common import (
     DEFAULT_UNIQUE_ID,
     assert_default_virtual_power_entry_data,
     confirm_auto_discovered_model,
-    create_mock_entry,
     goto_virtual_power_strategy_step,
-    initialize_options_flow,
+    handle_options_flow_update,
     set_virtual_power_configuration,
 )
 from tests.conftest import MockEntityWithModel
@@ -77,7 +76,6 @@ async def test_lut_manual_flow(hass: HomeAssistant) -> None:
         {CONF_MANUFACTURER: "signify", CONF_MODEL: "LCT010"},
     )
 
-    await hass.async_block_till_done()
     assert hass.states.get("sensor.test_power")
     assert hass.states.get("sensor.test_energy")
 
@@ -136,7 +134,7 @@ async def test_lut_not_autodiscovered_model_unsupported(
 
 async def test_lut_not_autodiscovered(hass: HomeAssistant) -> None:
     light_entity = MockLight("test", STATE_ON)
-    light_entity._attr_unique_id = None  # noqa
+    light_entity._attr_unique_id = None  # noqa: SLF001
     await create_mock_light_entity(hass, light_entity)
 
     result = await goto_virtual_power_strategy_step(hass, CalculationStrategy.LUT)
@@ -209,7 +207,7 @@ async def test_lut_flow_with_sub_profiles(
 
 
 async def test_lut_options_flow(hass: HomeAssistant) -> None:
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "light.spots_kitchen",
@@ -221,14 +219,6 @@ async def test_lut_options_flow(hass: HomeAssistant) -> None:
         },
     )
 
-    result = await initialize_options_flow(hass, entry, Step.BASIC_OPTIONS)
+    await handle_options_flow_update(hass, entry, Step.BASIC_OPTIONS, {CONF_CREATE_ENERGY_SENSOR: False})
 
-    user_input = {CONF_CREATE_ENERGY_SENSOR: False}
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
-    )
-
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert not entry.data[CONF_CREATE_ENERGY_SENSOR]

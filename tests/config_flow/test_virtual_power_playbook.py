@@ -16,11 +16,12 @@ from custom_components.powercalc.const import (
     CalculationStrategy,
     SensorType,
 )
-from tests.common import run_powercalc_setup
+from custom_components.powercalc.flow_helper.flows.virtual_power import wrap_strategy_form_data
+from tests.common import create_mock_config_entry, run_powercalc_setup, set_states
 from tests.config_flow.common import (
     assert_default_virtual_power_entry_data,
-    create_mock_entry,
     goto_virtual_power_strategy_step,
+    handle_options_flow_update,
     initialize_options_flow,
     set_virtual_power_configuration,
 )
@@ -28,6 +29,7 @@ from tests.config_flow.common import (
 
 async def test_create_entry(hass: HomeAssistant) -> None:
     result = await goto_virtual_power_strategy_step(hass, CalculationStrategy.PLAYBOOK)
+    assert result.get("preview") is None
     result = await set_virtual_power_configuration(
         hass,
         result,
@@ -57,13 +59,12 @@ async def test_create_entry(hass: HomeAssistant) -> None:
         },
     )
 
-    await hass.async_block_till_done()
     assert hass.states.get("sensor.test_power")
     assert hass.states.get("sensor.test_energy")
 
 
 async def test_options_flow(hass: HomeAssistant) -> None:
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "light.test",
@@ -78,24 +79,26 @@ async def test_options_flow(hass: HomeAssistant) -> None:
                 CONF_AUTOSTART: "playbook1",
             },
         },
+        setup=False,
     )
 
     result = await initialize_options_flow(hass, entry, Step.PLAYBOOK)
+    assert result.get("preview") is None
 
-    user_input = {
-        CONF_PLAYBOOKS: [
-            {"id": "playbook1", "path": "test.csv"},
-            {"id": "playbook2", "path": "test2.csv"},
-        ],
-        CONF_REPEAT: True,
-        CONF_AUTOSTART: "playbook2",
-    }
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
+    await handle_options_flow_update(
+        hass,
+        entry,
+        Step.PLAYBOOK,
+        {
+            CONF_PLAYBOOKS: [
+                {"id": "playbook1", "path": "test.csv"},
+                {"id": "playbook2", "path": "test2.csv"},
+            ],
+            CONF_REPEAT: True,
+            CONF_AUTOSTART: "playbook2",
+        },
     )
 
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_PLAYBOOK][CONF_REPEAT]
     assert entry.data[CONF_PLAYBOOK][CONF_AUTOSTART] == "playbook2"
 
@@ -114,6 +117,23 @@ async def test_playbooks_mandatory(hass: HomeAssistant) -> None:
     assert result["errors"] == {"base": "playbook_mandatory"}
 
 
+def test_wrap_strategy_form_data_converts_state_trigger_dict_to_list() -> None:
+    """State trigger is stored as a state→playbook dict, but the form expects a list of dicts."""
+
+    result = wrap_strategy_form_data(
+        CalculationStrategy.PLAYBOOK,
+        {
+            CONF_PLAYBOOKS: [{"id": "playbook1", "path": "test.csv"}],
+            CONF_STATE_TRIGGER: {STATE_IDLE: "playbook1", STATE_PLAYING: "playbook2"},
+        },
+    )
+
+    assert result[CONF_STATE_TRIGGER] == [
+        {"state": STATE_IDLE, "playbook_id": "playbook1"},
+        {"state": STATE_PLAYING, "playbook_id": "playbook2"},
+    ]
+
+
 async def test_state_trigger(hass: HomeAssistant) -> None:
     result = await goto_virtual_power_strategy_step(
         hass,
@@ -128,18 +148,16 @@ async def test_state_trigger(hass: HomeAssistant) -> None:
                 {"id": "playbook1", "path": "test.csv"},
                 {"id": "playbook2", "path": "test2.csv"},
             ],
-            CONF_STATE_TRIGGER: {
-                STATE_IDLE: "playbook1",
-                STATE_PLAYING: "playbook2",
-            },
+            CONF_STATE_TRIGGER: [
+                {"state": STATE_IDLE, "playbook_id": "playbook1"},
+                {"state": STATE_PLAYING, "playbook_id": "playbook2"},
+            ],
         },
     )
 
     await run_powercalc_setup(hass)
 
-    hass.states.async_set("media_player.test", STATE_IDLE)
-    await hass.async_block_till_done()
-
+    await set_states(hass, [("media_player.test", STATE_IDLE)])
     result = await hass.services.async_call(
         DOMAIN,
         SERVICE_GET_ACTIVE_PLAYBOOK,

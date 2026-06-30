@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime as dt
 import logging
 import os
@@ -9,7 +11,13 @@ import time
 import numpy as np
 
 from measure.config import MeasureConfig
-from measure.const import DUMMY_LOAD_MEASUREMENT_COUNT, DUMMY_LOAD_MEASUREMENTS_DURATION, PROJECT_DIR, RETRY_COUNT_LIMIT, Trend
+from measure.const import (
+    DUMMY_LOAD_MEASUREMENT_COUNT,
+    DUMMY_LOAD_MEASUREMENTS_DURATION,
+    PROJECT_DIR,
+    RETRY_COUNT_LIMIT,
+    Trend,
+)
 from measure.powermeter.errors import (
     OutdatedMeasurementError,
     PowerMeterError,
@@ -20,13 +28,53 @@ from measure.powermeter.powermeter import PowerMeasurementResult, PowerMeter
 _LOGGER = logging.getLogger("measure")
 
 
+@dataclass(frozen=True)
+class MeasurementResult:
+    power: float
+    voltages: list[float]
+
+
+@dataclass(frozen=True)
+class AverageMeasurementConvergence:
+    min_duration: int
+    window_duration: int
+    absolute_threshold: float
+    relative_threshold: float
+
+
+@dataclass(frozen=True)
+class AverageMeasurementSnapshot:
+    elapsed: float
+    average: float
+
+
+@dataclass
+class AverageMeasurementState:
+    start_time: float
+    readings: list[float]
+    snapshots: list[AverageMeasurementSnapshot]
+    voltages: list[float]
+    consecutive_errors: int = 0
+
+
 class MeasureUtil:
-    def __init__(self, power_meter: PowerMeter, config: MeasureConfig) -> None:
+    def __init__(
+        self,
+        power_meter: PowerMeter,
+        config: MeasureConfig,
+        include_voltage: Callable[[], bool] | None = None,
+    ) -> None:
         self.power_meter = power_meter
         self.dummy_load_value: float | None = None
         self.config = config
+        self._include_voltage = include_voltage or (lambda: False)
 
-    def take_average_measurement(self, duration: int, measure_resistance: bool = False) -> float:
+    def take_average_measurement(
+        self,
+        duration: int,
+        measure_resistance: bool = False,
+        convergence: AverageMeasurementConvergence | None = None,
+    ) -> MeasurementResult:
         """
         Measure the average power consumption or resistance for a given time period in seconds.
 
@@ -40,6 +88,7 @@ class MeasureUtil:
         Args:
             duration (int): The time duration (in seconds) over which to take measurements.
             measure_resistance (bool): Whether to measure resistance instead of power. Defaults to False.
+            convergence (AverageMeasurementConvergence | None): Stop early when the cumulative average has stabilized.
 
         Returns:
             float: The average resistance (in Ω) or power (in W) over the measurement duration.
@@ -56,150 +105,216 @@ class MeasureUtil:
             - Ignores single measurements of <= 0 W.
         """
         _LOGGER.info("Measuring average %s over %s seconds", "resistance" if measure_resistance else "power", duration)
-        start_time = time.time()
-        readings: list[float] = []
+        state = self._collect_average_measurements(duration, measure_resistance, convergence)
 
-        first_measurement = True
-
-        while (time.time() - start_time) < duration:
-            if first_measurement:
-                first_measurement = False
-            else:
-                # sleep time exceeds duration
-                if not ((time.time() - start_time + self.config.sleep_time) < duration):
-                    break
-                time.sleep(self.config.sleep_time)
-
-            if measure_resistance:
-                result = self.power_meter.get_power(include_voltage=True)
-                power, voltage = result.power, result.voltage
-
-                if voltage < 1:
-                    _LOGGER.error("Error during measurement: Voltage measurement returned zero. Aborting measurement.")
-                    exit(1)
-
-                if round(power, 2) == 0:
-                    _LOGGER.warning("Invalid measurement: power: %.2f W, voltage: %.2f", power, voltage)
-                    continue
-
-                resistance = round((voltage**2) / power, 4)
-                readings.append(resistance)
-                _LOGGER.debug(
-                    "Measured resistance: %.2f Ω; measured power: %.2f W, voltage: %.2f",
-                    resistance,
-                    power,
-                    voltage,
-                )
-                continue
-
-            if self.dummy_load_value:  # measurement with dummy load
-                # Validate power meter is capable of measuring voltage
-                self._validate_voltage_support()
-
-                result = self.power_meter.get_power(include_voltage=True)
-
-                power, voltage = result.power, result.voltage
-
-                if voltage < 1:
-                    _LOGGER.error("Error during measurement: Voltage measurement returned zero. Aborting measurement.")
-                    exit(1)
-
-                dummy_power = (voltage**2) / self.dummy_load_value
-                power -= dummy_power
-
-                if round(power, 2) <= 0:
-                    _LOGGER.warning(
-                        "Invalid measurement after subtracting dummy load consumption. Calculated consumption: %.2f W; ignoring",
-                        power,
-                    )
-                    continue
-
-                readings.append(power)
-                _LOGGER.info("Measured power: %.2f W", power)
-                continue
-
-            # measurement without dummy load
-            power = self.power_meter.get_power().power
-            if round(power, 2) == 0:
-                _LOGGER.warning("Invalid measurement. Consumption: %.2f W; ignoring", power)
-
-                continue
-            readings.append(power)
-            _LOGGER.info("Measured power: %.2f W", power)
-
-        if not readings:
+        if not state.readings:
             _LOGGER.error("No valid readings were recorded.")
             exit(1)
 
-        average = round(mean(readings), 2)
-        _LOGGER.info("Average of %d measurements: %.2f %s", len(readings), average, "Ω" if measure_resistance else "W")
-        return average
+        average = round(mean(state.readings), 2)
+        _LOGGER.info(
+            "Average of %d measurements: %.2f %s",
+            len(state.readings),
+            average,
+            "Ω" if measure_resistance else "W",
+        )
+        return MeasurementResult(power=average, voltages=state.voltages)
+
+    def _collect_average_measurements(
+        self,
+        duration: int,
+        measure_resistance: bool,
+        convergence: AverageMeasurementConvergence | None,
+    ) -> AverageMeasurementState:
+        start_time = time.time()
+        state = AverageMeasurementState(start_time, [], [], [])
+        first_measurement = True
+
+        while (time.time() - start_time) < duration:
+            if not first_measurement and not self._sleep_before_next_average_reading(start_time, duration):
+                break
+            first_measurement = False
+
+            try:
+                result = self._take_average_measurement_reading(measure_resistance)
+            except PowerMeterError as error:
+                if self._average_measurement_retry_limit_reached(state, error):
+                    raise
+                continue
+
+            if self._record_average_measurement_result(state, result, convergence):
+                break
+
+        return state
+
+    def _average_measurement_retry_limit_reached(self, state: AverageMeasurementState, error: PowerMeterError) -> bool:
+        state.consecutive_errors += 1
+        _LOGGER.warning(
+            "Error during average measurement (attempt %d/%d): %s",
+            state.consecutive_errors,
+            self.config.max_retries,
+            error,
+        )
+        return state.consecutive_errors > self.config.max_retries
+
+    def _record_average_measurement_result(
+        self,
+        state: AverageMeasurementState,
+        result: MeasurementResult | None,
+        convergence: AverageMeasurementConvergence | None,
+    ) -> bool:
+        if result is None:
+            return False
+
+        state.consecutive_errors = 0
+        state.readings.append(result.power)
+        state.voltages.extend(result.voltages)
+        self._append_average_snapshot(state.start_time, state.readings, state.snapshots)
+        return bool(convergence and self.average_has_converged(state.snapshots, convergence))
+
+    @staticmethod
+    def _append_average_snapshot(
+        start_time: float,
+        readings: list[float],
+        snapshots: list[AverageMeasurementSnapshot],
+    ) -> None:
+        """Record the cumulative average at the current elapsed measurement time."""
+        snapshots.append(
+            AverageMeasurementSnapshot(
+                elapsed=time.time() - start_time,
+                average=mean(readings),
+            ),
+        )
+
+    @staticmethod
+    def average_has_converged(
+        snapshots: list[AverageMeasurementSnapshot],
+        convergence: AverageMeasurementConvergence,
+    ) -> bool:
+        """Check whether the cumulative average is stable over the configured lookback window."""
+        current = snapshots[-1]
+        if current.elapsed < convergence.min_duration:
+            return False
+
+        comparison_elapsed = current.elapsed - convergence.window_duration
+        comparison = next(
+            (snapshot for snapshot in reversed(snapshots[:-1]) if snapshot.elapsed <= comparison_elapsed),
+            None,
+        )
+        if comparison is None:
+            return False
+
+        delta = abs(current.average - comparison.average)
+        if delta <= convergence.absolute_threshold:
+            _LOGGER.info(
+                "Average converged after %.1f seconds: %.2f W changed %.2f W over %.1f seconds",
+                current.elapsed,
+                current.average,
+                delta,
+                convergence.window_duration,
+            )
+            return True
+
+        if comparison.average == 0:
+            return False
+
+        relative_delta = delta / abs(comparison.average)
+        if relative_delta <= convergence.relative_threshold:
+            _LOGGER.info(
+                "Average converged after %.1f seconds: %.2f W changed %.2f%% over %.1f seconds",
+                current.elapsed,
+                current.average,
+                relative_delta * 100,
+                convergence.window_duration,
+            )
+            return True
+
+        return False
+
+    def _take_average_measurement_reading(self, measure_resistance: bool) -> MeasurementResult | None:
+        """Take one reading using the average-measurement mode selected for this run."""
+        if measure_resistance:
+            return self._take_resistance_reading()
+
+        if self.dummy_load_value:
+            return self._take_dummy_load_power_reading()
+
+        return self._take_power_reading()
+
+    def _sleep_before_next_average_reading(self, start_time: float, duration: int) -> bool:
+        if not ((time.time() - start_time + self.config.sleep_time) < duration):
+            return False
+        time.sleep(self.config.sleep_time)
+        return True
+
+    def _take_resistance_reading(self) -> MeasurementResult | None:
+        result = self.power_meter.get_power(include_voltage=True)
+        power, voltage = result.power, result.voltage
+
+        if voltage < 1:
+            _LOGGER.error("Error during measurement: Voltage measurement returned zero. Aborting measurement.")
+            exit(1)
+
+        if round(power, 2) == 0:
+            _LOGGER.warning("Invalid measurement: power: %.2f W, voltage: %.2f", power, voltage)
+            return None
+
+        resistance = round((voltage**2) / power, 4)
+        _LOGGER.debug("Measured resistance: %.2f Ω; measured power: %.2f W, voltage: %.2f", resistance, power, voltage)
+        return MeasurementResult(power=resistance, voltages=[voltage])
+
+    def _take_dummy_load_power_reading(self) -> MeasurementResult | None:
+        self._validate_voltage_support()
+
+        result = self.power_meter.get_power(include_voltage=True)
+        power, voltage = result.power, result.voltage
+
+        if voltage < 1:
+            _LOGGER.error("Error during measurement: Voltage measurement returned zero. Aborting measurement.")
+            exit(1)
+
+        assert self.dummy_load_value is not None
+        power -= (voltage**2) / self.dummy_load_value
+        if round(power, 2) <= 0:
+            _LOGGER.warning(
+                "Invalid measurement after subtracting dummy load consumption. "
+                "Calculated consumption: %.2f W; ignoring",
+                power,
+            )
+            return None
+
+        _LOGGER.info("Measured power: %.2f W", power)
+        return MeasurementResult(power=power, voltages=[voltage])
+
+    def _take_power_reading(self) -> MeasurementResult | None:
+        measurement = self.power_meter.get_power(include_voltage=self._include_voltage())
+        power = measurement.power
+        if round(power, 2) == 0:
+            _LOGGER.warning("Invalid measurement. Consumption: %.2f W; ignoring", power)
+            return None
+        _LOGGER.info("Measured power: %.2f W", power)
+        return MeasurementResult(power=power, voltages=self._get_voltages(measurement))
 
     def take_measurement(
         self,
         start_timestamp: float | None = None,
         retry_count: int = 0,
-    ) -> float:
+    ) -> MeasurementResult:
         """Get a measurement from the powermeter, take multiple samples and calculate the average"""
 
-        measurements = []
+        measurements: list[float] = []
+        voltages: list[float] = []
         # Take multiple samples to reduce noise
         for i in range(1, self.config.sample_count + 1):
             _LOGGER.debug("Taking sample %d", i)
-            error = None
-            measurement: PowerMeasurementResult | None = None
-
-            try:
-                measurement = self.power_meter.get_power(include_voltage=bool(self.dummy_load_value))
-
-                updated_at = dt.fromtimestamp(measurement.updated).strftime(
-                    "%d-%m-%Y, %H:%M:%S",
-                )
-                _LOGGER.debug("Measurement received (update_time=%s)", updated_at)
-            except PowerMeterError as err:
-                error = err
-
+            measurement, error = self._get_power_measurement()
             if measurement:
-                # Check if measurement is not outdated
-                if start_timestamp and measurement.updated < start_timestamp:
-                    error = OutdatedMeasurementError(
-                        "Power measurement is outdated. Aborting after %d successive retries",
-                        self.config.max_retries,
-                    )
-
-                power = measurement.power
-
-                # Check if we not have a 0 measurement
-                if round(power, 2) <= 0:
-                    error = ZeroReadingError("0 watt was read from the power meter")
-
-                if self.dummy_load_value:
-                    voltage = measurement.voltage
-                    if voltage < 1:
-                        error = ZeroReadingError("0 Volt was read from the power meter")
-                    else:
-                        dummy_power = (voltage**2) / self.dummy_load_value
-                        power -= dummy_power
-
-                        if round(power, 2) <= 0:
-                            error = ZeroReadingError("0 watt was read from the power meter, after subtracting the dummy load")
-
-                measurements.append(power)
+                result, error = self._validate_power_measurement(measurement, start_timestamp)
+                measurements.append(result.power)
+                voltages.extend(result.voltages)
 
             if error:
-                # Prevent endless recursion. Throw error when max retries is reached
-                if retry_count == self.config.max_retries:
-                    raise error
-                if retry_count >= RETRY_COUNT_LIMIT:
-                    _LOGGER.error(
-                        "Retry count exceeded %d. Configured max_retries value: %d. Aborting to prevent infinite loop.",
-                        RETRY_COUNT_LIMIT,
-                        self.config.max_retries,
-                    )
-                    raise error
-                retry_count += 1
-                time.sleep(self.config.sleep_time)
-                return self.take_measurement(start_timestamp, retry_count)
+                return self._retry_measurement_or_raise(error, start_timestamp, retry_count)
 
             if self.config.sample_count > 1:
                 time.sleep(self.config.sleep_time_sample)
@@ -211,7 +326,70 @@ class MeasureUtil:
 
         average = mean(measurements)
         _LOGGER.info("Average measurement: %.3f W", average)
-        return average
+        return MeasurementResult(power=average, voltages=voltages)
+
+    def _get_power_measurement(self) -> tuple[PowerMeasurementResult | None, PowerMeterError | None]:
+        try:
+            include_voltage = self.dummy_load_value is not None or self._include_voltage()
+            measurement = self.power_meter.get_power(include_voltage=include_voltage)
+        except PowerMeterError as error:
+            return None, error
+
+        updated_at = dt.fromtimestamp(measurement.updated).strftime("%d-%m-%Y, %H:%M:%S")
+        _LOGGER.debug("Measurement received (update_time=%s)", updated_at)
+        return measurement, None
+
+    def _validate_power_measurement(
+        self,
+        measurement: PowerMeasurementResult,
+        start_timestamp: float | None,
+    ) -> tuple[MeasurementResult, PowerMeterError | None]:
+        if start_timestamp and measurement.updated < start_timestamp:
+            result = MeasurementResult(power=measurement.power, voltages=self._get_voltages(measurement))
+            return result, OutdatedMeasurementError(
+                "Power measurement is outdated. Aborting after %d successive retries",
+                self.config.max_retries,
+            )
+
+        power = measurement.power
+        voltages = self._get_voltages(measurement)
+        error: PowerMeterError | None = None
+        if round(power, 2) <= 0:
+            error = ZeroReadingError("0 watt was read from the power meter")
+
+        if self.dummy_load_value:
+            power, error = self._subtract_dummy_load(measurement)
+
+        return MeasurementResult(power=power, voltages=voltages), error
+
+    def _subtract_dummy_load(self, measurement: PowerMeasurementResult) -> tuple[float, PowerMeterError | None]:
+        voltage = measurement.voltage
+        if voltage < 1:
+            return measurement.power, ZeroReadingError("0 Volt was read from the power meter")
+
+        assert self.dummy_load_value is not None
+        power = measurement.power - (voltage**2) / self.dummy_load_value
+        if round(power, 2) <= 0:
+            return power, ZeroReadingError("0 watt was read from the power meter, after subtracting the dummy load")
+        return power, None
+
+    def _retry_measurement_or_raise(
+        self,
+        error: PowerMeterError,
+        start_timestamp: float | None,
+        retry_count: int,
+    ) -> MeasurementResult:
+        if retry_count == self.config.max_retries:
+            raise error
+        if retry_count >= RETRY_COUNT_LIMIT:
+            _LOGGER.error(
+                "Retry count exceeded %d. Configured max_retries value: %d. Aborting to prevent infinite loop.",
+                RETRY_COUNT_LIMIT,
+                self.config.max_retries,
+            )
+            raise error
+        time.sleep(self.config.sleep_time)
+        return self.take_measurement(start_timestamp, retry_count + 1)
 
     def initialize_dummy_load(self) -> float:
         """Get the previously measured dummy load resistance, or take a new measurement if it doesn't exist"""
@@ -226,7 +404,9 @@ class MeasureUtil:
             _LOGGER.info("Dummy load was already measured before, value: %s Ω", value)
 
             print("You need to preheat the dummy load, so it's consumption can stabilize.")
-            print("If you're unsure the dummy load is sufficiently preheated or you're using a different one, remeasure.")
+            print(
+                "If you're unsure the dummy load is sufficiently preheated or you're using a different one, remeasure.",
+            )
             print()
             inquirer = input("Do you want to measure the dummy load again? (y/n): ")
             if inquirer.lower() == "n":
@@ -258,7 +438,8 @@ class MeasureUtil:
 
         while True:
             averages = [
-                self.take_average_measurement(DUMMY_LOAD_MEASUREMENTS_DURATION, measure_resistance=True) for _ in range(DUMMY_LOAD_MEASUREMENT_COUNT)
+                self.take_average_measurement(DUMMY_LOAD_MEASUREMENTS_DURATION, measure_resistance=True).power
+                for _ in range(DUMMY_LOAD_MEASUREMENT_COUNT)
             ]
 
             trend = self._check_trend(averages)
@@ -323,6 +504,12 @@ class MeasureUtil:
     def _validate_voltage_support(self) -> None:
         """Check if the power meter supports voltage readings."""
 
-        if not self.power_meter.has_voltage_support:
+        if not self.power_meter.has_voltage_support():
             print("The selected power meter does not support voltage measurements, required to measure dummy loads.")
             exit(1)
+
+    @staticmethod
+    def _get_voltages(measurement: PowerMeasurementResult) -> list[float]:
+        if measurement.voltage is None:
+            return []
+        return [measurement.voltage]

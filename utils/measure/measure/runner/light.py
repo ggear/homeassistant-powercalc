@@ -27,7 +27,7 @@ from measure.powermeter.errors import (
 from measure.runner.const import QUESTION_GZIP, QUESTION_MODE, QUESTION_MULTIPLE_LIGHTS, QUESTION_NUM_LIGHTS
 from measure.runner.errors import RunnerError
 from measure.runner.runner import MeasurementRunner, RunnerResult
-from measure.util.measure_util import MeasureUtil
+from measure.util.measure_util import AverageMeasurementConvergence, MeasurementResult, MeasureUtil
 
 CSV_HEADERS = {
     LutMode.HS: ["bri", "hue", "sat", "watt"],
@@ -43,14 +43,15 @@ _LOGGER = logging.getLogger("measure")
 
 
 class LightRunner(MeasurementRunner):
-    """
-    This class is responsible for measuring the power usage of a light. It uses a LightController to control the light, and a PowerMeter
-    to measure the power usage. The measurements are exported as CSV files in export/<model_id>/<color_mode>.csv (or .csv.gz). The
-    model_id is retrieved from the LightController and color mode can be selected by user input or self.config.file (.env). The CSV files
-    contain one row per variation, where each column represents one property of that variation (e.g., brightness, hue, saturation). The last
-    column contains the measured power value in watt.
-    If you want to generate model JSON files for the LUT model, you can do so by answering yes to the question "Do you want to generate
-    model.json?".
+    """Measure the power usage of a light.
+
+    Uses a LightController to control the light, and a PowerMeter to measure the power usage.
+    The measurements are exported as CSV files in export/<model_id>/<color_mode>.csv (or .csv.gz).
+    The model_id is retrieved from the LightController and color mode can be selected by user
+    input or self.config.file (.env). The CSV files contain one row per variation, where each
+    column represents one property of that variation (e.g., brightness, hue, saturation). The
+    last column contains the measured power value in watt. If you want to generate model JSON
+    files for the LUT model, answer yes to the question "Do you want to generate model.json?".
 
     # CSV file export/<model-id>/hs.csv will be created with measurements for HS
     color mode (e.g., hue and saturation). The last column contains the measured
@@ -85,14 +86,17 @@ class LightRunner(MeasurementRunner):
             all_variations.extend(measurement.variations)
         _LOGGER.info("Total number of variations: %d", len(all_variations))
         left_variations = all_variations.copy()
+        voltages: list[float] = []
 
-        [self.run_mode(answers, measurement_info, all_variations, left_variations) for measurement_info in measurements_to_run]
+        for measurement_info in measurements_to_run:
+            voltages.extend(self.run_mode(answers, measurement_info, all_variations, left_variations))
 
         return RunnerResult(
             model_json_data={
                 "device_type": "light",
                 "calculation_strategy": "lut",
             },
+            voltages=voltages,
         )
 
     def prepare_measurements_for_mode(self, export_directory: str, mode: LutMode) -> MeasurementRunInput:
@@ -121,10 +125,11 @@ class LightRunner(MeasurementRunner):
         measurement_info: MeasurementRunInput,
         all_variations: list[Variation],
         left_variations: list[Variation],
-    ) -> None:
+    ) -> list[float]:
         """Run the measurement session for lights"""
 
         mode = measurement_info.mode
+        voltages: list[float] = []
         if mode == LutMode.WHITE:
             self.light_controller.change_light_state(
                 mode,
@@ -133,14 +138,7 @@ class LightRunner(MeasurementRunner):
             )
             mode = LutMode.BRIGHTNESS
 
-        file_write_mode = "w"
-        write_header_row = True
-        if measurement_info.is_resuming:
-            _LOGGER.info("Resuming measurements")
-            file_write_mode = "a"
-            write_header_row = False
-
-        variations = measurement_info.variations
+        file_write_mode, write_header_row = self._get_csv_write_options(measurement_info)
 
         _LOGGER.info(
             "Starting measurements. Estimated duration: %s",
@@ -166,39 +164,19 @@ class LightRunner(MeasurementRunner):
             time.sleep(self.config.sleep_initial)
 
             previous_variation = None
-            for count, variation in enumerate(variations):
-                if count % 10 == 0:
-                    time_left = self.calculate_time_left(mode, all_variations, left_variations, variation)
-                    progress_percentage = ((len(all_variations) - len(left_variations)) / len(all_variations)) * 100
-                    _LOGGER.info(
-                        "Progress: %d%%, Estimated time left: %s",
-                        progress_percentage,
-                        time_left,
-                    )
+            for count, variation in enumerate(measurement_info.variations):
+                self._log_progress(mode, count, variation, all_variations, left_variations)
                 _LOGGER.info("Changing light to: %s", variation)
                 variation_start_time = time.time()
-                for _ in range(5):
-                    try:
-                        self.light_controller.change_light_state(
-                            mode,
-                            on=True,
-                            **asdict(variation),
-                        )
-                        break
-                    except ApiConnectionError as e:
-                        _LOGGER.warning("Failed to change light state: %s. Retrying...", e)
-                        time.sleep(5)
-                else:
-                    raise RunnerError("Failed to change light state after 5 retries")
-
+                self._change_light_with_retry(mode, variation)
                 self.wait(variation, previous_variation)
 
                 previous_variation = variation
 
                 try:
-                    power = self.take_power_measurement(mode, variation_start_time)
+                    measurement_result = self.take_power_measurement(mode, variation_start_time)
                 except OutdatedMeasurementError:
-                    power = self.nudge_and_remeasure(mode, variation)
+                    measurement_result = self.nudge_and_remeasure(mode, variation)
                 except ZeroReadingError as error:
                     self.num_0_readings += 1
                     _LOGGER.warning("Discarding measurement: %s", error)
@@ -206,13 +184,16 @@ class LightRunner(MeasurementRunner):
                         _LOGGER.error(
                             "Aborting measurement session. Received too many 0 readings",
                         )
-                        return
+                        return voltages
                     continue
                 except PowerMeterError as error:
                     _LOGGER.error("Aborting: %s", error)
-                    return
-                _LOGGER.info("Measured power: %.2f", power)
-                csv_writer.write_measurement(variation, power)
+                    return voltages
+                if measurement_result is None:
+                    continue
+                _LOGGER.info("Measured power: %.2f", measurement_result.power)
+                csv_writer.write_measurement(variation, measurement_result.power)
+                voltages.extend(measurement_result.voltages)
                 left_variations.remove(variation)
 
             csv_file.close()
@@ -226,6 +207,43 @@ class LightRunner(MeasurementRunner):
 
         if bool(answers.get(QUESTION_GZIP, True)):
             self.gzip_csv(measurement_info.csv_file)
+        return voltages
+
+    def _get_csv_write_options(self, measurement_info: MeasurementRunInput) -> tuple[str, bool]:
+        if not measurement_info.is_resuming:
+            return "w", True
+
+        _LOGGER.info("Resuming measurements")
+        return "a", False
+
+    def _log_progress(
+        self,
+        mode: LutMode,
+        count: int,
+        variation: Variation,
+        all_variations: list[Variation],
+        left_variations: list[Variation],
+    ) -> None:
+        if count % 10 != 0:
+            return
+
+        time_left = self.calculate_time_left(mode, all_variations, left_variations, variation)
+        progress_percentage = ((len(all_variations) - len(left_variations)) / len(all_variations)) * 100
+        _LOGGER.info("Progress: %d%%, Estimated time left: %s", progress_percentage, time_left)
+
+    def _change_light_with_retry(self, mode: LutMode, variation: Variation) -> None:
+        for _ in range(5):
+            try:
+                self.light_controller.change_light_state(
+                    mode,
+                    on=True,
+                    **asdict(variation),
+                )
+                return
+            except ApiConnectionError as error:
+                _LOGGER.warning("Failed to change light state: %s. Retrying...", error)
+                time.sleep(5)
+        raise RunnerError("Failed to change light state after 5 retries")
 
     def wait(self, variation: Variation, previous_variation: Variation | None) -> None:
         """Wait for the light to process the change"""
@@ -234,7 +252,11 @@ class LightRunner(MeasurementRunner):
         if not previous_variation:
             return
 
-        if isinstance(variation, ColorTempVariation) and isinstance(previous_variation, ColorTempVariation) and variation.ct < previous_variation.ct:
+        if (
+            isinstance(variation, ColorTempVariation)
+            and isinstance(previous_variation, ColorTempVariation)
+            and variation.ct < previous_variation.ct
+        ):
             _LOGGER.info("Extra waiting for significant CT change...")
             time.sleep(self.config.sleep_time_ct)
             return
@@ -477,7 +499,7 @@ class LightRunner(MeasurementRunner):
         self,
         mode: LutMode,
         variation: Variation,
-    ) -> float | None:
+    ) -> MeasurementResult | None:
         nudge_count = 0
         for nudge_count in range(self.config.max_nudges):  # noqa: B007
             try:
@@ -590,8 +612,8 @@ class LightRunner(MeasurementRunner):
 
         Notes
         -------
-        This method will raise an exception when something goes wrong while reading or parsing the CSV file or when an unsupported color
-        mode is used in the CSV file.
+        This method will raise an exception when something goes wrong while reading or parsing
+        the CSV file or when an unsupported color mode is used in the CSV file.
         """
 
         with open(csv_file_path) as csv_file:
@@ -624,17 +646,25 @@ class LightRunner(MeasurementRunner):
         mode: LutMode,
         start_timestamp: float,
         retry_count: int = 0,
-    ) -> float:
+    ) -> MeasurementResult:
         """Request a power reading from the configured power_meter"""
         if mode == LutMode.EFFECT:
-            value = self.measure_util.take_average_measurement(self.config.measure_time_effect)
+            result = self.measure_util.take_average_measurement(
+                self.config.measure_time_effect,
+                convergence=AverageMeasurementConvergence(
+                    min_duration=self.config.measure_time_effect_min,
+                    window_duration=self.config.measure_time_effect_convergence_window,
+                    absolute_threshold=self.config.measure_time_effect_convergence_abs,
+                    relative_threshold=self.config.measure_time_effect_convergence_rel,
+                ),
+            )
         else:
-            value = self.measure_util.take_measurement(start_timestamp, retry_count)
+            result = self.measure_util.take_measurement(start_timestamp, retry_count)
 
         # Determine per load power consumption
-        value /= self.num_lights
+        power = result.power / self.num_lights
 
-        return round(value, 2)
+        return MeasurementResult(power=round(power, 2), voltages=result.voltages)
 
     @staticmethod
     def gzip_csv(csv_file_path: str) -> None:
@@ -648,7 +678,7 @@ class LightRunner(MeasurementRunner):
         ):
             shutil.copyfileobj(csv_file, gzip_file)
 
-    def measure_standby_power(self) -> float:
+    def measure_standby_power(self) -> MeasurementResult:
         """Measures the standby power (when the light is OFF)"""
         self.light_controller.change_light_state(LutMode.BRIGHTNESS, on=False)
         start_time = time.time()
@@ -660,14 +690,14 @@ class LightRunner(MeasurementRunner):
         try:
             return self.take_power_measurement(LutMode.BRIGHTNESS, start_time)
         except OutdatedMeasurementError:
-            self.nudge_and_remeasure(LutMode.BRIGHTNESS, Variation(0))
+            return self.nudge_and_remeasure(LutMode.BRIGHTNESS, Variation(0)) or MeasurementResult(power=0, voltages=[])
         except ZeroReadingError:
             _LOGGER.error(
                 "Measured 0 watt as standby usage, continuing now, "
                 "but you probably need to have a look into measuring multiple lights at the same time "
                 "or using a dummy load.",
             )
-            return 0
+            return MeasurementResult(power=0, voltages=[])
 
     def get_questions(self) -> list[inquirer.questions.Question]:
         """Get questions to ask for the light runner"""
@@ -679,6 +709,7 @@ class LightRunner(MeasurementRunner):
         ]
         if self.light_controller.has_effect_support():
             modes.append((LutMode.EFFECT, {LutMode.EFFECT}))
+            modes.append(("hs + color_temp + effect", {LutMode.HS, LutMode.COLOR_TEMP, LutMode.EFFECT}))
 
         questions = [
             inquirer.List(

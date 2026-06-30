@@ -1,14 +1,13 @@
 from homeassistant.const import CONF_ENTITY_ID, CONF_NAME, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntry
-from pytest_homeassistant_custom_component.common import RegistryEntryWithDefaults, mock_device_registry, mock_registry
+from pytest_homeassistant_custom_component.common import RegistryEntryWithDefaults, mock_registry
 
 from custom_components.powercalc.const import (
     CONF_CUSTOM_MODEL_DIRECTORY,
     CONF_MANUFACTURER,
     CONF_MODEL,
 )
-from tests.common import get_test_profile_dir, run_powercalc_setup
+from tests.common import assert_entity_state, get_test_profile_dir, mock_device, run_powercalc_setup, set_states
 
 
 async def test_translation_key_standby_sub_profile(
@@ -37,16 +36,7 @@ async def test_translation_key_standby_sub_profile(
             ),
         },
     )
-    mock_device_registry(
-        hass,
-        {
-            device_id: DeviceEntry(
-                id=device_id,
-                manufacturer="test",
-                model="translation_key_standby_sub_profile",
-            ),
-        },
-    )
+    mock_device(hass, device_id, "test", "translation_key_standby_sub_profile")
 
     await run_powercalc_setup(
         hass,
@@ -68,25 +58,17 @@ async def test_translation_key_standby_sub_profile(
         ],
     )
 
-    hass.states.async_set("light.test", STATE_OFF)
-    hass.states.async_set("light.test_nightlight", STATE_OFF)
-    await hass.async_block_till_done()
+    await set_states(hass, [("light.test", STATE_OFF), ("light.test_nightlight", STATE_OFF)])
+    assert_entity_state(hass, "sensor.main_power", "0.40")
+    assert_entity_state(hass, "sensor.nightlight_power", "0.00")
+    assert_entity_state(hass, "sensor.all_standby_power", "0.40")
 
-    assert hass.states.get("sensor.main_power").state == "0.40"
-    assert hass.states.get("sensor.nightlight_power").state == "0.00"
-    assert hass.states.get("sensor.all_standby_power").state == "0.40"
+    await set_states(hass, [("light.test_nightlight", STATE_ON)])
+    assert_entity_state(hass, "sensor.main_power", "0.00")
+    assert_entity_state(hass, "sensor.nightlight_power", "1.24")
+    assert_entity_state(hass, "sensor.all_standby_power", "0.00")
 
-    hass.states.async_set("light.test_nightlight", STATE_ON)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.main_power").state == "0.00"
-    assert hass.states.get("sensor.nightlight_power").state == "1.24"
-    assert hass.states.get("sensor.all_standby_power").state == "0.00"
-
-    hass.states.async_set("light.test_nightlight", STATE_OFF)
-    hass.states.async_set("light.test", STATE_ON)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.main_power").state == "5.00"
-    assert hass.states.get("sensor.nightlight_power").state == "0.00"
-    assert hass.states.get("sensor.all_standby_power").state == "0.00"
+    await set_states(hass, [("light.test_nightlight", STATE_OFF), ("light.test", STATE_ON)])
+    assert_entity_state(hass, "sensor.main_power", "5.00")
+    assert_entity_state(hass, "sensor.nightlight_power", "0.00")
+    assert_entity_state(hass, "sensor.all_standby_power", "0.00")

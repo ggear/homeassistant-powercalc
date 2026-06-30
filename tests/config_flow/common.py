@@ -1,15 +1,12 @@
 from collections.abc import Mapping
 import json
 from typing import Any
-import uuid
 
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.const import CONF_ENTITY_ID, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.typing import ConfigType
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powercalc import DiscoveryManager
 from custom_components.powercalc.common import SourceEntity
@@ -22,6 +19,7 @@ from custom_components.powercalc.const import (
     CONF_CREATE_UTILITY_METERS,
     CONF_ENERGY_FILTER_OUTLIER_ENABLED,
     CONF_ENERGY_INTEGRATION_METHOD,
+    CONF_FIXED_VALUE,
     CONF_MANUFACTURER,
     CONF_MODE,
     CONF_MODEL,
@@ -109,7 +107,8 @@ async def initialize_options_flow(
     entry: config_entries.ConfigEntry,
     selected_menu_item: Step,
 ) -> FlowResult:
-    if entry.state != config_entries.ConfigEntryState.LOADED:
+    """Initialize the options flow for a given config entry."""
+    if entry.state == config_entries.ConfigEntryState.NOT_LOADED:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     result = await hass.config_entries.options.async_init(
@@ -127,10 +126,27 @@ async def initialize_options_flow(
     )
 
 
+async def handle_options_flow_update(
+    hass: HomeAssistant,
+    entry: config_entries.ConfigEntry,
+    selected_menu_item: Step,
+    user_input: dict[str, Any],
+) -> FlowResult:
+    """Open the options flow, select a menu item, and handle user input."""
+    result = await initialize_options_flow(hass, entry, selected_menu_item)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input,
+    )
+    await hass.async_block_till_done()
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    return result
+
+
 async def initialize_discovery_flow(
     hass: HomeAssistant,
     source_entity: SourceEntity,
-    power_profiles: PowerProfile | list[PowerProfile] | None = None,
+    power_profiles: PowerProfile | list[PowerProfile | None] | None = None,
     confirm_autodiscovered_model: bool = False,
 ) -> FlowResult:
     discovery_manager: DiscoveryManager = DiscoveryManager(hass, {})
@@ -212,7 +228,8 @@ async def process_config_flow(
     hass: HomeAssistant,
     result: FlowResult | None,
     user_inputs: dict[Step, dict],
-) -> dict:
+) -> FlowResult | None:
+    """Process a configuration flow with multiple steps and user inputs."""
     if not result:
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -236,11 +253,9 @@ async def set_virtual_power_configuration(
     advanced_options: dict[str, Any] | None = None,
     group_options: dict[str, Any] | None = None,
 ) -> FlowResult:
-    if basic_options is None:
-        basic_options = {}
     result = await hass.config_entries.flow.async_configure(
         previous_result["flow_id"],
-        basic_options,
+        basic_options or {},
     )
 
     assert result["type"] == data_entry_flow.FlowResultType.FORM
@@ -256,20 +271,6 @@ async def set_virtual_power_configuration(
         result["flow_id"],
         advanced_options or {},
     )
-
-
-def create_mock_entry(
-    hass: HomeAssistant,
-    entry_data: ConfigType,
-    source: str = config_entries.SOURCE_USER,
-    unique_id: str | None = None,
-) -> MockConfigEntry:
-    title = entry_data.get(CONF_NAME, "test")
-    entry = MockConfigEntry(domain=DOMAIN, title=title, data=entry_data, source=source, unique_id=unique_id or str(uuid.uuid4()))
-    entry.add_to_hass(hass)
-
-    assert not entry.options
-    return entry
 
 
 def assert_default_virtual_power_entry_data(
@@ -291,3 +292,7 @@ def assert_default_virtual_power_entry_data(
         }
         | expected_strategy_options
     )
+
+
+def fixed_value_choice(choice: str, value: object) -> dict[str, object]:
+    return {CONF_FIXED_VALUE: {"active_choice": choice, choice: value}}

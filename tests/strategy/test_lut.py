@@ -23,7 +23,7 @@ from custom_components.powercalc.strategy.factory import PowerCalculatorStrategy
 from custom_components.powercalc.strategy.strategy_interface import (
     PowerCalculationStrategyInterface,
 )
-from tests.common import get_test_profile_dir, run_powercalc_setup
+from tests.common import assert_entity_state, get_test_profile_dir, run_powercalc_setup, set_states
 from tests.strategy.common import create_source_entity
 
 
@@ -292,12 +292,19 @@ async def test_linked_profile_loaded(hass: HomeAssistant) -> None:
     )
 
 
-async def test_no_power_when_no_brightness_available(hass: HomeAssistant) -> None:
-    """When brightness attribute is not available on state return no power"""
+async def test_no_power_when_no_brightness_available(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """When brightness attribute is not available on state return no power, logged at warning"""
+    caplog.set_level(logging.WARNING)
     strategy = await _create_lut_strategy(hass, "signify", "LCT010")
 
     state = State("light.test", STATE_ON, {ATTR_COLOR_MODE: ColorMode.BRIGHTNESS})
     assert not await strategy.calculate(state)
+    assert "no brightness set" in caplog.text
+    record = next(record for record in caplog.records if "no brightness set" in record.getMessage())
+    assert record.levelno == logging.WARNING
 
 
 async def test_color_mode_unknown_is_handled_gracefully(
@@ -316,7 +323,10 @@ async def test_color_mode_unknown_is_handled_gracefully(
     assert "color mode unknown" in caplog.text
 
 
-async def test_error_is_logged_when_color_temp_unavailable(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+async def test_error_is_logged_when_color_temp_unavailable(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test error is logged when color_temp attribute is not available"""
 
     strategy = await _create_lut_strategy(hass, "signify", "LCT010")
@@ -360,7 +370,10 @@ async def test_validation_fails_for_non_light_entities(hass: HomeAssistant) -> N
         await strategy.validate_config()
 
 
-async def test_sensor_unavailable_for_unsupported_color_mode(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+async def test_sensor_unavailable_for_unsupported_color_mode(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.at_level(logging.ERROR)
     await run_powercalc_setup(
         hass,
@@ -371,15 +384,11 @@ async def test_sensor_unavailable_for_unsupported_color_mode(hass: HomeAssistant
         },
     )
 
-    hass.states.async_set("light.test", STATE_ON, {ATTR_COLOR_MODE: ColorMode.BRIGHTNESS, ATTR_BRIGHTNESS: 100})
-    await hass.async_block_till_done()
+    await set_states(hass, [("light.test", STATE_ON, {ATTR_COLOR_MODE: ColorMode.BRIGHTNESS, ATTR_BRIGHTNESS: 100})])
+    assert_entity_state(hass, "sensor.test_power", "3.48")
 
-    assert hass.states.get("sensor.test_power").state == "3.48"
-
-    hass.states.async_set("light.test", STATE_ON, {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100})
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.test_power").state == STATE_UNAVAILABLE
+    await set_states(hass, [("light.test", STATE_ON, {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100})])
+    assert_entity_state(hass, "sensor.test_power", STATE_UNAVAILABLE)
 
     assert "Lookup table not found for color mode" in caplog.text
 
@@ -400,17 +409,23 @@ async def test_fallback_color_temp_to_hs(hass: HomeAssistant) -> None:
         },
     )
 
-    hass.states.async_set(
-        "light.test",
-        STATE_ON,
-        {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100, ATTR_COLOR_TEMP_KELVIN: 500},
+    await set_states(
+        hass,
+        [
+            (
+                "light.test",
+                STATE_ON,
+                {ATTR_COLOR_MODE: ColorMode.COLOR_TEMP, ATTR_BRIGHTNESS: 100, ATTR_COLOR_TEMP_KELVIN: 500},
+            ),
+        ],
     )
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.test_power").state == "1.42"
+    assert_entity_state(hass, "sensor.test_power", "1.42")
 
 
-async def test_warning_is_logged_when_color_mode_is_missing(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+async def test_warning_is_logged_when_color_mode_is_missing(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """
     Test that a warning is logged when the color_mode attribute is missing.
     See: https://github.com/bramstroker/homeassistant-powercalc/issues/2323

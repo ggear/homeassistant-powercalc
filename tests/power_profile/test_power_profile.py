@@ -9,11 +9,15 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, Regist
 
 from custom_components.powercalc.common import SourceEntity
 from custom_components.powercalc.const import (
+    CONF_ENERGY_SENSOR_NAMING,
     CONF_MANUFACTURER,
     CONF_MAX_POWER,
     CONF_MIN_POWER,
     CONF_MODEL,
     CONF_POWER,
+    CONF_POWER_SENSOR_NAMING,
+    DEFAULT_SELF_USAGE_ENERGY_NAME_PATTERN,
+    DEFAULT_SELF_USAGE_POWER_NAME_PATTERN,
     DOMAIN,
     CalculationStrategy,
 )
@@ -26,7 +30,7 @@ from custom_components.powercalc.power_profile.power_profile import (
     DeviceType,
     PowerProfile,
 )
-from tests.common import get_test_profile_dir, run_powercalc_setup
+from tests.common import assert_entity_state, get_test_profile_dir, run_powercalc_setup, set_states
 
 
 async def test_load_lut_profile_from_custom_directory(hass: HomeAssistant) -> None:
@@ -121,7 +125,7 @@ async def test_get_model_directory_root_only_ignores_selected_sub_profile(hass: 
     assert power_profile.get_model_directory() == get_test_profile_dir("sub_profile2/a")
 
 
-async def test_default_calculation_strategy_lut(hass: HomeAssistant) -> None:
+def test_default_calculation_strategy_lut(hass: HomeAssistant) -> None:
     """By default the calculation strategy must be LUT when no strategy is configured"""
     power_profile = PowerProfile(hass, "signify", "LCT010", "", {})
     assert power_profile.calculation_strategy == CalculationStrategy.LUT
@@ -357,6 +361,56 @@ async def test_needs_fixed_power(hass: HomeAssistant, json_data: dict[str, Any],
 
 
 @pytest.mark.parametrize(
+    ("json_data", "expected_sensor_config"),
+    [
+        (
+            {"only_self_usage": True},
+            {
+                CONF_ENERGY_SENSOR_NAMING: DEFAULT_SELF_USAGE_ENERGY_NAME_PATTERN,
+                CONF_POWER_SENSOR_NAMING: DEFAULT_SELF_USAGE_POWER_NAME_PATTERN,
+            },
+        ),
+        (
+            {"only_self_usage": True, "sensor_config": {CONF_POWER_SENSOR_NAMING: "{} Custom Power"}},
+            {
+                CONF_ENERGY_SENSOR_NAMING: DEFAULT_SELF_USAGE_ENERGY_NAME_PATTERN,
+                CONF_POWER_SENSOR_NAMING: "{} Custom Power",
+            },
+        ),
+        (
+            {"only_self_usage": True, "sensor_config": {CONF_ENERGY_SENSOR_NAMING: "{} Custom Energy"}},
+            {
+                CONF_ENERGY_SENSOR_NAMING: "{} Custom Energy",
+                CONF_POWER_SENSOR_NAMING: DEFAULT_SELF_USAGE_POWER_NAME_PATTERN,
+            },
+        ),
+        (
+            {"sensor_config": {CONF_POWER_SENSOR_NAMING: "{} Custom Power"}},
+            {CONF_POWER_SENSOR_NAMING: "{} Custom Power"},
+        ),
+        (
+            {},
+            {},
+        ),
+    ],
+)
+async def test_sensor_config_defaults_power_sensor_naming_for_self_usage_profiles(
+    hass: HomeAssistant,
+    json_data: dict[str, Any],
+    expected_sensor_config: dict[str, Any],
+) -> None:
+    power_profile = PowerProfile(
+        hass,
+        manufacturer="test",
+        model="test",
+        directory=get_test_profile_dir("smart_switch"),
+        json_data=json_data,
+    )
+
+    assert power_profile.sensor_config == expected_sensor_config
+
+
+@pytest.mark.parametrize(
     "test_profile,expected_translation_key",
     [
         (
@@ -381,7 +435,11 @@ async def test_needs_fixed_power(hass: HomeAssistant, json_data: dict[str, Any],
         ),
     ],
 )
-async def test_discovery_flow_remarks(hass: HomeAssistant, test_profile: str, expected_translation_key: str | None) -> None:
+async def test_discovery_flow_remarks(
+    hass: HomeAssistant,
+    test_profile: str,
+    expected_translation_key: str | None,
+) -> None:
     library = await ProfileLibrary.factory(hass)
     power_profile = await library.get_profile(
         ModelInfo("test", "test"),
@@ -400,10 +458,11 @@ async def test_discovery_flow_remarks(hass: HomeAssistant, test_profile: str, ex
 
 
 async def test_calculation_enabled_condition_is_not_cached(hass: HomeAssistant) -> None:
-    """
-    JSON data is cached for the same model. This caused the replaced `calculation_enabled_condition` to be replaced with the first entity.
-    On consequent retrievals of the same model the same condition was used, because it did not contain [[entity]] placeholder anymore.
-    See https://github.com/bramstroker/homeassistant-powercalc/issues/3118
+    """JSON data is cached per model.
+
+    Previously this caused the `calculation_enabled_condition` placeholder to be replaced with
+    the first entity, after which the same condition was reused for subsequent retrievals because
+    the [[entity]] placeholder was gone. See https://github.com/bramstroker/homeassistant-powercalc/issues/3118
     """
     await run_powercalc_setup(hass)
 
@@ -426,12 +485,12 @@ async def test_calculation_enabled_condition_is_not_cached(hass: HomeAssistant) 
     await hass.config_entries.async_add(entry_a)
     await hass.config_entries.async_add(entry_b)
 
-    hass.states.async_set("media_player.a", STATE_PLAYING, {ATTR_MEDIA_VOLUME_LEVEL: 1})
-    hass.states.async_set("media_player.b", STATE_PAUSED)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.a_power").state == "26.90"
-    assert hass.states.get("sensor.b_power").state == "5.20"
+    await set_states(
+        hass,
+        [("media_player.a", STATE_PLAYING, {ATTR_MEDIA_VOLUME_LEVEL: 1}), ("media_player.b", STATE_PAUSED)],
+    )
+    assert_entity_state(hass, "sensor.a_power", "26.90")
+    assert_entity_state(hass, "sensor.b_power", "5.20")
 
 
 @pytest.mark.parametrize(
@@ -447,7 +506,11 @@ async def test_calculation_enabled_condition_is_not_cached(hass: HomeAssistant) 
         ),
     ],
 )
-async def test_requires_manual_sub_profile_selection(hass: HomeAssistant, test_profile: str, expected_result: bool) -> None:
+async def test_requires_manual_sub_profile_selection(
+    hass: HomeAssistant,
+    test_profile: str,
+    expected_result: bool,
+) -> None:
     library = await ProfileLibrary.factory(hass)
     power_profile = await library.get_profile(
         ModelInfo("test", "test"),
@@ -474,7 +537,13 @@ async def test_requires_manual_sub_profile_selection(hass: HomeAssistant, test_p
         ),
     ],
 )
-async def test_is_custom_profile(hass: HomeAssistant, manufacturer: str, model: str, custom_dir: str | None, expected_result: bool) -> None:
+async def test_is_custom_profile(
+    hass: HomeAssistant,
+    manufacturer: str,
+    model: str,
+    custom_dir: str | None,
+    expected_result: bool,
+) -> None:
     library = await ProfileLibrary.factory(hass)
     power_profile = await library.get_profile(ModelInfo(manufacturer, model), custom_directory=custom_dir)
     assert power_profile.is_custom_profile is expected_result

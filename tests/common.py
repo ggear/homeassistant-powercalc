@@ -1,8 +1,10 @@
+from collections.abc import Mapping
 import os
+from typing import Any
 import uuid
 
 from homeassistant import config_entries
-from homeassistant.components import input_boolean, input_number, light
+from homeassistant.components import input_boolean, light
 from homeassistant.components.light import ColorMode
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
@@ -15,15 +17,25 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-import homeassistant.helpers.area_registry as ar
+from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity_registry import EntityRegistry
-from homeassistant.helpers.floor_registry import FloorEntry, FloorRegistry, FloorRegistryItems
-from homeassistant.helpers.normalized_name_base_registry import NormalizedNameBaseRegistryItems
 from homeassistant.helpers.typing import ConfigType, StateType
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry, RegistryEntryWithDefaults, mock_registry, setup_test_component_platform
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    RegistryEntryWithDefaults,
+    mock_device_registry,
+    mock_registry,
+    setup_test_component_platform,
+)
 
-from custom_components.powercalc import CONF_ENERGY_UPDATE_INTERVAL, CONF_GROUP_ENERGY_UPDATE_INTERVAL, CONF_GROUP_POWER_UPDATE_INTERVAL
+from custom_components.powercalc import (
+    CONF_ENERGY_UPDATE_INTERVAL,
+    CONF_GROUP_ENERGY_UPDATE_INTERVAL,
+    CONF_GROUP_POWER_UPDATE_INTERVAL,
+    async_migrate_entry,
+)
+from custom_components.powercalc.config_flow import PowercalcConfigFlow
 from custom_components.powercalc.const import (
     CONF_FIXED,
     CONF_MODE,
@@ -36,6 +48,10 @@ from custom_components.powercalc.const import (
     SensorType,
 )
 import custom_components.test.light as test_light_platform
+
+type StateDefinition = (
+    tuple[str, StateType] | tuple[str, StateType, Mapping[str, Any]] | tuple[str, StateType, Mapping[str, Any], bool]
+)
 
 
 async def create_mock_light_entity(
@@ -138,19 +154,6 @@ async def create_input_booleans(hass: HomeAssistant, names: list[str]) -> None:
     await hass.async_block_till_done()
 
 
-async def create_input_number(
-    hass: HomeAssistant,
-    name: str,
-    initial_value: int,
-) -> None:
-    assert await async_setup_component(
-        hass,
-        input_number.DOMAIN,
-        {"input_number": {name: {"min": 0, "max": 99999, "initial": initial_value}}},
-    )
-    await hass.async_block_till_done()
-
-
 def get_simple_fixed_config(entity_id: str, power: float = 50) -> ConfigType:
     return {
         CONF_ENTITY_ID: entity_id,
@@ -175,26 +178,59 @@ def get_test_config_dir(append_path: str = "") -> str:
     )
 
 
-async def setup_config_entry(
+async def create_mock_config_entry(
     hass: HomeAssistant,
     entry_data: dict,
     unique_id: str | None = None,
-    title: str = "Mock Title",
+    title: str | None = None,
+    source: str = config_entries.SOURCE_USER,
+    setup: bool = True,
 ) -> MockConfigEntry:
-    """Setup and add a Powercalc config entry"""
+    """Add a Powercalc config entry, optionally running its setup."""
     if unique_id is None:
         unique_id = str(uuid.uuid4())
+    if title is None:
+        title = entry_data.get(CONF_NAME, "Mock Title")
 
     config_entry = MockConfigEntry(
         domain=DOMAIN,
         data=entry_data,
         unique_id=unique_id,
         title=title,
+        source=source,
     )
     config_entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    if setup:
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
     return config_entry
+
+
+def mock_device(
+    hass: HomeAssistant,
+    device_id: str = "test-device",
+    manufacturer: str = "test",
+    model: str = "test",
+    **kwargs: Any,  # noqa: ANN401
+) -> DeviceEntry:
+    """Register a single mocked device, replacing any prior mocked registry."""
+    entry = DeviceEntry(id=device_id, manufacturer=manufacturer, model=model, **kwargs)
+    mock_device_registry(hass, {device_id: entry})
+    return entry
+
+
+async def migrate_legacy_entry(
+    hass: HomeAssistant,
+    entry_data: dict,
+    version: int,
+    **kwargs: Any,  # noqa: ANN401
+) -> MockConfigEntry:
+    """Add an entry pinned to a legacy version, run migration, and assert the version was bumped."""
+    entry = MockConfigEntry(domain=DOMAIN, data=entry_data, version=version, **kwargs)
+    entry.add_to_hass(hass)
+    await async_migrate_entry(hass, entry)
+    assert entry.version == PowercalcConfigFlow.VERSION
+    return entry
 
 
 async def create_mocked_virtual_power_sensor_entry(
@@ -203,7 +239,7 @@ async def create_mocked_virtual_power_sensor_entry(
     unique_id: str | None = None,
     extra_config: dict | None = None,
 ) -> config_entries.ConfigEntry:
-    return await setup_config_entry(
+    return await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
@@ -217,62 +253,6 @@ async def create_mocked_virtual_power_sensor_entry(
         unique_id,
         name,
     )
-
-
-def mock_area_registry(
-    hass: HomeAssistant,
-    mock_entries: dict[str, ar.AreaEntry] | None = None,
-) -> ar.AreaRegistry:
-    """Mock the Area Registry.
-
-    This should only be used if you need to mock/re-stage a clean mocked
-    area registry in your current hass object. It can be useful to,
-    for example, pre-load the registry with items.
-
-    This mock will thus replace the existing registry in the running hass.
-
-    If you just need to access the existing registry, use the `area_registry`
-    fixture instead.
-    """
-    registry = ar.AreaRegistry(hass)
-    registry.areas = NormalizedNameBaseRegistryItems[ar.AreaEntry]()
-    if mock_entries:
-        for key, entry in mock_entries.items():
-            registry.areas[key] = entry
-
-    registry._area_data = registry.areas.data  # noqa: SLF001
-
-    hass.data[ar.DATA_REGISTRY] = registry
-    return registry
-
-
-def mock_floor_registry(
-    hass: HomeAssistant,
-    mock_entries: dict[str, FloorEntry] | None = None,
-) -> FloorRegistry:
-    """Mock the Floor Registry.
-
-    This should only be used if you need to mock/re-stage a clean mocked
-    floor registry in your current hass object. It can be useful to,
-    for example, pre-load the registry with items.
-
-    This mock will thus replace the existing registry in the running hass.
-
-    If you just need to access the existing registry, use the `floor_registry`
-    fixture instead.
-    """
-    from homeassistant.helpers.floor_registry import DATA_REGISTRY
-
-    registry = FloorRegistry(hass)
-    registry.floors = FloorRegistryItems()
-    if mock_entries:
-        for key, entry in mock_entries.items():
-            registry.floors[key] = entry
-
-    registry._floor_data = registry.floors.data  # noqa: SLF001
-
-    hass.data[DATA_REGISTRY] = registry
-    return registry
 
 
 def mock_sensors_in_registry(
@@ -298,6 +278,21 @@ def mock_sensors_in_registry(
             device_class=SensorDeviceClass.ENERGY,
         )
     return mock_registry(hass, entries)
+
+
+async def set_states(hass: HomeAssistant, states: list[StateDefinition], block_count: int = 1) -> None:
+    for state_definition in states:
+        force_update = False
+        if len(state_definition) == 2:
+            entity_id, value = state_definition
+            attributes = None
+        elif len(state_definition) == 3:
+            entity_id, value, attributes = state_definition
+        else:
+            entity_id, value, attributes, force_update = state_definition
+        hass.states.async_set(entity_id, value, attributes, force_update=force_update)
+    for _ in range(block_count):
+        await hass.async_block_till_done()
 
 
 def assert_entity_state(

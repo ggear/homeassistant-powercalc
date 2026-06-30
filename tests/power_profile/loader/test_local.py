@@ -8,7 +8,7 @@ from custom_components.powercalc.const import CONF_CUSTOM_MODEL_DIRECTORY
 from custom_components.powercalc.power_profile.error import LibraryLoadingError
 from custom_components.powercalc.power_profile.loader.local import LocalLoader
 from custom_components.powercalc.power_profile.power_profile import DeviceType, DiscoveryBy
-from tests.common import get_test_config_dir, get_test_profile_dir, run_powercalc_setup
+from tests.common import assert_entity_state, get_test_config_dir, get_test_profile_dir, run_powercalc_setup, set_states
 
 
 async def test_broken_lib_by_identical_model_alias(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
@@ -108,7 +108,10 @@ async def test_get_manufacturer_listing(hass: HomeAssistant) -> None:
 async def test_get_model_listing(hass: HomeAssistant) -> None:
     loader = await _create_loader(hass)
     assert ("HS300", "IKEA Control outlet") in await loader.get_model_listing("tp-link", {DeviceType.SMART_SWITCH})
-    assert ("light20", "IKEA Control outlet") not in await loader.get_model_listing("tp-link", {DeviceType.SMART_SWITCH})
+    assert ("light20", "IKEA Control outlet") not in await loader.get_model_listing(
+        "tp-link",
+        {DeviceType.SMART_SWITCH},
+    )
     assert ("light20", "IKEA Control outlet") in await loader.get_model_listing("tp-link", {DeviceType.LIGHT})
     assert {
         ("HS300", "IKEA Control outlet"),
@@ -145,10 +148,8 @@ async def test_custom_model_directory(hass: HomeAssistant) -> None:
         },
     )
 
-    hass.states.async_set("switch.test", STATE_ON)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.test_power").state == "50.00"
+    await set_states(hass, [("switch.test", STATE_ON)])
+    assert_entity_state(hass, "sensor.test_power", "50.00")
 
 
 async def _create_loader(hass: HomeAssistant) -> LocalLoader:

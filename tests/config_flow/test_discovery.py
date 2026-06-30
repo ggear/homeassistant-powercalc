@@ -22,14 +22,13 @@ from custom_components.powercalc.const import (
 from custom_components.powercalc.discovery import get_power_profile_by_source_entity
 from custom_components.powercalc.power_profile.factory import get_power_profile
 from custom_components.powercalc.power_profile.library import ModelInfo
-from tests.common import get_test_profile_dir
+from tests.common import create_mock_config_entry, get_test_profile_dir
 from tests.config_flow.common import (
     DEFAULT_ENTITY_ID,
     DEFAULT_UNIQUE_ID,
     confirm_auto_discovered_model,
-    create_mock_entry,
+    handle_options_flow_update,
     initialize_discovery_flow,
-    initialize_options_flow,
 )
 from tests.conftest import MockEntityWithModel
 
@@ -45,7 +44,7 @@ async def test_discovery_flow(
         unique_id=DEFAULT_UNIQUE_ID,
     )
 
-    source_entity = await create_source_entity(DEFAULT_ENTITY_ID, hass)
+    source_entity = create_source_entity(DEFAULT_ENTITY_ID, hass)
     result = await initialize_discovery_flow(hass, source_entity)
 
     # Confirm selected manufacturer/model
@@ -63,7 +62,7 @@ async def test_discovery_flow(
 
 async def test_discovery_flow_remarks_are_shown(hass: HomeAssistant) -> None:
     """Model.json can provide remarks to show in the discovery flow. Check if these are displayed correctly"""
-    source_entity = await create_source_entity("media_player.test", hass)
+    source_entity = create_source_entity("media_player.test", hass)
     power_profile = await get_power_profile(hass, {}, source_entity, ModelInfo("sonos", "one"))
     result = await initialize_discovery_flow(hass, source_entity, power_profile)
     assert result["description_placeholders"]["remarks"] is not None
@@ -102,7 +101,7 @@ async def _setup_ups_discovery_flow(hass: HomeAssistant) -> tuple[SourceEntity, 
         },
     )
 
-    source_entity = await create_source_entity("sensor.ups_output", hass)
+    source_entity = create_source_entity("sensor.ups_output", hass)
     power_profile = await get_power_profile(
         hass,
         {
@@ -176,7 +175,7 @@ async def test_discovery_flow_remarks_are_shown_when_translation_key_entity_miss
         },
     )
 
-    source_entity = await create_source_entity("sensor.ups_output", hass)
+    source_entity = create_source_entity("sensor.ups_output", hass)
     power_profile = await get_power_profile(
         hass,
         {
@@ -212,7 +211,7 @@ async def test_discovery_flow_with_subprofile_selection(
         unique_id=DEFAULT_UNIQUE_ID,
     )
 
-    source_entity = await create_source_entity(DEFAULT_ENTITY_ID, hass)
+    source_entity = create_source_entity(DEFAULT_ENTITY_ID, hass)
     power_profile = await get_power_profile_by_source_entity(hass, source_entity)
 
     result = await initialize_discovery_flow(hass, source_entity, power_profile)
@@ -248,7 +247,7 @@ async def test_discovery_flow_multi_profiles(
         unique_id=DEFAULT_UNIQUE_ID,
     )
 
-    source_entity = await create_source_entity(DEFAULT_ENTITY_ID, hass)
+    source_entity = create_source_entity(DEFAULT_ENTITY_ID, hass)
     power_profiles = [
         await get_power_profile(hass, {}, source_entity, ModelInfo("signify", "LCT010")),
         await get_power_profile(hass, {}, source_entity, ModelInfo("signify", "LCT012")),
@@ -284,7 +283,7 @@ async def test_autodiscovered_option_flow(hass: HomeAssistant) -> None:
     """
     Test that we can open an option flow for an auto discovered config entry
     """
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "light.test",
@@ -293,20 +292,11 @@ async def test_autodiscovered_option_flow(hass: HomeAssistant) -> None:
             CONF_MANUFACTURER: "signify",
             CONF_MODEL: "LCT010",
         },
-        config_entries.SOURCE_INTEGRATION_DISCOVERY,
+        source=config_entries.SOURCE_INTEGRATION_DISCOVERY,
     )
 
-    result = await initialize_options_flow(hass, entry, Step.BASIC_OPTIONS)
-    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    await handle_options_flow_update(hass, entry, Step.BASIC_OPTIONS, {CONF_CREATE_ENERGY_SENSOR: False})
 
-    user_input = {CONF_CREATE_ENERGY_SENSOR: False}
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
-    )
-
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert not entry.data[CONF_CREATE_ENERGY_SENSOR]
 
 

@@ -10,6 +10,15 @@ Instructions for AI coding agents working on this project.
 - `tests/` — pytest test suite mirroring source structure
 - `docs/source/` — documentation (Zensical)
 
+## Documentation
+
+Documentation is built with **Zensical**, not raw MkDocs.
+
+- Source files live in `docs/source/`
+- Navigation is configured in `docs/mkdocs.yml`
+- Verify docs changes from the `docs/` directory with `uv run --group docs zensical build --clean`
+- If sandboxing blocks `uv` cache access, rerun the same Zensical command with the required approval rather than switching to `mkdocs build`
+
 ## Profile Library
 
 ### library.json is auto-generated
@@ -49,13 +58,6 @@ All constants are centralized in `const.py` files — never use string literals 
 - `utils/measure/measure/runner/const.py` — runner-specific constants
 - `utils/measure/measure/powermeter/const.py` — power meter constants
 
-Naming prefixes:
-- `CONF_*` — configuration keys
-- `QUESTION_*` — interactive prompt IDs
-- `DATA_*` — runtime data keys
-- `DEFAULT_*` — default values
-- `ATTR_*` — entity attributes
-
 Use `StrEnum` for enumeration types (e.g., `CalculationStrategy`, `DeviceType`, `SensorType`).
 
 ### Type annotations
@@ -65,13 +67,13 @@ Strict mypy is enforced. All functions require full type annotations including r
 ### Formatting and linting
 
 Configured via `pyproject.toml`:
-- **Ruff** for linting and formatting (line length: 150)
+- **Ruff** for linting and formatting (line length: 150). `uv run ruff check`
 - **mypy** in strict mode
 - Target: Python 3.14+
 
 ### Tests
 
-- Async tests with `pytest` (`asyncio_mode = "auto"`)
+- Run tests with `uv run pytest`
 - Test files: `test_*.py`, async functions: `async def test_*`
 - Fixtures in `conftest.py` files
 - Use `@pytest.mark.parametrize` for test variants

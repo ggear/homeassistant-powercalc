@@ -9,7 +9,7 @@ from measure.controller.media.controller import MediaController
 from measure.controller.media.factory import MediaControllerFactory
 from measure.powermeter.errors import ZeroReadingError
 from measure.runner.runner import MeasurementRunner, RunnerResult
-from measure.util.measure_util import MeasureUtil
+from measure.util.measure_util import MeasurementResult, MeasureUtil
 
 DURATION_PER_VOLUME_LEVEL = 20
 STREAM_URL = "https://powercalc.s3.eu-west-1.amazonaws.com/g_pink.mp3"
@@ -35,13 +35,16 @@ class SpeakerRunner(MeasurementRunner):
         export_directory: str,
     ) -> RunnerResult | None:
         summary = {}
+        voltages: list[float] = []
         duration = DURATION_PER_VOLUME_LEVEL
 
         print(
-            f"Prepare to start measuring the power for {duration} seconds on each volume level starting with 10 until 100 (with steps of 10 between)",
+            f"Prepare to start measuring the power for {duration} seconds on each volume level "
+            "starting with 10 until 100 (with steps of 10 between)",
         )
         print(
-            "WARNING: during the measurement session the volume will be increased to the maximum, which can be harmful for your ears",
+            "WARNING: during the measurement session the volume will be increased to the maximum, "
+            "which can be harmful for your ears",
         )
         input("Hit enter when you are ready to start..")
 
@@ -54,11 +57,15 @@ class SpeakerRunner(MeasurementRunner):
                 _LOGGER.info("Start streaming noise")
                 self.media_controller.play_audio(STREAM_URL)
             time.sleep(SLEEP_PRE_MEASURE)
-            summary[volume] = self.measure_util.take_average_measurement(duration)
+            result = self.measure_util.take_average_measurement(duration)
+            summary[volume] = result.power
+            voltages.extend(result.voltages)
 
         _LOGGER.info("Muting volume and waiting for %d seconds", SLEEP_MUTE)
         time.sleep(SLEEP_MUTE)
-        summary[0] = self.measure_util.take_average_measurement(duration)
+        result = self.measure_util.take_average_measurement(duration)
+        summary[0] = result.power
+        voltages.extend(result.voltages)
 
         self.media_controller.set_volume(10)
 
@@ -66,7 +73,7 @@ class SpeakerRunner(MeasurementRunner):
         for volume in summary:
             print(volume, " : ", summary[volume])
 
-        return RunnerResult(model_json_data=self._build_model_json_data(summary))
+        return RunnerResult(model_json_data=self._build_model_json_data(summary), voltages=voltages)
 
     @staticmethod
     def _build_model_json_data(summary: dict) -> dict:
@@ -92,7 +99,7 @@ class SpeakerRunner(MeasurementRunner):
         )
         return questions
 
-    def measure_standby_power(self) -> float:
+    def measure_standby_power(self) -> MeasurementResult:
         self.media_controller.turn_off()
         start_time = time.time()
         _LOGGER.info(
@@ -104,4 +111,4 @@ class SpeakerRunner(MeasurementRunner):
             return self.measure_util.take_measurement(start_time)
         except ZeroReadingError:
             _LOGGER.error("Measured 0 watt as standby power.")
-            return 0
+            return MeasurementResult(power=0, voltages=[])

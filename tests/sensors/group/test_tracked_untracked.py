@@ -28,8 +28,13 @@ from custom_components.powercalc.sensors.group.custom import GroupedPowerSensor
 from custom_components.powercalc.sensors.group.subtract import SubtractGroupSensor
 from custom_components.powercalc.sensors.group.tracked_untracked import TrackedPowerSensorFactory
 from custom_components.powercalc.sensors.utility_meter import VirtualUtilityMeter
-from tests.common import mock_sensors_in_registry, run_powercalc_setup
-from tests.config_flow.common import create_mock_entry
+from tests.common import (
+    assert_entity_state,
+    create_mock_config_entry,
+    mock_sensors_in_registry,
+    run_powercalc_setup,
+    set_states,
+)
 
 
 async def test_main_power_is_removed_from_tracked_entities(hass: HomeAssistant) -> None:
@@ -91,29 +96,25 @@ async def test_auto_tracking_entities(hass: HomeAssistant) -> None:
     """Test both entities from powercalc and other HA power entities are added."""
     mock_sensors_in_registry(hass, ["sensor.test1_power"])
 
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id="2222",
-        data={
+    await create_mock_config_entry(
+        hass,
+        {
             CONF_SENSOR_TYPE: SensorType.GROUP,
             CONF_NAME: "Test2",
         },
-        title="Test2",
+        setup=False,
     )
-    config_entry.add_to_hass(hass)
 
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id="3333",
-        data={
+    await create_mock_config_entry(
+        hass,
+        {
             CONF_ENTITY_ID: DUMMY_ENTITY_ID,
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
             CONF_NAME: "Test3",
             CONF_FIXED: {CONF_POWER: 10},
         },
-        title="Test3",
+        setup=False,
     )
-    config_entry.add_to_hass(hass)
 
     await run_powercalc_setup(hass)
 
@@ -140,7 +141,7 @@ async def test_entity_registry_updates(hass: HomeAssistant) -> None:
         ["sensor.test1_power", "sensor.test2_power", "sensor.test3_power"],
         ["sensor.test1_energy"],
     )
-    create_mock_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,
@@ -152,14 +153,10 @@ async def test_entity_registry_updates(hass: HomeAssistant) -> None:
     )
     await run_powercalc_setup(hass)
 
-    hass.states.async_set("sensor.test1_power", "10")
-    hass.states.async_set("sensor.test2_power", "5")
-    hass.states.async_set("sensor.test3_power", "10")
-    await hass.async_block_till_done()
-
+    await set_states(hass, [("sensor.test1_power", "10"), ("sensor.test2_power", "5"), ("sensor.test3_power", "10")])
     tracked_power_sensor = hass.data[DOMAIN][DATA_GROUP_ENTITIES]["sensor.tracked_power"]
     assert tracked_power_sensor.entities == {"sensor.test1_power", "sensor.test2_power", "sensor.test3_power"}
-    assert hass.states.get("sensor.tracked_power").state == "25.00"
+    assert_entity_state(hass, "sensor.tracked_power", "25.00")
 
     # Remove one of the tracked entities from registry
     entity_registry.async_remove("sensor.test2_power")
@@ -170,7 +167,7 @@ async def test_entity_registry_updates(hass: HomeAssistant) -> None:
 
     tracked_power_sensor = hass.data[DOMAIN][DATA_GROUP_ENTITIES]["sensor.tracked_power"]
     assert tracked_power_sensor.entities == {"sensor.test1_power_new", "sensor.test3_power"}
-    assert hass.states.get("sensor.tracked_power").state == "10.00"
+    assert_entity_state(hass, "sensor.tracked_power", "10.00")
 
     # Add a new power entity to registry
     entity_registry.async_get_or_create(
@@ -183,7 +180,7 @@ async def test_entity_registry_updates(hass: HomeAssistant) -> None:
 
     tracked_power_sensor = hass.data[DOMAIN][DATA_GROUP_ENTITIES]["sensor.tracked_power"]
     assert tracked_power_sensor.entities == {"sensor.test1_power_new", "sensor.test3_power", "sensor.test4_power"}
-    assert hass.states.get("sensor.tracked_power").state == "10.00"
+    assert_entity_state(hass, "sensor.tracked_power", "10.00")
 
 
 async def test_member_hidden_property_is_untouched(hass: HomeAssistant) -> None:
@@ -193,7 +190,7 @@ async def test_member_hidden_property_is_untouched(hass: HomeAssistant) -> None:
     """
     power_sensors = ["sensor.test1_power", "sensor.test2_power"]
     mock_sensors_in_registry(hass, power_sensors)
-    create_mock_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,
@@ -203,7 +200,7 @@ async def test_member_hidden_property_is_untouched(hass: HomeAssistant) -> None:
             CONF_HIDE_MEMBERS: True,
         },
     )
-    create_mock_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.GROUP,

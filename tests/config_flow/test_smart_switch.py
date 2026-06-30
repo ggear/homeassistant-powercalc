@@ -20,11 +20,11 @@ from custom_components.powercalc.const import (
     CalculationStrategy,
     SensorType,
 )
-from tests.common import run_powercalc_setup
+from tests.common import assert_entity_state, create_mock_config_entry, run_powercalc_setup, set_states
 from tests.config_flow.common import (
     DEFAULT_UNIQUE_ID,
     confirm_auto_discovered_model,
-    create_mock_entry,
+    handle_options_flow_update,
     initialize_options_flow,
     select_menu_item,
 )
@@ -90,15 +90,12 @@ async def test_smart_switch_flow(
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_MODE] == CalculationStrategy.FIXED
 
-    hass.states.async_set("switch.test", STATE_ON)
-    await hass.async_block_till_done()
-
-    power_state = hass.states.get("sensor.test_power")
-    assert power_state.state == f"{expected_fixed_power:.2f}"
+    await set_states(hass, [("switch.test", STATE_ON)])
+    assert_entity_state(hass, "sensor.test_power", f"{expected_fixed_power:.2f}")
 
 
 async def test_smart_switch_options(hass: HomeAssistant) -> None:
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "switch.test",
@@ -111,20 +108,13 @@ async def test_smart_switch_options(hass: HomeAssistant) -> None:
         },
     )
 
-    result = await initialize_options_flow(hass, entry, Step.FIXED)
+    await handle_options_flow_update(hass, entry, Step.FIXED, {CONF_SELF_USAGE_INCLUDED: True})
 
-    user_input = {CONF_SELF_USAGE_INCLUDED: True}
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=user_input,
-    )
-
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_SELF_USAGE_INCLUDED] is True
 
 
 async def test_smart_switch_options_correctly_loaded(hass: HomeAssistant) -> None:
-    entry = create_mock_entry(
+    entry = await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: "switch.test",

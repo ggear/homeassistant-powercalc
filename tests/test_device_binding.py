@@ -5,7 +5,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry, DeviceEntryDisabler, DeviceRegistry
 import homeassistant.helpers.entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, RegistryEntryWithDefaults, mock_device_registry, mock_registry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    RegistryEntryWithDefaults,
+    mock_device_registry,
+    mock_registry,
+)
 
 from custom_components.powercalc.const import (
     CONF_CREATE_ENERGY_SENSOR,
@@ -19,8 +24,7 @@ from custom_components.powercalc.const import (
     DUMMY_ENTITY_ID,
     SensorType,
 )
-from tests.common import run_powercalc_setup, setup_config_entry
-from tests.config_flow.common import create_mock_entry
+from tests.common import create_mock_config_entry, mock_device, run_powercalc_setup
 
 
 async def test_entities_are_bound_to_source_device(
@@ -51,10 +55,9 @@ async def test_entities_are_bound_to_source_device(
         suggested_object_id="google_home",
         device_id=device_entry.id,
     )
-    await hass.async_block_till_done()
 
     # Create powercalc sensors
-    await setup_config_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
@@ -94,10 +97,7 @@ async def test_entities_are_bound_to_source_device2(
     switch_id = "switch.shelly"
     power_sensor_id = "sensor.shelly_power"
 
-    mock_device_registry(
-        hass,
-        {device_id: DeviceEntry(id=device_id, manufacturer="shelly", model="Plug S")},
-    )
+    mock_device(hass, device_id, "shelly", "Plug S")
 
     entity_reg = mock_registry(
         hass,
@@ -117,12 +117,9 @@ async def test_entities_are_bound_to_source_device2(
         },
     )
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {CONF_ENTITY_ID: "switch.shelly", CONF_POWER_SENSOR_ID: "sensor.shelly_power"},
-        {},
     )
 
     energy_entity_entry = entity_reg.async_get("sensor.shelly_energy")
@@ -139,17 +136,7 @@ async def test_entities_are_bound_to_disabled_source_device(
     power_sensor_id = "sensor.test_power"
     light_id = "light.test"
 
-    mock_device_registry(
-        hass,
-        {
-            device_id: DeviceEntry(
-                id=device_id,
-                manufacturer="signify",
-                model="LCA001",
-                disabled_by=DeviceEntryDisabler.USER,
-            ),
-        },
-    )
+    mock_device(hass, device_id, "signify", "LCA001", disabled_by=DeviceEntryDisabler.USER)
 
     entity_reg = mock_registry(
         hass,
@@ -171,12 +158,9 @@ async def test_entities_are_bound_to_disabled_source_device(
         },
     )
 
-    await hass.async_block_till_done()
-
     await run_powercalc_setup(
         hass,
         {CONF_ENTITY_ID: light_id},
-        {},
     )
 
     energy_entity_entry = entity_reg.async_get(power_sensor_id)
@@ -189,12 +173,9 @@ async def test_entities_are_bound_to_source_device3(
     entity_registry: er.EntityRegistry,
 ) -> None:
     device_id = "abc"
-    mock_device_registry(
-        hass,
-        {device_id: DeviceEntry(id=device_id, manufacturer="test", model="test")},
-    )
+    mock_device(hass, device_id, "test", "test")
 
-    create_mock_entry(
+    await create_mock_config_entry(
         hass,
         {
             CONF_ENTITY_ID: DUMMY_ENTITY_ID,
@@ -256,20 +237,18 @@ async def test_change_device(hass: HomeAssistant) -> None:
         CONF_NAME: "Test",
         CONF_ENTITY_ID: "sensor.entity1",
     }
-    config_entry = await setup_config_entry(
+    config_entry = await create_mock_config_entry(
         hass,
         {
             **entry_data,
             CONF_DEVICE: "device1",
         },
-        unique_id="5345435",
     )
 
     device1 = device_registry.async_get("device1")
     assert device1.config_entries == {config_entry.entry_id}
 
     hass.config_entries.async_update_entry(config_entry, data={**entry_data, CONF_DEVICE: "device2"})
-    await hass.async_block_till_done()
 
     device1 = device_registry.async_get("device1")
     assert not device1
@@ -299,13 +278,12 @@ async def test_remove_device_from_config_entry(hass: HomeAssistant) -> None:
         CONF_NAME: "Test",
         CONF_GROUP_POWER_ENTITIES: ["sensor.test_power"],
     }
-    config_entry = await setup_config_entry(
+    config_entry = await create_mock_config_entry(
         hass,
         {
             **entry_data,
             CONF_DEVICE: "device1",
         },
-        unique_id="5345435",
     )
 
     device1 = device_registry.async_get("device1")
@@ -313,7 +291,6 @@ async def test_remove_device_from_config_entry(hass: HomeAssistant) -> None:
 
     # Remove device from config entry data
     hass.config_entries.async_update_entry(config_entry, data={**entry_data})
-    await hass.async_block_till_done()
 
     device1 = device_registry.async_get("device1")
     assert not device1

@@ -16,11 +16,11 @@ async def test_yaml_config_overrides_gui_config(hass: HomeAssistant) -> None:
         CONF_CREATE_UTILITY_METERS: False,
         CONF_POWER_SENSOR_NAMING: "foobar",
     }
-    create_mock_global_config_entry(hass, gui_config)
+    await create_mock_global_config_entry(hass, gui_config)
     yaml_config = {
         CONF_CREATE_UTILITY_METERS: True,
     }
-    final_config = await get_global_configuration(hass, {DOMAIN: yaml_config})
+    final_config = get_global_configuration(hass, {DOMAIN: yaml_config})
 
     assert final_config[CONF_CREATE_UTILITY_METERS] is True
     assert final_config[CONF_ENERGY_SENSOR_NAMING] == DEFAULT_ENERGY_NAME_PATTERN
