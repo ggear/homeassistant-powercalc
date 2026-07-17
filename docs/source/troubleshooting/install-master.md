@@ -1,13 +1,29 @@
-# Install master
+# Install development version
 
-HACS no longer supports installing from the master branch.
-If no new version of PowerCalc has been released yet and you need to test the latest functionality, you can update manually by following these steps:
+Install the latest development version of Powercalc by selecting the `dev` release in HACS.
 
-1. Download the ZIP file from this URL: https://github.com/bramstroker/homeassistant-powercalc/archive/refs/heads/master.zip
-2. Extract the contents of the ZIP.
-3. Copy the custom_components/powercalc folder from the ZIP into your Home Assistant's config/custom_components/powercalc directory, replacing the existing files.
-4. Restart Home Assistant to apply the latest improvements and updates.
+## HACS
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bramstroker&repository=homeassistant-powercalc)
+
+1. Click the button above to open the Powercalc HACS repository.
+2. Click the three-dot menu in the top right corner and select **Redownload**.
+3. Select the `dev` release.
+4. Click **Install**.
+5. Restart Home Assistant.
 
 !!! note
 
-    Don't worry, next time a new version is released and you install it, HACS will update PowerCalc to the latest version, overwriting your temporary modifications.
+    When you install a later stable release, HACS replaces the `dev` version with that release.
+
+## Developer tools action
+
+[![Open your Home Assistant instance and show your service developer tools with a specific action selected.](https://my.home-assistant.io/badges/developer_call_service.svg)](https://my.home-assistant.io/redirect/developer_call_service/?service=update.install)
+
+You can also install `dev` with the `update.install` action:
+
+1. Click the button above to open the `update.install` action.
+2. Select the Powercalc update entity as the target.
+3. Enable **Version** and enter `dev`.
+4. Perform the action.
+5. Restart Home Assistant.
