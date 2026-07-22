@@ -1,0 +1,160 @@
+name: Prepare Measure Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Measure version without the measure-v prefix. Leave empty to use the
+          version resolved from the merged pull requests, shown in the title
+          of the rolling measure-next draft.
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: Validate and preview without creating a branch or pull request
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: prepare-measure-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release pull request
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: '0.11.29'
+          working-directory: './utils/measure'
+          python-version: '3.14'
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Resolve version and load draft notes
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          release_id=$(gh api "repos/${REPOSITORY}/releases" --paginate \
+            --jq '.[] | select(.draft == true and .tag_name == "measure-next") | .id' | head -n 1)
+          if [[ -z "$release_id" ]]; then
+            echo "No rolling measure-next draft found; merge a Measure pull request first" >&2
+            exit 1
+          fi
+
+          if [[ -z "$VERSION" ]]; then
+            draft_title=$(gh api "repos/${REPOSITORY}/releases/${release_id}" --jq '.name')
+            VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' <<< "$draft_title" | head -n 1)
+            if [[ -z "$VERSION" ]]; then
+              echo "Could not resolve a version from draft title '${draft_title}'; pass the version input" >&2
+              exit 1
+            fi
+            echo "Resolved version ${VERSION} from draft title '${draft_title}'"
+          fi
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semantic version: $VERSION" >&2
+            exit 1
+          fi
+
+          gh api "repos/${REPOSITORY}/releases/${release_id}" --jq '.body' > "$RUNNER_TEMP/measure-release-notes.md"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Preview release changes
+        if: inputs.dry_run
+        working-directory: utils/measure
+        env:
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: >-
+          uv run python prepare_app_release.py "$VERSION"
+          --notes-file "$RUNNER_TEMP/measure-release-notes.md"
+          --dry-run
+      - name: Check out release branch
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: |
+          git fetch origin master
+          git checkout -B "release/measure-v${VERSION}" origin/master
+      - name: Prepare release files
+        if: ${{ !inputs.dry_run }}
+        working-directory: utils/measure
+        env:
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: >-
+          uv run python prepare_app_release.py "$VERSION"
+          --notes-file "$RUNNER_TEMP/measure-release-notes.md"
+      - name: Validate prepared release files
+        if: ${{ !inputs.dry_run }}
+        working-directory: utils/measure
+        run: |
+          uv run --extra dev --extra cli pytest -qq tests/test_prepare_app_release.py
+          ruby home-assistant-app/validate.rb
+      - name: Commit and push release branch
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: |
+          if git diff --quiet; then
+            echo "Release files are already prepared for ${VERSION}" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            utils/measure/frontend/package.json \
+            utils/measure/frontend/package-lock.json \
+            utils/measure/home-assistant-app/powercalc_measure/CHANGELOG.md \
+            utils/measure/home-assistant-app/powercalc_measure/config.yaml
+          git commit -m "chore: prepare Powercalc Measure release ${VERSION}"
+
+          # The branch is generated from master on every run, so overwriting a
+          # previous attempt is always safe. The token is supplied only for
+          # this push instead of being persisted in .git/config.
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:release/measure-v${VERSION}"
+      - name: Open or update release pull request
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: |
+          branch="release/measure-v${VERSION}"
+          pull_request=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          if [[ -z "$pull_request" ]]; then
+            gh pr create \
+              --base master \
+              --head "$branch" \
+              --title "Release Powercalc Measure ${VERSION}" \
+              --body "Prepares the shared Measure version metadata and Home Assistant changelog for \`measure-v${VERSION}\`." \
+              --label measure-tool \
+              --label skip-changelog
+          else
+            echo "Release pull request #${pull_request} is already open"
+          fi
+      - name: Run Measure release checks
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.draft.outputs.version }}
+        run: gh workflow run test-measure.yml --ref "release/measure-v${VERSION}"

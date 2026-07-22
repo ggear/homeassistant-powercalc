@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
-
-import inquirer.questions
-
+from measure.controller.charging.const import ATTR_BATTERY_LEVEL
 from measure.controller.charging.controller import ChargingController
 
 
 class DummyChargingController(ChargingController):
     def __init__(self) -> None:
         self._battery_level = 0
+
+    @property
+    def battery_level_attribute(self) -> str:
+        """Dummy charging profiles use the conventional entity attribute."""
+        return ATTR_BATTERY_LEVEL
 
     def get_battery_level(self) -> int:
         self._battery_level += 1
@@ -20,9 +22,3 @@ class DummyChargingController(ChargingController):
 
     def is_charging(self) -> bool:
         return True
-
-    def get_questions(self) -> list[inquirer.questions.Question]:
-        return []
-
-    def process_answers(self, answers: dict[str, Any]) -> None:
-        pass

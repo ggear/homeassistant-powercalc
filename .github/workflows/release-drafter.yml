@@ -1,4 +1,4 @@
-name: Release Drafter
+name: Draft Integration Release
 
 on:
   push:
@@ -16,29 +16,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
           persist-credentials: false
-      - name: Generate Release Drafter config with supporters
-        id: supporters
-        env:
-          BMC_API_TOKEN: ${{ secrets.BMC_API_TOKEN }}
-          BMC_SLUG: ${{ secrets.BMC_SLUG }}
-        run: |
-          set -eu
-          section="$(python .github/scripts/generate_supporters_section.py)"
-
-          # Store multiline output safely
-          {
-            echo "value<<EOF"
-            echo "$section"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-      - name: Create Release
-        uses: release-drafter/release-drafter@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e # v7
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          footer: ${{ steps.supporters.outputs.value }}
-          config-name: release-drafter.yml
+          python-version: '3.14'
+      # Measure changelog entries are collected separately by the Measure
+      # Release workflow: a published measure-v* release here would be picked
+      # up by HACS as a Powercalc integration version.
+      #
+      # Pushes to master update the stable draft (vX.Y.Z); pushes to beta update
+      # a separate prerelease draft (vX.Y.Z-beta.N). The supporters footer is
+      # generated in-process by the script.
+      - name: Update integration release draft
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CHANNEL: ${{ github.ref_name == 'beta' && 'beta' || 'stable' }}
+          HEAD_REF: ${{ github.ref_name }}
+        run: python .github/scripts/release_draft/update_integration_draft.py

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from measure.powermeter.errors import UnsupportedFeatureError
 from measure.powermeter.powermeter import PowerMeasurementResult, PowerMeter
@@ -23,10 +22,8 @@ class OcrPowerMeter(PowerMeter):
             raise UnsupportedFeatureError("Voltage measurement are not supported for OCR mode.")
 
         last_line = self.read_last_line()
-        (timestamp, power) = last_line.strip().split(";")
-        power = float(power)
-        timestamp = float(timestamp)
-        return PowerMeasurementResult(power=power, updated=timestamp)
+        timestamp_value, power_value = last_line.strip().split(";")
+        return PowerMeasurementResult(power=float(power_value), updated=float(timestamp_value))
 
     def read_last_line(self) -> str:
         try:
@@ -39,6 +36,3 @@ class OcrPowerMeter(PowerMeter):
 
     def has_voltage_support(self) -> bool:
         return False
-
-    def process_answers(self, answers: dict[str, Any]) -> None:
-        pass

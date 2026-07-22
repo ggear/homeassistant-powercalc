@@ -9,6 +9,7 @@ import sys
 import threading
 from threading import Thread
 import time
+from typing import TextIO
 
 import cv2
 import numpy as np
@@ -31,13 +32,7 @@ OCR_SLEEP = 0.5
 
 
 def tesseract_location(root: str) -> None:
-    """
-    Sets the tesseract cmd root and exits is the root is not set correctly
-
-    Tesseract needs a pointer to exec program included in the install.
-    Example: User/Documents/tesseract/4.1.1/bin/tesseract
-    See tesseract documentation for help.
-    """
+    """Configure the Tesseract executable used by pytesseract."""
     try:
         pytesseract.pytesseract.tesseract_cmd = root
     except FileNotFoundError:
@@ -48,56 +43,27 @@ def tesseract_location(root: str) -> None:
 
 
 class RateCounter:
-    """
-    Class for finding the iterations/second of a process
-
-    `Attributes:`
-        start_time: indicates when the time.perf_counter() began
-        iterations: determines number of iterations in the process
-
-    `Methods:`
-        start(): Starts a time.perf_counter() and sets it in the self.start_time attribute
-        increment(): Increases the self.iterations attribute
-        rate(): Returns the iterations/seconds
-    """
+    """Track and render the processing rate of the OCR loop."""
 
     def __init__(self) -> None:
-        self.start_time = None
+        self.start_time: float | None = None
         self.iterations: int = 0
 
     def start(self) -> RateCounter:
-        """
-        Starts a time.perf_counter() and sets it in the self.start_time attribute
-
-        :return: self
-        """
         self.start_time = time.perf_counter()
         return self
 
     def increment(self) -> None:
-        """
-        Increases the self.iterations attribute
-        """
         self.iterations += 1
 
     def rate(self) -> float:
-        """
-        Returns the iterations/seconds
-        """
+        if self.start_time is None:
+            return 0.0
         elapsed_time = time.perf_counter() - self.start_time
         return self.iterations / elapsed_time
 
     def render(self, frame: np.ndarray, rate: float) -> np.ndarray:
-        """
-        Places text showing the iterations per second in the CV2 display loop.
-
-        This is for demonstrating the effects of multi-threading.
-
-        :param frame: CV2 display frame for text destination
-        :param rate: Iterations per second rate to place on image
-
-        :return: CV2 display frame with rate added
-        """
+        """Render the current iteration rate onto a video frame."""
 
         cv2.putText(
             frame,
@@ -111,7 +77,7 @@ class RateCounter:
 
 
 class VideoStream:
-    """Class for grabbing frames from CV2 video capture."""
+    """Continuously capture video frames on a background thread."""
 
     def __init__(self, src: int | str = 0) -> None:
         self.stream = cv2.VideoCapture(src)
@@ -123,35 +89,19 @@ class VideoStream:
         cv2.namedWindow(WINDOW_NAME)
 
     def start(self) -> VideoStream:
-        """
-        Creates a thread targeted at get(), which reads frames from CV2 VideoCapture
-
-        :return: self
-        """
         Thread(target=self.get, args=()).start()
         return self
 
     def get(self) -> None:
-        """
-        Continuously gets frames from CV2 VideoCapture and sets them as self.frame attribute
-        """
         while not self.stopped:
             (self.grabbed, self.frame) = self.stream.read()
 
     def get_video_dimensions(self) -> tuple[int, int]:
-        """
-        Gets the width and height of the video stream frames
-
-        :return: height `int` and width `int` of VideoCapture
-        """
         width = self.stream.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = self.stream.get(cv2.CAP_PROP_FRAME_HEIGHT)
         return int(width), int(height)
 
     def stop_process(self) -> None:
-        """
-        Sets the self.stopped attribute as True and kills the VideoCapture stream read
-        """
         self.stopped = True
 
     def capture_image(
@@ -159,14 +109,7 @@ class VideoStream:
         frame: np.ndarray | None = None,
         captures: int = 0,
     ) -> int:
-        """
-        Capture a .jpg during CV2 video stream. Saves to a folder /images in working directory.
-
-        :param frame: CV2 frame to save
-        :param captures: (optional) Number of existing captures to append to filename
-
-        :return: Updated number of captures. If capture param not used, returns 1 by default
-        """
+        """Save a frame under ``images`` and return the updated capture count."""
         if frame is None:
             frame = self.frame
 
@@ -184,18 +127,15 @@ class VideoStream:
 
 
 class OcrRegionSelection:
+    """Manage the user-selected crop region used for OCR."""
+
     def __init__(self, video_stream: VideoStream) -> None:
-        self.selection = None
-        self.drag_start = None
+        self.selection: tuple[int, int, int, int] | None = None
+        self.drag_start: tuple[int, int] | None = None
         self.is_selecting = False
         self.stream = video_stream
 
     def start(self) -> OcrRegionSelection:
-        """
-        Creates a thread targeted at get(), which reads frames from CV2 VideoCapture
-
-        :return: self
-        """
         Thread(target=self.register_mouse_callback, args=()).start()
         return self
 
@@ -203,8 +143,16 @@ class OcrRegionSelection:
         cv2.setMouseCallback(WINDOW_NAME, self.draw_rectangle)
 
     # Method to track mouse events
-    def draw_rectangle(self, event: int, x: int, y: int) -> None:
-        x, y = np.int16([x, y])
+    def draw_rectangle(
+        self,
+        event: int,
+        x: int,
+        y: int,
+        _flags: int,
+        _parameter: object | None,
+    ) -> None:
+        x = int(np.int16(x))
+        y = int(np.int16(y))
 
         if event == cv2.EVENT_LBUTTONDOWN:
             # Start selection
@@ -213,6 +161,7 @@ class OcrRegionSelection:
                 self.is_selecting = True
             # Confirm selection
             else:
+                assert self.drag_start is not None
                 x_start, y_start = self.drag_start
                 self.selection = (x_start, y_start, x, y)
                 self.is_selecting = False
@@ -263,6 +212,7 @@ class OcrRegionSelection:
         return self.selection is not None
 
     def get_cropped_frame(self, frame: np.ndarray) -> np.ndarray:
+        assert self.selection is not None
         return frame[
             self.selection[1] : self.selection[3],
             self.selection[0] : self.selection[2],
@@ -270,7 +220,7 @@ class OcrRegionSelection:
 
 
 class OCR:
-    """Class for creating a pytesseract OCR process in a dedicated thread"""
+    """Extract and validate meter readings on a background thread."""
 
     def __init__(
         self,
@@ -281,20 +231,14 @@ class OCR:
         self.stopped: bool = False
         self.region_selection = region_selection
         self.video_stream = video_stream
-        self.file = None
+        self.file: TextIO | None = None
 
     def start(self) -> OCR:
-        """
-        Creates a thread targeted at the ocr process
-        :return: self
-        """
         Thread(target=self.do_ocr, args=()).start()
         return self
 
     def do_ocr(self) -> None:
-        """
-        Creates a process where frames are continuously grabbed from the exchange and processed by pytesseract OCR.
-        """
+        """Continuously OCR the selected region and persist valid readings."""
         while not self.stopped:
             if self.video_stream is not None and self.region_selection.has_selection():
                 try:
@@ -336,10 +280,8 @@ class OCR:
         self.file.flush()
 
     def stop_process(self) -> None:
-        """
-        Sets the self.stopped attribute to True and kills the ocr() process
-        """
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
         self.stopped = True
 
     def render(self, frame: np.ndarray) -> np.ndarray:
@@ -387,10 +329,7 @@ class OCR:
 
 
 def ocr_stream(source: str = "0") -> None:
-    """
-    Begins the video stream and text OCR in two threads, then shows the video in a CV2 frame with the OCR
-    boxes overlaid in real-time.
-    """
+    """Run video capture, region selection and OCR until the user quits."""
 
     video_stream = VideoStream(
         source,

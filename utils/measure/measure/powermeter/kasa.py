@@ -2,21 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
 
-from kasa import SmartPlug
+from kasa.iot import IotPlug
 
 from measure.powermeter.powermeter import PowerMeasurementResult, PowerMeter
 
 
 class KasaPowerMeter(PowerMeter):
     def __init__(self, device_ip: str) -> None:
-        self._smartplug = SmartPlug(device_ip)
+        self._smartplug = IotPlug(device_ip)
 
     def get_power(self, include_voltage: bool = False) -> PowerMeasurementResult:
         """Get a new power reading from the Kasa device. Optionally include voltage."""
-        loop = asyncio.get_event_loop()
-        power, voltage = loop.run_until_complete(self.async_read_power_meter())
+        power, voltage = asyncio.run(self.async_read_power_meter())
 
         if include_voltage:
             return PowerMeasurementResult(power=power, voltage=voltage, updated=time.time())
@@ -31,6 +29,3 @@ class KasaPowerMeter(PowerMeter):
 
     def has_voltage_support(self) -> bool:
         return True
-
-    def process_answers(self, answers: dict[str, Any]) -> None:
-        pass

@@ -6,46 +6,61 @@ on:
       - 'master'
     paths:
       - 'utils/measure/**'
-  release:
-    types: [published]
+      - '.github/actions/build-measure-docker/**'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: >-
+          Measure release tag to publish, for example measure-v0.1.0.
+          Dispatched automatically on that tag by the Measure Release workflow;
+          re-run it manually with an existing tag to republish a release.
+        required: true
+        type: string
 
-permissions:
-  contents: read
-  packages: write
+env:
+  APP_ARCHITECTURES: '["amd64", "aarch64"]'
+  APP_IMAGE_NAME: powercalc-measure-app
 
 jobs:
-  docker:
+  build-and-push-cli:
+    name: Build and push CLI Docker image
+    if: github.event_name == 'push' || inputs.release_tag != ''
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Get version
-        id: version
-        uses: home-assistant/actions/helpers/version@f4ca6f671bd429efb108c0f2fa0ae8af0215986c # master
-      - if: github.event.action == 'published'
-        name: Write version file
-        run: 'echo "${STEPS_VERSION_OUTPUTS_VERSION}:docker" > utils/measure/.VERSION'
+      - name: Prepare CLI release version
+        if: github.event_name != 'push'
+        id: measure
         env:
-          STEPS_VERSION_OUTPUTS_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version=$(ruby -ryaml -e 'puts YAML.safe_load(File.read(ARGV.fetch(0))).fetch("version")' utils/measure/home-assistant-app/powercalc_measure/config.yaml)
+          if [[ "$RELEASE_TAG" != "measure-v${version}" ]]; then
+            echo "Release tag ${RELEASE_TAG} does not match measure version ${version}" >&2
+            exit 1
+          fi
+          echo "v${version}:cli" > utils/measure/.VERSION
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ghcr.io/bramstroker/measure
-            bramgerritsen/powercalc-measure
-          flavor: |
-            latest=auto
+            ghcr.io/bramstroker/powercalc-measure-cli
+            bramgerritsen/powercalc-measure-cli
           # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value=v${{ steps.measure.outputs.version }},enable=${{ github.event_name != 'push' }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.measure.outputs.version }},enable=${{ github.event_name != 'push' }}
+            type=semver,pattern={{major}},value=v${{ steps.measure.outputs.version }},enable=${{ github.event_name != 'push' }}
       - name: Log in to GHCR
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
         with:
@@ -63,3 +78,205 @@ jobs:
           push: "true"
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  home-assistant-app-init:
+    name: Initialize Home Assistant app build
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.app.outputs.version }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate app metadata
+        run: ruby utils/measure/home-assistant-app/validate.rb
+      - name: Run Home Assistant app linter
+        uses: frenck/action-addon-linter@f995494fd84fae6310d23617e66d0e37de4f14eb # v2.21.0
+        with:
+          path: ./utils/measure/home-assistant-app/powercalc_measure
+      - name: Read and validate app version
+        id: app
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version=$(ruby -ryaml -e 'puts YAML.safe_load(File.read(ARGV.fetch(0))).fetch("version")' utils/measure/home-assistant-app/powercalc_measure/config.yaml)
+          if [[ "$RELEASE_TAG" != "measure-v${version}" ]]; then
+            echo "Release tag ${RELEASE_TAG} does not match app version ${version}" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Prepare architecture matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        with:
+          architectures: ${{ env.APP_ARCHITECTURES }}
+          image-name: ${{ env.APP_IMAGE_NAME }}
+
+  home-assistant-app-build:
+    name: Build Home Assistant app (${{ matrix.arch }})
+    needs: home-assistant-app-init
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.home-assistant-app-init.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Write app version file
+        run: 'echo "v${APP_VERSION}:app" > utils/measure/.VERSION'
+        env:
+          APP_VERSION: ${{ needs.home-assistant-app-init.outputs.version }}
+      - name: Build, publish and sign architecture image
+        uses: home-assistant/builder/actions/build-image@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        with:
+          arch: ${{ matrix.arch }}
+          build-args: |
+            FINAL_STAGE=ha-app
+          cache-gha-scope: powercalc-measure-app
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          context: ./utils/measure
+          cosign: "true"
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.home-assistant-app-init.outputs.version }}
+            latest
+          labels: |
+            io.hass.type=app
+          push: "true"
+          version: ${{ needs.home-assistant-app-init.outputs.version }}
+
+  home-assistant-app-manifest:
+    name: Publish signed Home Assistant app manifest
+    needs:
+      - home-assistant-app-init
+      - home-assistant-app-build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - name: Publish and sign multi-architecture manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        with:
+          architectures: ${{ env.APP_ARCHITECTURES }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          cosign: "true"
+          image-name: ${{ env.APP_IMAGE_NAME }}
+          image-tags: |
+            ${{ needs.home-assistant-app-init.outputs.version }}
+            latest
+
+  # Mirrors home-assistant-app/ to the dedicated app-store repository. Runs
+  # after the image push so the store never references a tag that is not yet
+  # pullable. Requires the APPS_REPO_TOKEN secret: a fine-grained PAT with
+  # contents read/write on bramstroker/powercalc-measure-app.
+  publish-app-repository:
+    if: github.repository == 'bramstroker/homeassistant-powercalc'
+    needs:
+      - home-assistant-app-init
+      - home-assistant-app-manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Checkout app repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: bramstroker/powercalc-measure-app
+          token: ${{ secrets.APPS_REPO_TOKEN }}
+          path: apps-repo
+          persist-credentials: false
+      - name: Sync app metadata
+        run: |
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.DS_Store' \
+            --exclude 'validate.rb' \
+            utils/measure/home-assistant-app/ apps-repo/
+      - name: Commit and push
+        working-directory: apps-repo
+        env:
+          VERSION: ${{ needs.home-assistant-app-init.outputs.version }}
+          APPS_REPO_TOKEN: ${{ secrets.APPS_REPO_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "App repository is already up to date"
+          else
+            git commit -m "Powercalc Measure ${VERSION}"
+            # The token is supplied only for this push instead of being
+            # persisted in .git/config by actions/checkout.
+            git push "https://x-access-token:${APPS_REPO_TOKEN}@github.com/bramstroker/powercalc-measure-app.git" HEAD
+          fi
+
+  # Publishes the GitHub release in the app-store repository and clears the
+  # rolling measure-next draft here. The release object must live in
+  # powercalc-measure-app: a published measure-v* release in this repository
+  # would be picked up by HACS as a Powercalc integration version.
+  finalize-release:
+    name: Publish app repository release
+    if: github.repository == 'bramstroker/homeassistant-powercalc'
+    needs:
+      - home-assistant-app-init
+      - publish-app-repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Extract release notes from changelog
+        env:
+          VERSION: ${{ needs.home-assistant-app-init.outputs.version }}
+        run: |
+          python3 - "$VERSION" > "$RUNNER_TEMP/measure-release-notes.md" <<'EOF'
+          import pathlib
+          import re
+          import sys
+
+          version = sys.argv[1]
+          changelog = pathlib.Path("utils/measure/home-assistant-app/powercalc_measure/CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(
+              rf"^## {re.escape(version)} - [0-9-]+\n(?P<notes>.*?)(?=^## |\Z)",
+              changelog,
+              re.MULTILINE | re.DOTALL,
+          )
+          if match is None:
+              sys.exit(f"Changelog has no released section for {version}")
+          notes = match.group("notes").strip()
+          if not notes:
+              sys.exit(f"Changelog section for {version} is empty")
+          print(notes)
+          EOF
+      - name: Create release in app repository
+        env:
+          GH_TOKEN: ${{ secrets.APPS_REPO_TOKEN }}
+          VERSION: ${{ needs.home-assistant-app-init.outputs.version }}
+        run: |
+          if gh release view "v${VERSION}" --repo bramstroker/powercalc-measure-app > /dev/null 2>&1; then
+            echo "Release v${VERSION} already exists in powercalc-measure-app"
+          else
+            gh release create "v${VERSION}" \
+              --repo bramstroker/powercalc-measure-app \
+              --title "Powercalc Measure v${VERSION}" \
+              --notes-file "$RUNNER_TEMP/measure-release-notes.md"
+          fi

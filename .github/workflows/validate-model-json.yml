@@ -5,7 +5,7 @@ on:
     paths:
       - '**/model.json'
       - 'profile_library/model_schema.json'
-      - '.github/scripts/validate_model_json.py'
+      - '.github/scripts/profile_library/validate_model_json.py'
       - '.github/workflows/validate-model-json.yml'
 
 permissions:
@@ -17,18 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted validation code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
           persist-credentials: false
       - name: Checkout PR files
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.x"
       - name: Install validation dependencies
@@ -57,7 +57,7 @@ jobs:
       - name: Validate model.json against schema
         working-directory: pr
         run: >-
-          python ../base/.github/scripts/validate_model_json.py
+          python ../base/.github/scripts/profile_library/validate_model_json.py
           --schema ../base/profile_library/model_schema.json
           --changed-files changed_files.json
           --report ../validation-result/model_json_validation_report.md

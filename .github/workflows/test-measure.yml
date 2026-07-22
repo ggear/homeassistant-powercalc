@@ -3,11 +3,17 @@ name: Test measure util
 on:
   workflow_dispatch:
   push:
+    branches:
+      - master
     paths:
       - 'utils/measure/**'
+      - '.github/actions/build-measure-docker/**'
+      - '.github/workflows/test-measure.yml'
   pull_request:
     paths:
       - 'utils/measure/**'
+      - '.github/actions/build-measure-docker/**'
+      - '.github/workflows/test-measure.yml'
 
 permissions:
   contents: read
@@ -18,11 +24,12 @@ jobs:
     name: Run tests
     steps:
       - name: Check out code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: '0.11.29'
           working-directory: './utils/measure'
           python-version: '3.14'
           enable-cache: true
@@ -31,20 +38,50 @@ jobs:
             uv.lock
       - name: Run tests
         run: |
-          cd ./utils/measure && uv run --extra dev pytest \
+          cd ./utils/measure
+          uv run --extra dev --extra app --extra cli ruff check measure tests prepare_app_release.py
+          MYPYPATH=. uv run --extra dev --extra app --extra cli mypy \
+            --strict \
+            --explicit-package-bases \
+            --follow-imports=silent \
+            --ignore-missing-imports \
+            --config-file ../../pyproject.toml \
+            prepare_app_release.py \
+            measure
+          uv run --extra dev --extra app --extra cli pytest \
             -qq \
             --durations=10 \
             -o console_output_style=count \
             -p no:sugar \
             tests
+          uv run --extra dev --group visualize pytest -q tests/test_visualization_renderer.py
 
   docker:
     runs-on: "ubuntu-latest"
     name: Build Docker image
     steps:
       - name: Check out code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Build Docker image
         uses: ./.github/actions/build-measure-docker
+
+  home-assistant-app:
+    runs-on: "ubuntu-latest"
+    name: Validate Home Assistant app
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate repository and app metadata
+        run: ruby utils/measure/home-assistant-app/validate.rb
+      - name: Run Home Assistant app linter
+        uses: frenck/action-addon-linter@f995494fd84fae6310d23617e66d0e37de4f14eb # v2.21.0
+        with:
+          path: ./utils/measure/home-assistant-app/powercalc_measure
+      - name: Build Home Assistant app image
+        uses: ./.github/actions/build-measure-docker
+        with:
+          target: ha-app
