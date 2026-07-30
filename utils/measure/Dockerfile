@@ -7,7 +7,7 @@ FROM node:24-alpine AS frontend-build
 WORKDIR /frontend
 
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY frontend/ ./
 RUN npm run typecheck && npm test -- --run && npm run build
@@ -15,28 +15,30 @@ RUN npm run typecheck && npm test -- --run && npm run build
 FROM python:3.14-slim AS python-runtime
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.33 /uv /uvx /bin/
 
 WORKDIR /app
 
 # Install locked third-party dependencies before copying the project. Source
 # changes can then reuse this expensive layer.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-install-project
+RUN uv sync --locked --no-build --no-install-project
 
 # Use the managed environment in every final image and dependency stage.
 ENV PATH="/app/.venv/bin:$PATH"
 
 FROM python-runtime AS ha-app-dependencies
 
-RUN uv sync --locked --extra app --no-install-project
+RUN uv sync --locked --no-build --extra app --no-install-project
 
 FROM python-runtime AS cli-dependencies
 
 RUN apt-get update && apt-get install -y libgl1 tesseract-ocr && rm -rf /var/lib/apt/lists/* \
-    && uv sync --locked --extra cli --extra ocr --no-install-project
+    && uv sync --locked --no-build --extra cli --extra ocr --no-install-project
 
 FROM ha-app-dependencies AS ha-app
+
+ARG POWERCALC_GITHUB_CLIENT_ID
 
 # Copy only the project inputs needed by the final images. In particular,
 # local credentials, measurement output, tests, and frontend tooling stay out.
@@ -48,6 +50,7 @@ RUN uv sync --locked --extra app
 COPY --from=frontend-build /frontend/dist /app/measure/static
 
 ENV POWERCALC_MEASURE_DATA_ROOT=/data
+ENV POWERCALC_GITHUB_CLIENT_ID=${POWERCALC_GITHUB_CLIENT_ID}
 
 EXPOSE 8099
 

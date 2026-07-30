@@ -1,4 +1,4 @@
-import type { AppSettings, Capabilities, EntityDescriptor, MeasureDefinition, MeasurementRequest, OperatingPoint, PowerMeterDiagnostic, SessionSnapshot } from "../types";
+import type { AppSettings, Capabilities, EntityDescriptor, MeasureDefinition, MeasurementRequest, OperatingPoint, PowerMeterDiagnostic, SessionSnapshot, SettingsSection } from "../types";
 import { sharedStyles } from "../styles";
 import { AppShell } from "./app-shell";
 import "./result-view";
@@ -8,11 +8,12 @@ import "./setup-view";
 
 const measurementDefaults = { sleep_time: 1, sample_count: 5, sleep_time_sample: 1, max_retries: 5, max_nudges: 0 };
 const defaultSettings: AppSettings = {
-  default_power_entity_id: null, default_measure_device: null, power_meter: "hass", shelly_ip: null,
+  default_power_entity_id: null, default_measure_device: null, power_meter: "hass", shelly_ip: null, kasa_ip: null,
+  fast_test_mode: false,
   measurement_defaults: measurementDefaults,
 };
 const capabilities: Capabilities = {
-  modes: ["brightness", "color_temp", "hs", "effect"],
+  runtime_version: "v0.2.1:app",
   defaults: {
     ...measurementDefaults,
     bri_bri_steps: 1, ct_bri_steps: 5, ct_mired_steps: 10,
@@ -35,6 +36,55 @@ const goodPowerMeterDiagnostic: PowerMeterDiagnostic = {
   messages: ["The sensor meets the recommended update frequency."],
 };
 
+const modeParameter = (name: string, label: string) => ({ name, label, group: "Profile resolution" });
+
+const lightDefinition: MeasureDefinition = {
+  measure_type: "light",
+  label: "Light bulb(s)",
+  description: "Build a lookup-table power profile for a light.",
+  icon: "💡",
+  model_id_example: "LWA017",
+  product_name_example: "Philips Hue White Ambiance A60 E27",
+  parameters: [
+    { name: "sleep_time", label: "Settle time (seconds)", hint: "Wait after changing the light before reading power.", step: "0.1", group: "Sampling" },
+    { name: "sample_count", label: "Samples per point", hint: "More samples reduce noise but increase measurement time.", group: "Sampling" },
+    { name: "sleep_time_sample", label: "Time between samples (seconds)", hint: "Only used when taking more than one sample.", group: "Sampling", requires_multiple: "sample_count" },
+    { name: "min_brightness", label: "Minimum brightness", group: "Sampling" },
+    { name: "sleep_initial", label: "Initial stabilization (seconds)", group: "Sampling" },
+    { name: "sleep_standby", label: "Standby stabilization (seconds)", group: "Sampling" },
+    modeParameter("bri_bri_steps", "Brightness mode step"),
+    modeParameter("ct_bri_steps", "Color temperature brightness step"),
+    modeParameter("ct_mired_steps", "Color temperature mired step"),
+    modeParameter("hs_bri_steps", "HS brightness step"),
+    modeParameter("hs_hue_steps", "HS hue step"),
+    modeParameter("hs_sat_steps", "HS saturation step"),
+    modeParameter("effect_bri_steps", "Effect brightness step"),
+    modeParameter("measure_time_effect_min", "Minimum time per effect (seconds)"),
+    modeParameter("measure_time_effect", "Maximum time per effect (seconds)"),
+  ],
+  fields: [
+    { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, entity_domains: ["sensor"], options: [] },
+    { name: "light_entity_id", role: "controller", label: "Light", control: "entity", required: true, entity_domains: ["light"], options: [] },
+    {
+      name: "modes",
+      role: "attribute",
+      label: "Lookup-table modes",
+      control: "multi_select",
+      narrowed_by: "light_entity_id",
+      required: true,
+      options: [
+        { value: "brightness", label: "Brightness", enables: ["bri_bri_steps"] },
+        { value: "color_temp", label: "Color temperature", enables: ["ct_bri_steps", "ct_mired_steps"] },
+        { value: "hs", label: "Hue & saturation", enables: ["hs_bri_steps", "hs_hue_steps", "hs_sat_steps"] },
+        { value: "effect", label: "Effect", enables: ["effect_bri_steps", "measure_time_effect_min", "measure_time_effect"] },
+      ],
+    },
+    { name: "multiple_light_count", role: "attribute", label: "Number of lights", control: "number", required: true, options: [], default: 1, minimum: 1, maximum: 100 },
+  ],
+  supports_profile: true,
+  supports_resume: true,
+};
+
 const lights: EntityDescriptor[] = [{ entity_id: "light.desk", name: "Desk lamp", supported_modes: ["brightness"] }];
 
 it("uses dark native form controls so iOS select indicators remain visible", () => {
@@ -48,8 +98,9 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
-      selectedLightId: string;
+      selectedEntities: Record<string, string>;
       defaultMeasureDevice: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -58,8 +109,9 @@ describe("setup view", () => {
     element.lights = lights;
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", unit: "W" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
-    element.selectedLightId = "light.desk";
+    element.selectedEntities = { light_entity_id: "light.desk" };
     document.body.append(element);
     await element.updateComplete;
 
@@ -67,15 +119,12 @@ describe("setup view", () => {
     expect(element.shadowRoot.textContent).toContain("Brightness");
     expect(element.shadowRoot.querySelector("details")?.open).toBe(false);
     expect(element.shadowRoot.querySelectorAll('input[name="modes"]')).toHaveLength(1);
-    expect(element.shadowRoot.querySelector<HTMLElement>(".effect-settings")?.hidden).toBe(true);
     expect((element.shadowRoot.querySelector('input[name="sleep_time"]') as HTMLInputElement).value).toBe("1");
     expect((element.shadowRoot.querySelector('input[name="sleep_time_sample"]') as HTMLInputElement).disabled).toBe(false);
     expect((element.shadowRoot.querySelector('input[name="bri_bri_steps"]') as HTMLInputElement).value).toBe("1");
-    expect((element.shadowRoot.querySelector('input[name="ct_bri_steps"]') as HTMLInputElement).value).toBe("5");
-    expect((element.shadowRoot.querySelector('input[name="ct_mired_steps"]') as HTMLInputElement).value).toBe("10");
-    expect((element.shadowRoot.querySelector('input[name="hs_bri_steps"]') as HTMLInputElement).value).toBe("32");
-    expect((element.shadowRoot.querySelector('input[name="hs_hue_steps"]') as HTMLInputElement).value).toBe("2731");
-    expect((element.shadowRoot.querySelector('input[name="hs_sat_steps"]') as HTMLInputElement).value).toBe("32");
+    // The desk lamp supports brightness only, so no other mode's parameters are offered at all.
+    const unsupported = ["ct_bri_steps", "ct_mired_steps", "hs_bri_steps", "hs_hue_steps", "hs_sat_steps", "effect_bri_steps", "measure_time_effect"];
+    expect(unsupported.filter((name) => element.shadowRoot.querySelector(`input[name="${name}"]`))).toEqual([]);
 
     const light = element.shadowRoot.querySelector('select[name="light_entity_id"]') as HTMLSelectElement;
     light.value = "light.desk";
@@ -90,6 +139,7 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -98,6 +148,7 @@ describe("setup view", () => {
     element.lights = [{ entity_id: "light.rgb", name: "RGB lamp", supported_modes: ["brightness", "color_temp", "hs"] }];
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", unit: "W" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -112,8 +163,9 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
-      selectedLightId: string;
+      selectedEntities: Record<string, string>;
       defaultPowerEntityId: string;
       defaultMeasureDevice: string;
       updateComplete: Promise<boolean>;
@@ -128,8 +180,9 @@ describe("setup view", () => {
       related_voltage_entity_id: "sensor.plug_voltage",
     }];
     element.voltages = [{ entity_id: "sensor.plug_voltage", name: "Plug voltage", unit: "V" }];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
-    element.selectedLightId = "light.rgb";
+    element.selectedEntities = { light_entity_id: "light.rgb" };
     element.defaultPowerEntityId = "sensor.plug_power";
     element.defaultMeasureDevice = "Shelly Plug S";
     document.body.append(element);
@@ -165,6 +218,7 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -173,6 +227,7 @@ describe("setup view", () => {
     element.lights = lights;
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", unit: "W" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -186,6 +241,7 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
       defaultMeasureDevice: string;
       updateComplete: Promise<boolean>;
@@ -195,6 +251,7 @@ describe("setup view", () => {
     element.lights = lights;
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", unit: "W" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     element.defaultMeasureDevice = "Shelly Plug S";
     document.body.append(element);
@@ -221,8 +278,12 @@ describe("setup view", () => {
 
   it("submits a dummy fan controller when the developer virtual-device toggle is on", async () => {
     const fanDefinition: MeasureDefinition = {
-      measure_type: "fan", label: "Fan", description: "Measure fan power.",
-      fields: [{ name: "fan_entity_id", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] }],
+      measure_type: "fan",
+        icon: "🌀",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }], label: "Fan", description: "Measure fan power.",
+      fields: [{ name: "fan_entity_id", role: "controller", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] }],
       supports_profile: true, supports_resume: false,
     };
     const element = document.createElement("measure-setup-view") as HTMLElement & {
@@ -262,6 +323,7 @@ describe("setup view", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -270,6 +332,7 @@ describe("setup view", () => {
     element.lights = [{ entity_id: "light.effect", name: "Effect lamp", supported_modes: ["brightness", "effect"], effect_list: ["colorloop"] }];
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", unit: "W" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -278,27 +341,36 @@ describe("setup view", () => {
     expect(labels).toContain("Effect");
     const checkedModes = [...element.shadowRoot.querySelectorAll<HTMLInputElement>('input[name="modes"]:checked')].map((input) => input.value);
     expect(checkedModes).toContain("effect");
-    const effectSettings = element.shadowRoot.querySelector<HTMLElement>(".effect-settings");
-    expect(effectSettings?.hidden).toBe(false);
+    const parameter = (name: string) => element.shadowRoot.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+    expect(parameter("effect_bri_steps")).toBeTruthy();
+    expect(parameter("measure_time_effect")).toBeTruthy();
 
     const effect = element.shadowRoot.querySelector<HTMLInputElement>('input[name="modes"][value="effect"]');
     if (!effect) throw new Error("Expected effect mode input");
     effect.checked = false;
     effect.dispatchEvent(new Event("change"));
-    expect(effectSettings?.hidden).toBe(true);
-    expect((effectSettings?.querySelector("input") as HTMLInputElement).disabled).toBe(true);
+    // Deselecting a mode re-renders from state rather than mutating the DOM in place.
+    await element.updateComplete;
+    // Every mode's parameters disappear with it, so none of them can be submitted by accident.
+    expect(parameter("effect_bri_steps")).toBeNull();
+    expect(parameter("measure_time_effect")).toBeNull();
+    expect(parameter("bri_bri_steps")).toBeTruthy();
   });
 });
 
 const definitions: MeasureDefinition[] = [
-  { measure_type: "light", label: "Light bulb(s)", description: "Build a lookup-table power profile for a light.", fields: [], supports_profile: true, supports_resume: true },
+  lightDefinition,
   {
     measure_type: "average",
+        icon: "📊",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }],
     label: "Average",
     description: "Measure average power for a fixed duration.",
     fields: [
-      { name: "power_entity_id", label: "Power sensor", control: "entity", required: true, options: [] },
-      { name: "duration", label: "Duration (seconds)", control: "number", required: true, options: [], default: 60 },
+      { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, options: [] },
+      { name: "duration", role: "attribute", label: "Duration (seconds)", control: "number", required: true, options: [], default: 60 },
     ],
     supports_profile: false,
     supports_resume: false,
@@ -512,14 +584,39 @@ describe("setup type picker", () => {
     expect((await submitted).power_meter).toEqual({ type: "shelly", device_ip: "192.0.2.20" });
   });
 
+  it("includes the configured Kasa adapter in the submitted request", async () => {
+    const element = document.createElement("measure-setup-view") as HTMLElement & {
+      definitions: MeasureDefinition[]; capabilities: Capabilities; powerMeter: string; kasaIp: string;
+      selectedType: string; updateComplete: Promise<boolean>; shadowRoot: ShadowRoot;
+    };
+    element.definitions = definitions;
+    element.capabilities = capabilities;
+    element.powerMeter = "kasa";
+    element.kasaIp = "192.0.2.30";
+    element.selectedType = "average";
+    document.body.append(element);
+    await element.updateComplete;
+
+    const submitted = new Promise<MeasurementRequest>((resolve) => {
+      element.addEventListener("preflight", (event) => resolve((event as CustomEvent<MeasurementRequest>).detail));
+    });
+    (element.shadowRoot.querySelector("form") as HTMLFormElement).requestSubmit();
+
+    expect((await submitted).power_meter).toEqual({ type: "kasa", device_ip: "192.0.2.30" });
+  });
+
   it("renders an entity dropdown for a device domain when entities are available", async () => {
     const fanDefinition: MeasureDefinition = {
       measure_type: "fan",
+        icon: "🌀",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }],
       label: "Fan",
       description: "Measure fan power across percentage levels.",
       fields: [
-        { name: "power_entity_id", label: "Power sensor", control: "entity", required: true, options: [] },
-        { name: "fan_entity_id", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] },
+        { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, options: [] },
+        { name: "fan_entity_id", role: "controller", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] },
       ],
       supports_profile: true,
       supports_resume: false,
@@ -548,10 +645,14 @@ describe("setup type picker", () => {
       type: "fan" as const,
       definition: {
         measure_type: "fan" as const,
+        icon: "🌀",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }],
         label: "Fan",
         description: "Measure fan power across percentage levels.",
         fields: [
-          { name: "fan_entity_id", label: "Fan", control: "entity" as const, required: true, entity_domains: ["fan"], options: [] },
+          { name: "fan_entity_id", role: "controller" as const, label: "Fan", control: "entity" as const, required: true, entity_domains: ["fan"], options: [] },
         ],
         supports_profile: true,
         supports_resume: false,
@@ -566,11 +667,15 @@ describe("setup type picker", () => {
       type: "speaker" as const,
       definition: {
         measure_type: "speaker" as const,
+        icon: "🔊",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }],
         label: "Speaker",
         description: "Measure power across media-player volume levels.",
         fields: [
-          { name: "media_player_entity_id", label: "Media player", control: "entity" as const, required: true, entity_domains: ["media_player"], options: [] },
-          { name: "disable_streaming", label: "Disable automatic pink-noise streaming", control: "boolean" as const, required: false, default: false, options: [] },
+          { name: "media_player_entity_id", role: "controller" as const, label: "Media player", control: "entity" as const, required: true, entity_domains: ["media_player"], options: [] },
+          { name: "disable_streaming", role: "attribute" as const, label: "Disable automatic pink-noise streaming", control: "boolean" as const, required: false, default: false, options: [] },
         ],
         supports_profile: true,
         supports_resume: false,
@@ -585,11 +690,16 @@ describe("setup type picker", () => {
       type: "charging" as const,
       definition: {
         measure_type: "charging" as const,
+        icon: "🔋",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }, { name: "sample_count", label: "Samples per reading", hint: "More samples reduce noise but increase measurement time.", group: "Sampling" }, { name: "sleep_time_sample", label: "Time between samples (seconds)", hint: "Only used when taking more than one sample.", group: "Sampling", requires_multiple: "sample_count" }],
         label: "Charging device",
         description: "Measure charging power against battery level.",
         fields: [
           {
             name: "charging_device_type",
+            role: "attribute" as const,
             label: "Charging device type",
             control: "select" as const,
             required: true,
@@ -600,6 +710,8 @@ describe("setup type picker", () => {
           },
           {
             name: "charging_entity_id",
+            role: "controller" as const,
+            narrowed_by: "charging_device_type",
             label: "Charging device",
             control: "entity" as const,
             required: true,
@@ -655,8 +767,12 @@ describe("setup type picker", () => {
 
   it("shows entity discovery failures instead of silently enabling free-text input", async () => {
     const fanDefinition: MeasureDefinition = {
-      measure_type: "fan", label: "Fan", description: "Measure fan power.",
-      fields: [{ name: "fan_entity_id", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] }],
+      measure_type: "fan",
+        icon: "🌀",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }], label: "Fan", description: "Measure fan power.",
+      fields: [{ name: "fan_entity_id", role: "controller", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] }],
       supports_profile: false, supports_resume: false,
     };
     const element = document.createElement("measure-setup-view") as HTMLElement & {
@@ -678,17 +794,21 @@ describe("setup type picker", () => {
 
   it("filters charging entities by the selected device type", async () => {
     const chargingDefinition: MeasureDefinition = {
-      measure_type: "charging", label: "Charging device", description: "Measure charging power.",
+      measure_type: "charging",
+        icon: "🔋",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }, { name: "sample_count", label: "Samples per reading", hint: "More samples reduce noise but increase measurement time.", group: "Sampling" }, { name: "sleep_time_sample", label: "Time between samples (seconds)", hint: "Only used when taking more than one sample.", group: "Sampling", requires_multiple: "sample_count" }], label: "Charging device", description: "Measure charging power.",
       fields: [
         {
-          name: "charging_device_type", label: "Device type", control: "select", required: true,
+          name: "charging_device_type", role: "attribute", label: "Device type", control: "select", required: true,
           options: [
             { value: "vacuum_robot", label: "Vacuum", entity_domain: "vacuum" },
             { value: "lawn_mower_robot", label: "Lawn mower", entity_domain: "lawn_mower" },
           ],
         },
         {
-          name: "charging_entity_id", label: "Charging device", control: "entity", required: true,
+          name: "charging_entity_id", role: "controller", narrowed_by: "charging_device_type", label: "Charging device", control: "entity", required: true,
           entity_domains: ["vacuum", "lawn_mower"], options: [],
         },
       ],
@@ -813,6 +933,22 @@ describe("running view", () => {
     expect(diagnostics.textContent).toBe("Download diagnostics");
     expect(diagnostics.href).toBe(element.diagnosticsUrl);
     expect(element.shadowRoot.querySelector(".diagnostics-download")?.textContent).toContain("snapshot and logs");
+  });
+
+  it("shows sub-one-percent progress and skipped readings", async () => {
+    const element = document.createElement("measure-running-view") as HTMLElement & {
+      snapshot: SessionSnapshot;
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.snapshot = { state: "running", mode: "brightness", progress: { completed: 1, total: 300, skipped: 1 } };
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot.querySelector(".value")?.textContent).toContain("<1%");
+    expect(element.shadowRoot.querySelector("progress")?.value).toBeCloseTo(1 / 300 * 100);
+    expect(element.shadowRoot.textContent).toContain("1 / 300");
+    expect(element.shadowRoot.textContent).toContain("Skipped");
   });
 
   it("draws a live power chart from streamed samples", async () => {
@@ -955,6 +1091,25 @@ describe("running view", () => {
     expect(element.shadowRoot.querySelector(".log-overlay")?.textContent).toContain("Second log");
   });
 
+  it("presents discarded readings as warnings in the page and log panel", async () => {
+    const warning = "Discarding measurement: 0 watt was read from the power meter";
+    const element = document.createElement("measure-running-view") as HTMLElement & {
+      snapshot: SessionSnapshot; logs: string[]; updateComplete: Promise<boolean>; shadowRoot: ShadowRoot;
+    };
+    element.snapshot = { state: "running", progress: { completed: 0, total: 2 }, warnings: [warning] };
+    element.logs = [warning];
+    document.body.append(element);
+    await element.updateComplete;
+
+    const notice = element.shadowRoot.querySelector(".notice.warning");
+    expect(notice?.getAttribute("role")).toBe("alert");
+    expect(notice?.textContent).toContain(warning);
+
+    (element.shadowRoot.querySelector(".log-toggle") as HTMLButtonElement).click();
+    await element.updateComplete;
+    expect(element.shadowRoot.querySelector(".log p.warning")?.textContent).toContain(warning);
+  });
+
   it("auto-scrolls the log container when new log lines arrive", async () => {
     const element = document.createElement("measure-running-view") as HTMLElement & {
       snapshot: SessionSnapshot;
@@ -990,6 +1145,7 @@ describe("setup view defaults", () => {
       voltages: EntityDescriptor[];
       defaultPowerEntityId: string;
       defaultMeasureDevice: string;
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -1000,6 +1156,7 @@ describe("setup view defaults", () => {
     element.voltages = [];
     element.defaultPowerEntityId = "sensor.plug_power";
     element.defaultMeasureDevice = "Shelly Plug S";
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -1020,6 +1177,7 @@ describe("setup view defaults", () => {
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
       defaultPowerEntityId: string;
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -1035,6 +1193,7 @@ describe("setup view defaults", () => {
       { entity_id: "sensor.strip_mains", name: "Strip voltage", unit: "V", device_id: "strip-device" },
     ];
     element.defaultPowerEntityId = "sensor.plug_power";
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -1052,6 +1211,7 @@ describe("setup view defaults", () => {
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
       defaultPowerEntityId: string;
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -1061,6 +1221,7 @@ describe("setup view defaults", () => {
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power", device_id: "plug-device", model_id: "WSP002" }];
     element.voltages = [];
     element.defaultPowerEntityId = "sensor.plug_power";
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -1080,6 +1241,7 @@ describe("setup view defaults", () => {
       lights: EntityDescriptor[];
       powers: EntityDescriptor[];
       voltages: EntityDescriptor[];
+      definitions: MeasureDefinition[];
       selectedType: string;
       updateComplete: Promise<boolean>;
       shadowRoot: ShadowRoot;
@@ -1088,6 +1250,7 @@ describe("setup view defaults", () => {
     element.lights = lights;
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power" }];
     element.voltages = [];
+    element.definitions = [lightDefinition];
     element.selectedType = "light";
     document.body.append(element);
     await element.updateComplete;
@@ -1125,7 +1288,7 @@ describe("settings view", () => {
     await element.updateComplete;
 
     const sectionButtons = [...element.shadowRoot.querySelectorAll<HTMLButtonElement>(".settings-nav button")];
-    expect(sectionButtons.map((button) => button.textContent?.trim())).toEqual(["Power meter", "Measure tuning"]);
+    expect(sectionButtons.map((button) => button.textContent?.trim())).toEqual(["Power meter", "Measure tuning", "GitHub"]);
     expect(sectionButtons[0]?.classList.contains("active")).toBe(true);
     expect(element.shadowRoot.querySelector<HTMLElement>('[aria-labelledby="measure-tuning-title"]')?.hidden).toBe(true);
 
@@ -1151,15 +1314,188 @@ describe("settings view", () => {
     expect(settings.default_power_entity_id).toBe("sensor.plug_power");
     expect(settings.measurement_defaults).toEqual(measurementDefaults);
   });
+
+  it("shows fast test mode only in developer mode and saves the toggle", async () => {
+    const element = document.createElement("measure-settings-view") as HTMLElement & {
+      settings: AppSettings;
+      capabilities: Capabilities;
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.settings = {
+      ...defaultSettings,
+      default_measure_device: "Synthetic meter",
+      power_meter: "dummy",
+    };
+    element.capabilities = capabilities;
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot.querySelector('input[name="fast_test_mode"]')).toBeNull();
+
+    element.capabilities = { ...capabilities, developer_mode: true };
+    await element.updateComplete;
+    const toggle = element.shadowRoot.querySelector('input[name="fast_test_mode"]') as HTMLInputElement;
+    expect(toggle).not.toBeNull();
+    expect(element.shadowRoot.textContent).toContain("output is not valid for contribution or real use");
+
+    toggle.checked = true;
+    const saved = new Promise<AppSettings>((resolve) => {
+      element.addEventListener("save", (event) => resolve((event as CustomEvent<AppSettings>).detail));
+    });
+    (element.shadowRoot.querySelector("form") as HTMLFormElement).requestSubmit();
+
+    expect((await saved).fast_test_mode).toBe(true);
+  });
+
+  it("renders GitHub device login, token fallback, identity, and disconnect", async () => {
+    const element = document.createElement("measure-settings-view") as HTMLElement & {
+      powers: EntityDescriptor[];
+      settings: AppSettings;
+      contributionAuth: { connected: boolean; identity?: { login: string; name?: string } };
+      contributionDeviceFlow: { flow_id: string; user_code: string; verification_uri: string; expires_in: number; interval: number };
+      contributionDeviceStatus: { status: "pending" | "expired"; message?: string };
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.powers = [];
+    element.settings = defaultSettings;
+    element.contributionAuth = { connected: false };
+    document.body.append(element);
+    await element.updateComplete;
+
+    [...element.shadowRoot.querySelectorAll<HTMLButtonElement>(".settings-nav button")].find((button) => button.textContent?.includes("GitHub"))?.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot.textContent).toContain("Connect GitHub");
+    expect(element.shadowRoot.textContent).toContain("Use a personal access token instead");
+    expect(element.shadowRoot.textContent).toContain("included in Home Assistant backups");
+    const started = new Promise<void>((resolve) => element.addEventListener("github-device-start", () => resolve()));
+    [...element.shadowRoot.querySelectorAll("button")].find((button) => button.textContent?.includes("Connect GitHub"))?.click();
+    await started;
+
+    element.contributionDeviceFlow = {
+      flow_id: "flow-1",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://github.com/login/device",
+      expires_in: 900,
+      interval: 5,
+    };
+    await element.updateComplete;
+    expect((element.shadowRoot.querySelector(".device-code") as HTMLInputElement).value).toBe("ABCD-EFGH");
+    expect(element.shadowRoot.textContent).toContain("Continue on GitHub");
+    expect(element.shadowRoot.textContent).toContain("connect automatically");
+    expect(element.shadowRoot.textContent).not.toContain("Check login");
+    expect((element.shadowRoot.querySelector(".github-link") as HTMLAnchorElement).href).toBe("https://github.com/login/device");
+
+    [...element.shadowRoot.querySelectorAll("button")].find((button) => button.textContent?.includes("Copy code"))?.click();
+    await vi.waitFor(() => expect(element.shadowRoot.textContent).toContain("Select the code and copy it manually"));
+    expect(element.shadowRoot.textContent).not.toContain("Code copied.");
+
+    element.contributionDeviceStatus = { status: "expired", message: "This code expired." };
+    await element.updateComplete;
+    expect(element.shadowRoot.textContent).toContain("This code expired.");
+    expect(element.shadowRoot.textContent).toContain("Get a new code");
+
+    const saved = new Promise<string>((resolve) => element.addEventListener("github-token-save", (event) => resolve((event as CustomEvent<string>).detail)));
+    const token = element.shadowRoot.querySelector('input[name="github_token"]') as HTMLInputElement;
+    token.value = "ghp_secret";
+    [...element.shadowRoot.querySelectorAll("button")].find((button) => button.textContent?.includes("Save token"))?.click();
+    expect(await saved).toBe("ghp_secret");
+
+    element.contributionAuth = { connected: true, identity: { login: "octocat" } };
+    await element.updateComplete;
+    expect(element.shadowRoot.textContent).toContain("octocat");
+    const disconnected = new Promise<void>((resolve) => element.addEventListener("github-disconnect", () => resolve()));
+    (element.shadowRoot.querySelector("button.danger") as HTMLButtonElement).click();
+    await disconnected;
+  });
+
+  it("copies the device code through execCommand when the clipboard API is unavailable", async () => {
+    const element = document.createElement("measure-settings-view") as HTMLElement & {
+      settings: AppSettings;
+      contributionAuth: { connected: boolean };
+      contributionDeviceFlow: { flow_id: string; user_code: string; verification_uri: string; expires_in: number; interval: number };
+      initialSection: SettingsSection;
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.settings = defaultSettings;
+    element.contributionAuth = { connected: false };
+    element.initialSection = "github";
+    element.contributionDeviceFlow = {
+      flow_id: "flow-1",
+      user_code: "BA41-1016",
+      verification_uri: "https://github.com/login/device",
+      expires_in: 900,
+      interval: 5,
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    // Insecure context: navigator.clipboard is not exposed at all, as inside the http ingress panel.
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    let copied = "";
+    const execCommand = vi.fn(() => {
+      copied = document.querySelector("textarea")?.value ?? "";
+      return true;
+    });
+    Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
+
+    const copyButton = [...element.shadowRoot.querySelectorAll("button")].find((button) => button.textContent?.includes("Copy code"));
+    copyButton?.click();
+    await vi.waitFor(() => expect(element.shadowRoot.textContent).toContain("Code copied."));
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    expect(copied).toBe("BA41-1016");
+    expect(document.querySelector("textarea")).toBeNull();
+
+    // A rejecting clipboard API (blocked by permissions policy or an unfocused document) also falls back.
+    const writeText = vi.fn().mockRejectedValue(new DOMException("Write permission denied.", "NotAllowedError"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    execCommand.mockClear();
+    copyButton?.click();
+    await vi.waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
+    expect(writeText).toHaveBeenCalledWith("BA41-1016");
+
+    if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+  });
+
+  it("opens directly on the GitHub section when a section is requested", async () => {
+    const element = document.createElement("measure-settings-view") as HTMLElement & {
+      powers: EntityDescriptor[];
+      settings: AppSettings;
+      contributionAuth: { connected: boolean };
+      initialSection: SettingsSection;
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.powers = [];
+    element.settings = defaultSettings;
+    element.contributionAuth = { connected: false };
+    element.initialSection = "github";
+    document.body.append(element);
+    await element.updateComplete;
+
+    const githubNav = [...element.shadowRoot.querySelectorAll<HTMLButtonElement>(".settings-nav button")]
+      .find((button) => button.textContent?.includes("GitHub"));
+    expect(githubNav?.getAttribute("aria-current")).toBe("page");
+    const githubSection = element.shadowRoot.querySelector('[aria-labelledby="github-title"]');
+    expect(githubSection?.hasAttribute("hidden")).toBe(false);
+  });
 });
 
 describe("app shell device entities", () => {
   it("loads device entities only after their measurement type is selected", async () => {
     const fanDefinition: MeasureDefinition = {
-      measure_type: "fan", label: "Fan", description: "Measure fan power across percentage levels.",
+      measure_type: "fan",
+        icon: "🌀",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }], label: "Fan", description: "Measure fan power across percentage levels.",
       fields: [
-        { name: "power_entity_id", label: "Power sensor", control: "entity", required: true, options: [], entity_domains: ["sensor"] },
-        { name: "fan_entity_id", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] },
+        { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, options: [], entity_domains: ["sensor"] },
+        { name: "fan_entity_id", role: "controller", label: "Fan", control: "entity", required: true, entity_domains: ["fan"], options: [] },
       ],
       supports_profile: true, supports_resume: false,
     };
@@ -1170,6 +1506,7 @@ describe("app shell device entities", () => {
       getEntityCatalog: async () => ({ lights: [], powers: [], voltages: [] }),
       getEntitiesByDeviceClass: async () => [],
       getSettings: async () => defaultSettings,
+      getContributionAuth: async () => ({ connected: false }),
       getDummyLoadCalibration: async () => null,
       getCurrent: async () => ({ state: "idle" }),
       getMeasureDefinitions: async () => [fanDefinition],
@@ -1177,11 +1514,15 @@ describe("app shell device entities", () => {
         requestedDomains.push(domain);
         return domain === "fan" ? [{ entity_id: "fan.bedroom", name: "Bedroom fan" }] : [];
       },
+      getContributionDraft: async () => ({ eligible: false }),
     };
 
     await (element as unknown as { boot: () => Promise<void> }).boot();
+    document.body.append(element);
+    await element.updateComplete;
 
     expect(requestedDomains).toEqual([]);
+    expect(element.shadowRoot?.querySelector(".version")?.textContent).toBe("Version v0.2.1");
     (element as unknown as { measureTypeSelected: (event: CustomEvent<"fan">) => void })
       .measureTypeSelected(new CustomEvent("measure-type-selected", { detail: "fan" }));
     await vi.waitFor(() => expect(element.deviceEntities.fan).toEqual([{ entity_id: "fan.bedroom", name: "Bedroom fan" }]));
@@ -1195,6 +1536,7 @@ describe("app shell device entities", () => {
       getEntityCatalog: async () => ({ lights: [], powers: [], voltages: [] }),
       getEntitiesByDeviceClass: async () => [],
       getSettings: async () => defaultSettings,
+      getContributionAuth: async () => ({ connected: false }),
       getDummyLoadCalibration: async () => null,
       getCurrent: async () => ({
         state: "idle",
@@ -1212,6 +1554,7 @@ describe("app shell device entities", () => {
       }),
       getMeasureDefinitions: async () => [],
       getEntitiesByDomain: async () => [],
+      getContributionDraft: async () => ({ eligible: false }),
     };
 
     await (element as unknown as { boot: () => Promise<void> }).boot();
@@ -1275,6 +1618,43 @@ describe("settings power meter test", () => {
 
     expect(element.shadowRoot.querySelector('input[name="shelly_ip"]')).toBeTruthy();
     expect((element.shadowRoot.querySelector('input[name="shelly_ip"]') as HTMLInputElement).value).toBe("10.0.0.5");
+  });
+
+  it("collects the Kasa address without offering discovery", async () => {
+    const element = document.createElement("measure-settings-view") as HTMLElement & {
+      powers: EntityDescriptor[]; settings: AppSettings; testResult?: PowerMeterDiagnostic;
+      updateComplete: Promise<boolean>; shadowRoot: ShadowRoot;
+    };
+    element.powers = [];
+    element.settings = { ...defaultSettings, default_measure_device: "Kasa KP115" };
+    element.testResult = goodPowerMeterDiagnostic;
+    const discover = vi.fn();
+    element.addEventListener("shelly-discover", discover);
+    const saved = new Promise<AppSettings>((resolve) => {
+      element.addEventListener("save", (event) => resolve((event as CustomEvent<AppSettings>).detail));
+    });
+    document.body.append(element);
+    await element.updateComplete;
+
+    const meterSelect = element.shadowRoot.querySelector('select[name="power_meter"]') as HTMLSelectElement;
+    meterSelect.value = "kasa";
+    meterSelect.dispatchEvent(new Event("change"));
+    await element.updateComplete;
+    expect(discover).not.toHaveBeenCalled();
+    // Selecting a direct meter invalidates the earlier Home Assistant sensor result.
+    expect(element.shadowRoot.querySelector("measure-power-meter-diagnostic")).toBeNull();
+    expect(element.shadowRoot.querySelector('select[name="discovered_shelly"]')).toBeNull();
+
+    const kasaIp = element.shadowRoot.querySelector('input[name="kasa_ip"]') as HTMLInputElement;
+    kasaIp.value = "192.0.2.30";
+    kasaIp.dispatchEvent(new Event("input"));
+    await element.updateComplete;
+    (element.shadowRoot.querySelector("form") as HTMLFormElement).requestSubmit();
+
+    const settings = await saved;
+    expect(settings.power_meter).toBe("kasa");
+    expect(settings.kasa_ip).toBe("192.0.2.30");
+    expect(settings.shelly_ip).toBeNull();
   });
 
   it("discovers Shellys automatically and selects only compatible devices", async () => {
@@ -1438,6 +1818,10 @@ describe("app shell", () => {
     const element = document.createElement("powercalc-measure-app") as AppShell;
     element.definitions = [{
       measure_type: "charging",
+        icon: "🔋",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }, { name: "sample_count", label: "Samples per reading", hint: "More samples reduce noise but increase measurement time.", group: "Sampling" }, { name: "sleep_time_sample", label: "Time between samples (seconds)", hint: "Only used when taking more than one sample.", group: "Sampling", requires_multiple: "sample_count" }],
       label: "Charging device",
       description: "Measure charging power.",
       fields: [],
@@ -1480,6 +1864,10 @@ describe("app shell", () => {
     const element = document.createElement("powercalc-measure-app") as AppShell;
     element.definitions = [{
       measure_type: "average",
+        icon: "📊",
+        model_id_example: "WSP002",
+        product_name_example: "",
+        parameters: [{ name: "sleep_time", label: "Reading interval (seconds)", hint: "Delay between repeated power readings and retries.", step: "0.1", group: "Sampling" }],
       label: "Average",
       description: "Measure average power.",
       fields: [],
@@ -1521,12 +1909,17 @@ describe("app shell", () => {
     const element = document.createElement("powercalc-measure-app") as AppShell;
     element.definitions = [{
       measure_type: "speaker",
+      icon: "🔊",
+      model_id_example: "WSP002",
+      product_name_example: "",
+      parameters: [],
       label: "Speaker",
       description: "Measure a speaker.",
       fields: [],
       supports_profile: true,
       supports_resume: false,
       confirmation_action: "Start speaker measurement",
+      confirmation_is_warning: true,
     }];
     element.request = {
       measure_type: "speaker",
@@ -1637,6 +2030,36 @@ describe("result view", () => {
     expect(element.shadowRoot.querySelector(".diagnostics-download")?.textContent).toContain("snapshot and logs");
   });
 
+  it("keeps failed results focused on the actionable error", async () => {
+    const element = document.createElement("measure-result-view") as HTMLElement & {
+      snapshot: SessionSnapshot;
+      files: { name: string; size: number; media_type: string }[];
+      plotCollection: { partial: boolean; plots: never[]; warnings: string[] };
+      diagnosticsUrl: string;
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.snapshot = {
+      state: "failed",
+      error: "Use a more sensitive meter. See https://docs.powercalc.nl/contributing/measure/troubleshooting/ for troubleshooting guidance.",
+    };
+    element.files = [{ name: "brightness.csv", size: 10, media_type: "text/csv" }];
+    element.plotCollection = { partial: true, plots: [], warnings: ["Could not plot brightness.csv"] };
+    element.diagnosticsUrl = "http://ha.local/ingress/api/session/current/diagnostics";
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot.querySelector(".notice.error")?.textContent).toContain("Use a more sensitive meter.");
+    const troubleshootingLink = element.shadowRoot.querySelector(".notice.error a") as HTMLAnchorElement;
+    expect(troubleshootingLink.textContent).toBe("Troubleshooting guide");
+    expect(troubleshootingLink.href).toBe("https://docs.powercalc.nl/contributing/measure/troubleshooting/");
+    expect(element.shadowRoot.textContent).toContain("correct the problem");
+    expect(element.shadowRoot.textContent).not.toContain("Could not plot");
+    expect(element.shadowRoot.textContent).not.toContain("Generated files");
+    expect(element.shadowRoot.textContent).not.toContain("Download all");
+    expect(element.shadowRoot.querySelector(".diagnostics-download a")).toBeTruthy();
+  });
+
   it("shows a download-all action for generated files", async () => {
     const element = document.createElement("measure-result-view") as HTMLElement & {
       snapshot: SessionSnapshot;
@@ -1662,14 +2085,139 @@ describe("result view", () => {
     button.click();
     expect(downloadAll).toHaveBeenCalledTimes(1);
 
+    const contribution = element.shadowRoot.querySelector(".contribution");
+    expect(contribution?.textContent).toContain("Contribute your measurement");
+    // Without an eligible GitHub draft, the manual method is selected by default.
     const nextSteps = element.shadowRoot.querySelector(".contribution-next");
-    expect(nextSteps?.textContent).toContain("Contribute your measurement");
     expect(nextSteps?.textContent).toContain("Download and inspect the generated files");
     expect(nextSteps?.textContent).toContain("profile_library/<manufacturer>/<model>/");
     const guide = nextSteps?.querySelector("a") as HTMLAnchorElement;
     expect(guide.href).toBe("https://docs.powercalc.nl/contributing/measure/output/");
     expect(guide.target).toBe("_blank");
     expect(guide.rel).toContain("noopener");
+  });
+
+  it("defaults to the GitHub method for an eligible draft and offers manual as an alternative", async () => {
+    const element = document.createElement("measure-result-view") as HTMLElement & {
+      snapshot: SessionSnapshot;
+      files: { name: string; size: number; media_type: string }[];
+      fileUrl: (name: string) => string;
+      downloadAll: () => void;
+      contributionAuth: { connected: boolean; identity: { login: string } };
+      contributionPreview: {
+        eligible: boolean;
+        repository: string;
+        base_branch: string;
+        manufacturer_name: string;
+        manufacturer_directory: string;
+        model_id: string;
+        product_name: string;
+        contributor: string;
+        device_info: Record<string, string>;
+        home_assistant: Record<string, string>;
+        notes: string;
+        files: { path: string; rendered_json: Record<string, string> }[];
+        model_json: Record<string, string>;
+        commit_message: string;
+        pr_title: string;
+        pr_body: string;
+        branch_name: string;
+        warnings: string[];
+      };
+      contributionResult: { status: string; pull_request_url: string };
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.snapshot = { state: "completed" };
+    element.files = [{ name: "model.json", size: 5678, media_type: "application/json" }];
+    element.fileUrl = (name) => `/download/${name}`;
+    element.downloadAll = () => {};
+    element.contributionAuth = { connected: true, identity: { login: "octocat" } };
+    element.contributionPreview = {
+      eligible: true,
+      repository: "bramstroker/homeassistant-powercalc",
+      base_branch: "master",
+      manufacturer_name: "Signify",
+      manufacturer_directory: "signify",
+      model_id: "LCT010",
+      product_name: "Hue lamp",
+      contributor: "octocat",
+      device_info: { device: "light.desk" },
+      home_assistant: { version: "2026.7" },
+      notes: "Measured through the HA app.",
+      files: [{ path: "profile_library/signify/LCT010/model.json", rendered_json: { name: "Hue lamp" } }],
+      model_json: { name: "Hue lamp" },
+      commit_message: "Add Signify LCT010",
+      pr_title: "Add Signify LCT010",
+      pr_body: "Adds a measured profile.",
+      branch_name: "measure/signify-lct010",
+      warnings: [],
+    };
+    element.contributionResult = { status: "success", pull_request_url: "https://github.com/bramstroker/homeassistant-powercalc/pull/1" };
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot.querySelector(".download-all")).toBeTruthy();
+    // GitHub is the default method for an eligible draft; the manual panel is not shown yet.
+    const cards = Array.from(element.shadowRoot.querySelectorAll(".method-card")) as HTMLButtonElement[];
+    expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("GitHub pull request"),
+      expect.stringContaining("Manual contribution"),
+      expect.stringContaining("Add to this installation"),
+    ]);
+    const [githubCard, manualCard, localCard] = cards as [HTMLButtonElement, HTMLButtonElement, HTMLButtonElement];
+    expect(githubCard.getAttribute("aria-checked")).toBe("true");
+    expect(localCard.disabled).toBe(true); // local install is not available yet
+    expect(element.shadowRoot.querySelector(".contribution-next")).toBeNull();
+    const automatic = element.shadowRoot.querySelector(".contribution-auto");
+    expect(automatic?.textContent).toContain("Connected to GitHub as octocat");
+    expect(automatic?.textContent).toContain("profile_library/signify/LCT010/model.json");
+    expect(automatic?.textContent).toContain("Add Signify LCT010");
+    expect(automatic?.textContent).not.toContain("aliases");
+
+    const previewed = new Promise<unknown>((resolve) => element.addEventListener("contribution-preview", (event) => resolve((event as CustomEvent).detail)));
+    (element.shadowRoot.querySelector('input[name="manufacturer_directory"]') as HTMLInputElement).value = "philips";
+    (element.shadowRoot.querySelector(".contribution-form") as HTMLFormElement).requestSubmit();
+    expect(await previewed).toMatchObject({ manufacturer_directory: "philips" });
+
+    const submit = element.shadowRoot.querySelector(".contribution-auto button.primary") as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    (element.shadowRoot.querySelector('input[name="confirm_contribution"]') as HTMLInputElement).click();
+    await element.updateComplete;
+    expect((element.shadowRoot.querySelector(".contribution-auto button.primary") as HTMLButtonElement).disabled).toBe(false);
+    const submitted = new Promise<unknown>((resolve) => element.addEventListener("contribution-submit", (event) => resolve((event as CustomEvent).detail)));
+    (element.shadowRoot.querySelector(".contribution-auto button.primary") as HTMLButtonElement).click();
+    expect(await submitted).toMatchObject({ confirmed: true, manufacturer_directory: "philips" });
+    expect((element.shadowRoot.querySelector(".success-link") as HTMLAnchorElement).href).toBe(element.contributionResult.pull_request_url);
+
+    // Switching to the manual method reveals the download guide instead of the GitHub form.
+    manualCard.click();
+    await element.updateComplete;
+    expect(element.shadowRoot.querySelector(".contribution-auto")).toBeNull();
+    expect(element.shadowRoot.querySelector(".contribution-next")?.textContent).toContain("Read the contribution guide");
+  });
+
+  it("asks to open settings on the GitHub section when GitHub is not connected", async () => {
+    const element = document.createElement("measure-result-view") as HTMLElement & {
+      snapshot: SessionSnapshot;
+      contributionAuth: { connected: boolean };
+      contributionDraft: { eligible: boolean; manufacturer_name: string; manufacturer_directory: string; model_id: string; product_name: string; contributor: string; notes: string; device_info: Record<string, string>; home_assistant: Record<string, string> };
+      updateComplete: Promise<boolean>;
+      shadowRoot: ShadowRoot;
+    };
+    element.snapshot = { state: "completed" };
+    element.contributionAuth = { connected: false };
+    element.contributionDraft = {
+      eligible: true, manufacturer_name: "Signify", manufacturer_directory: "signify", model_id: "LCT010",
+      product_name: "Hue lamp", contributor: "", notes: "", device_info: {}, home_assistant: {},
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    const opened = new Promise<unknown>((resolve) => element.addEventListener("open-settings", (event) => resolve((event as CustomEvent).detail)));
+    const button = [...element.shadowRoot.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.includes("Open GitHub settings"));
+    button?.click();
+    expect(await opened).toEqual({ section: "github" });
   });
 
   it.each(["failed", "cancelled", "resumable"] as const)("does not suggest contribution for a %s session", async (state) => {

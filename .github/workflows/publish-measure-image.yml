@@ -62,13 +62,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=v${{ steps.measure.outputs.version }},enable=${{ github.event_name != 'push' }}
             type=semver,pattern={{major}},value=v${{ steps.measure.outputs.version }},enable=${{ github.event_name != 'push' }}
       - name: Log in to GHCR
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to Docker Hub
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -95,6 +95,14 @@ jobs:
           persist-credentials: false
       - name: Validate app metadata
         run: ruby utils/measure/home-assistant-app/validate.rb
+      - name: Validate GitHub OAuth app configuration
+        env:
+          POWERCALC_GITHUB_CLIENT_ID: ${{ secrets.POWERCALC_GITHUB_CLIENT_ID }}
+        run: |
+          if [[ -z "$POWERCALC_GITHUB_CLIENT_ID" ]]; then
+            echo "Actions secret POWERCALC_GITHUB_CLIENT_ID must contain the public client ID of a GitHub OAuth app with Device Flow enabled" >&2
+            exit 1
+          fi
       - name: Run Home Assistant app linter
         uses: frenck/action-addon-linter@f995494fd84fae6310d23617e66d0e37de4f14eb # v2.21.0
         with:
@@ -143,6 +151,7 @@ jobs:
           arch: ${{ matrix.arch }}
           build-args: |
             FINAL_STAGE=ha-app
+            POWERCALC_GITHUB_CLIENT_ID=${{ secrets.POWERCALC_GITHUB_CLIENT_ID }}
           cache-gha-scope: powercalc-measure-app
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           context: ./utils/measure

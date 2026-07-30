@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 from enum import StrEnum
 from threading import Event, Lock
 from typing import Any, cast
 
+from measure.clock import utc_now
 from measure.execution import MeasurementCancelledError, OperatingPoint
 
 
@@ -67,6 +67,7 @@ class SessionSnapshot:
     updated_at: str
     completed: int = 0
     total: int = 0
+    skipped: int = 0
     phase: str | None = None
     confirmation_message: str | None = None
     mode: str | None = None
@@ -88,10 +89,6 @@ class SessionSnapshot:
         data = asdict(self)
         data["progress"] = self.progress
         return data
-
-
-def utc_now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 @dataclass
@@ -162,12 +159,13 @@ class SessionControl:
             listener(event)
         return event
 
-    def progress(self, *, completed: int, total: int, mode: str, estimated_remaining: str) -> None:
+    def progress(self, *, completed: int, total: int, mode: str, estimated_remaining: str, skipped: int = 0) -> None:
         self.emit(
             SessionEventType.PROGRESS,
             {
                 "completed": completed,
                 "total": total,
+                "skipped": skipped,
                 "mode": mode,
                 "estimated_remaining": estimated_remaining,
             },

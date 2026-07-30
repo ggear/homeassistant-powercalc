@@ -9,6 +9,7 @@ import time
 from typing import Protocol, cast
 from uuid import uuid4
 
+from measure.clock import utc_now
 from measure.execution import MeasurementCancelledError, OperatingPoint
 from measure.ha_app.session import (
     ACTIVE_SESSION_STATES,
@@ -17,7 +18,6 @@ from measure.ha_app.session import (
     SessionEventType,
     SessionSnapshot,
     SessionState,
-    utc_now,
 )
 from measure.ha_app.storage import SessionStorage
 from measure.request import MeasurementRequest, ResumePolicy
@@ -237,6 +237,7 @@ class MeasurementCoordinator:
                     updated_at=event.created_at,
                     completed=int(event.data["completed"]),
                     total=int(event.data["total"]),
+                    skipped=int(event.data.get("skipped", 0)),
                     phase=str(event.data["mode"]),
                     mode=str(event.data["mode"]),
                     estimated_remaining=str(event.data["estimated_remaining"]),

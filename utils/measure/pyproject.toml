@@ -9,6 +9,7 @@ readme = "README.md"
 requires-python = ">=3.14,<4.0"
 dependencies = [
     "homeassistant-api~=6.0",
+    "jsonschema>=4.0",
     "pydantic>=2.13",
     "requests>=2.28",
 ]
@@ -16,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 app = [
     "fastapi>=0.116",
+    "python-kasa>=0.7",
     "uvicorn>=0.35",
 ]
 cli = [
