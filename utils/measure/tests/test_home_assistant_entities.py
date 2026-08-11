@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from measure.controller.light.const import LutMode
 from measure.home_assistant import HomeAssistantEntityData, HomeAssistantManager
 from measure.home_assistant_entities import DeviceClass, EntityDomain, HomeAssistantEntityCatalog
+import pytest
 
 
 def _entity(entity_id: str, state: str, **attributes: object) -> SimpleNamespace:
@@ -80,9 +79,9 @@ def _entity_data(*, power_state: str = "4.2") -> HomeAssistantEntityData:
             ),
         },
         entity_registry=[
-            SimpleNamespace(entity_id="light.desk", device_id="light-device"),
-            SimpleNamespace(entity_id="sensor.desk_power", device_id="meter-device"),
-            SimpleNamespace(entity_id="sensor.desk_voltage", device_id="meter-device"),
+            SimpleNamespace(entity_id="light.desk", device_id="light-device", platform="hue"),
+            SimpleNamespace(entity_id="sensor.desk_power", device_id="meter-device", platform="shelly"),
+            SimpleNamespace(entity_id="sensor.desk_voltage", device_id="meter-device", platform="shelly"),
         ],
         device_registry=[
             {"id": "light-device", "model_id": "LWA017", "model": "Hue White Ambiance"},
@@ -100,6 +99,7 @@ def test_catalog_applies_one_selection_policy_and_enriches_entities() -> None:
     lights = snapshot.select(domain=EntityDomain.LIGHT)
     assert [entity.entity_id for entity in lights] == ["light.desk"]
     assert lights[0].model_id == "LWA017"
+    assert lights[0].integration == "hue"
     assert lights[0].supported_modes == [LutMode.BRIGHTNESS, LutMode.COLOR_TEMP, LutMode.HS, LutMode.EFFECT]
     assert lights[0].min_mired == 153
     assert lights[0].max_mired == 454
@@ -138,16 +138,8 @@ def test_snapshot_requires_exactly_one_entity_filter() -> None:
     home_assistant.get_entity_data.return_value = _entity_data()
     snapshot = HomeAssistantEntityCatalog(home_assistant).load_snapshot()
 
-    try:
+    with pytest.raises(ValueError, match="Specify exactly one entity filter"):
         snapshot.select()
-    except ValueError as error:
-        assert str(error) == "Specify exactly one entity filter"
-    else:
-        raise AssertionError("select() accepted no entity filter")
 
-    try:
+    with pytest.raises(ValueError, match="Specify exactly one entity filter"):
         snapshot.select(domain=EntityDomain.LIGHT, device_class=DeviceClass.POWER)
-    except ValueError as error:
-        assert str(error) == "Specify exactly one entity filter"
-    else:
-        raise AssertionError("select() accepted both entity filters")

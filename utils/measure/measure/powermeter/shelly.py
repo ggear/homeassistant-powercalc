@@ -1,13 +1,18 @@
-from __future__ import annotations
-
 from measure.powermeter.errors import ApiConnectionError, UnsupportedFeatureError
 from measure.powermeter.powermeter import PowerMeasurementResult, PowerMeter
 from measure.powermeter.shelly_client import ShellyClient, ShellyDevice, ShellyProbeError
 
 
 class ShellyPowerMeter(PowerMeter):
-    def __init__(self, shelly_ip: str, timeout: int = 5) -> None:
-        self._client = ShellyClient(shelly_ip, timeout)
+    def __init__(
+        self,
+        shelly_ip: str,
+        timeout: int = 5,
+        *,
+        username: str = "admin",
+        password: str | None = None,
+    ) -> None:
+        self._client = ShellyClient(shelly_ip, timeout, username=username, password=password)
         try:
             self._device: ShellyDevice = self._client.probe()
         except ShellyProbeError as error:

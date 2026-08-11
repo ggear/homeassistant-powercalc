@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_ENTITY_ID, STATE_ON
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntry
 import pytest
 
 from custom_components.powercalc import CONF_DISABLE_LIBRARY_DOWNLOAD
@@ -14,8 +13,14 @@ from custom_components.powercalc.power_profile.library import ModelInfo, Profile
 from custom_components.powercalc.power_profile.loader.composite import CompositeLoader
 from custom_components.powercalc.power_profile.loader.local import LocalLoader
 from custom_components.powercalc.power_profile.loader.remote import RemoteLoader
-from tests.common import assert_entity_state, get_test_profile_dir, run_powercalc_setup, set_states
-from tests.conftest import MockEntityWithModel
+from tests.common import (
+    assert_entity_state,
+    build_device_entry,
+    get_test_profile_dir,
+    mock_device_with_entities,
+    run_powercalc_setup,
+    set_states,
+)
 
 
 async def test_manufacturer_listing(hass: HomeAssistant) -> None:
@@ -158,10 +163,7 @@ async def test_hidden_directories_are_skipped_from_model_listing(
     assert len(caplog.records) == 0
 
 
-async def test_exception_is_raised_when_no_model_json_present(
-    hass: HomeAssistant,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_exception_is_raised_when_no_model_json_present(hass: HomeAssistant) -> None:
     library = await ProfileLibrary.factory(hass)
     model_info = ModelInfo("foo", "bar")
     source_entity = create_source_entity("light.test", hass)
@@ -229,7 +231,12 @@ def test_compute_replacement_variables_raises_clear_error_when_related_entity_mi
     expected_message: str,
 ) -> None:
     library = ProfileLibrary(hass, loader=LocalLoader(hass, ""))
-    source_entity = SourceEntity("test", "switch.test", "switch", device_entry=DeviceEntry(id="device_1"))
+    source_entity = SourceEntity(
+        "test",
+        "switch.test",
+        "switch",
+        device_entry=build_device_entry(config_entry_id="test", id="device_1"),
+    )
 
     with pytest.raises(LibraryError, match=expected_message):
         library.compute_replacement_variables({placeholder}, {}, source_entity)
@@ -288,10 +295,10 @@ async def test_linked_profile_loading_failed(hass: HomeAssistant) -> None:
 
 async def test_autodiscover_model_with_default_sub_profile(
     hass: HomeAssistant,
-    mock_entity_with_model_information: MockEntityWithModel,
 ) -> None:
     """Test autodiscover model with default sub profile."""
-    mock_entity_with_model_information(
+    mock_device_with_entities(
+        hass,
         "switch.test",
         "shelly",
         "Shelly Plus 1PM",
@@ -305,12 +312,12 @@ async def test_autodiscover_model_with_default_sub_profile(
 
 async def test_linked_profile_fixed(
     hass: HomeAssistant,
-    mock_entity_with_model_information: MockEntityWithModel,
 ) -> None:
     """
     See https://github.com/bramstroker/homeassistant-powercalc/pull/3406
     """
-    mock_entity_with_model_information(
+    mock_device_with_entities(
+        hass,
         "switch.test",
         "test",
         "linked_profile_fixed",

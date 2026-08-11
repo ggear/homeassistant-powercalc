@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import STORAGE_DIR
 import pytest
 
+from custom_components.powercalc.const import LIBRARY_DISCOVERY_IGNORED_DOMAINS
 from custom_components.powercalc.helpers import get_library_json_path, get_library_path
 from custom_components.powercalc.power_profile.error import LibraryLoadingError, ProfileDownloadError
 from custom_components.powercalc.power_profile.library import ModelInfo, ProfileLibrary
@@ -143,6 +144,12 @@ async def test_get_manufacturer_listing(remote_loader: RemoteLoader) -> None:
     assert ("signify", "Signify") in manufacturers
     assert len(manufacturers) > 40
     assert ("signify", "Signify") in await remote_loader.get_manufacturer_listing(None, DiscoveryBy.DEVICE)
+
+
+async def test_get_discovery_ignored_domains(remote_loader: RemoteLoader) -> None:
+    remote_loader.library_contents[LIBRARY_DISCOVERY_IGNORED_DOMAINS] = ["ignored", "other"]
+
+    assert remote_loader.get_discovery_ignored_domains() == {"ignored", "other"}
 
 
 async def test_get_model_listing(remote_loader: RemoteLoader) -> None:
@@ -290,10 +297,10 @@ async def test_eventual_success_after_download_retry(
         ("018de85593a1b22b906f863677bb4891", "018de85593a1b22b906f863677bb4891", False, True),
     ],
 )
+@pytest.mark.usefixtures("mock_download_profile_endpoints")
 async def test_profile_redownloaded_when_newer_version_available(
     hass: HomeAssistant,
     mock_aioresponse: aioresponses,
-    mock_download_profile_endpoints: None,
     profile_hash: str | None,
     local_hash: str | None,
     exists_locally: bool,
@@ -357,77 +364,29 @@ async def test_profile_redownloaded_when_newer_version_available(
     assert actual_call_count == expected_call_count
 
 
+@pytest.mark.parametrize(
+    "response_kwargs",
+    [
+        pytest.param({"status": 404}, id="not found"),
+        # See: https://github.com/bramstroker/homeassistant-powercalc/issues/2277
+        pytest.param({"status": 200, "exception": ClientError("test")}, id="connection error"),
+        pytest.param({"status": 200, "exception": TimeoutError("test")}, id="timeout"),
+    ],
+)
 async def test_fallback_to_local_library(
     hass: HomeAssistant,
     mock_aioresponse: aioresponses,
     caplog: pytest.LogCaptureFixture,
+    response_kwargs: dict,
 ) -> None:
     """
     Test that the local library is used when the remote library is not available.
     When unavailable, it should retry 3 times before falling back to the local library.
     """
-
     shutil.copy(get_library_json_path(), hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
 
     caplog.set_level(logging.WARNING)
-    mock_aioresponse.get(
-        ENDPOINT_LIBRARY,
-        status=404,
-        repeat=True,
-    )
-
-    loader = RemoteLoader(hass)
-    loader.retry_timeout = 0
-    await loader.initialize()
-
-    assert "signify" in loader.model_lookup
-    assert len(caplog.records) >= 2
-
-
-async def test_fallback_to_local_library_on_client_connection_error(
-    hass: HomeAssistant,
-    mock_aioresponse: aioresponses,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """
-    Test that the local library is used when api.powercalc.nl is not available.
-    See: https://github.com/bramstroker/homeassistant-powercalc/issues/2277
-    """
-    shutil.copy(get_library_json_path(), hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
-
-    caplog.set_level(logging.WARNING)
-    mock_aioresponse.get(
-        ENDPOINT_LIBRARY,
-        status=200,
-        repeat=True,
-        exception=ClientError("test"),
-    )
-
-    loader = RemoteLoader(hass)
-    loader.retry_timeout = 0
-    await loader.initialize()
-
-    assert "signify" in loader.model_lookup
-    assert len(caplog.records) >= 2
-
-
-async def test_fallback_to_local_library_on_timeout(
-    hass: HomeAssistant,
-    mock_aioresponse: aioresponses,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """
-    Test that the local library is used when api.powercalc.nl times out.
-    """
-    shutil.copy(get_library_json_path(), hass.config.path(STORAGE_DIR, "powercalc_profiles", "library.json"))
-
-    caplog.set_level(logging.WARNING)
-    mock_aioresponse.get(
-        ENDPOINT_LIBRARY,
-        status=200,
-        repeat=True,
-        exception=TimeoutError("test"),
-    )
+    mock_aioresponse.get(ENDPOINT_LIBRARY, repeat=True, **response_kwargs)
 
     loader = RemoteLoader(hass)
     loader.retry_timeout = 0
@@ -462,7 +421,6 @@ async def test_fallback_to_local_library_fails(
 
 async def test_fallback_to_local_profile(
     mock_aioresponse: aioresponses,
-    mock_library_json_response: None,
     remote_loader: RemoteLoader,
 ) -> None:
     manufacturer = "signify"
@@ -477,13 +435,12 @@ async def test_fallback_to_local_profile(
         repeat=True,
     )
 
-    await remote_loader.load_model(manufacturer, model, force_update=True)
+    assert await remote_loader.load_model(manufacturer, model, force_update=True)
 
 
 async def test_fallback_to_local_profile_on_timeout(
     hass: HomeAssistant,
     mock_aioresponse: aioresponses,
-    mock_library_json_response: None,
     remote_loader: RemoteLoader,
 ) -> None:
     manufacturer = "signify"
@@ -499,13 +456,13 @@ async def test_fallback_to_local_profile_on_timeout(
         exception=TimeoutError("test"),
     )
 
-    await remote_loader.load_model(manufacturer, model, force_update=True)
+    assert await remote_loader.load_model(manufacturer, model, force_update=True)
 
 
+@pytest.mark.usefixtures("mock_download_profile_endpoints")
 async def test_profile_redownloaded_when_model_json_missing(
     hass: HomeAssistant,
     remote_loader: RemoteLoader,
-    mock_download_profile_endpoints: list[dict],
 ) -> None:
     """Test profile is redownloaded when model.json is missing."""
     local_storage_path = remote_loader.get_storage_path("signify", "LCA001")
@@ -562,7 +519,6 @@ async def test_profile_redownloaded_when_model_json_corrupt_retry_limit(
     hass: HomeAssistant,
     remote_loader: RemoteLoader,
     mock_aioresponse: aioresponses,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """
     When model.json is corrupt, retry 3 times before giving up.

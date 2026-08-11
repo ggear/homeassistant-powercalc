@@ -7,7 +7,7 @@ from homeassistant.helpers import device_registry as dr
 import homeassistant.helpers.entity_registry as er
 from homeassistant.helpers.issue_registry import IssueRegistry
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_device_registry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powercalc import (
     CONF_DISCOVERY_EXCLUDE_SELF_USAGE_DEPRECATED,
@@ -46,7 +46,7 @@ from custom_components.powercalc.const import (
     SensorType,
 )
 from custom_components.powercalc.power_profile.library import ModelInfo
-from tests.common import migrate_legacy_entry, run_powercalc_setup
+from tests.common import migrate_legacy_entry, mock_devices, requires_composite_devices, run_powercalc_setup
 
 COMPOSITE_ID = "composite00000000000000000000ab"
 
@@ -216,66 +216,8 @@ async def test_migrate_config_entry_keeps_diagnostic_power_sensor_category(hass:
     assert mock_entry.data[CONF_POWER_SENSOR_CATEGORY] == EntityCategory.DIAGNOSTIC
 
 
-async def test_migrate_config_entry_removes_config_entry_from_device(
-    hass: HomeAssistant,
-    entity_registry: er.EntityRegistry,
-) -> None:
-    """Test migration removes the Powercalc config entry from devices."""
-    device_registry = mock_device_registry(hass, {})
-    device_owner_config_entry = MockConfigEntry(domain="test")
-    device_owner_config_entry.add_to_hass(hass)
-    device_entry = device_registry.async_get_or_create(
-        config_entry_id=device_owner_config_entry.entry_id,
-        identifiers={("shelly", "PlugS")},
-        manufacturer="shelly",
-        model="PlugS",
-    )
-    entity_registry.async_get_or_create(
-        "switch",
-        "test",
-        "source_switch",
-        suggested_object_id="source_switch",
-        device_id=device_entry.id,
-    )
-
-    mock_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
-            CONF_NAME: "Test",
-            CONF_ENTITY_ID: "switch.source_switch",
-            CONF_FIXED: {CONF_POWER: 50},
-        },
-        version=8,
-    )
-    mock_entry.add_to_hass(hass)
-    device_registry.async_update_device(device_entry.id, add_config_entry_id=mock_entry.entry_id)
-    entity_entry = entity_registry.async_get_or_create(
-        "sensor",
-        DOMAIN,
-        "test_power",
-        config_entry=mock_entry,
-        device_id=device_entry.id,
-    )
-
-    device = device_registry.async_get(device_entry.id)
-    assert device
-    assert mock_entry.entry_id in device.config_entries
-    assert entity_entry.device_id == device_entry.id
-
-    await async_migrate_entry(hass, mock_entry)
-
-    device = device_registry.async_get(device_entry.id)
-    assert device
-    assert mock_entry.entry_id not in device.config_entries
-    entity_entry = entity_registry.async_get(entity_entry.entity_id)
-    assert entity_entry
-    assert entity_entry.device_id == device_entry.id
-    assert mock_entry.version == PowercalcConfigFlow.VERSION
-
-
+@requires_composite_devices
 @pytest.mark.parametrize("configured_device_id", [None, COMPOSITE_ID], ids=["source_entity", "configured_device"])
-@pytest.mark.skip(reason="Enable when Home Assistant 2026.8 is released")
 async def test_migrate_config_entry_removes_split_helper_device(
     hass: HomeAssistant,
     entity_registry: er.EntityRegistry,
@@ -294,22 +236,24 @@ async def test_migrate_config_entry_removes_split_helper_device(
     powercalc_entry = MockConfigEntry(domain=DOMAIN, data=powercalc_entry_data, version=8)
     powercalc_entry.add_to_hass(hass)
 
-    source_device = dr.DeviceEntry(
-        id="source-device",
-        config_entry_id=source_entry.entry_id,
-        identifiers={("test", "source")},
-        composite_device_id=COMPOSITE_ID,
-    )
-    helper_device = dr.DeviceEntry(
-        id="helper-device",
-        config_entry_id=powercalc_entry.entry_id,
-        identifiers={(DOMAIN, "helper")},
-        composite_device_id=COMPOSITE_ID,
-    )
-    device_registry = mock_device_registry(
+    devices = mock_devices(
         hass,
-        {source_device.id: source_device, helper_device.id: helper_device},
+        {
+            "source-device": {
+                "config_entry_id": source_entry.entry_id,
+                "identifiers": {("test", "source")},
+                "composite_device_id": COMPOSITE_ID,
+            },
+            "helper-device": {
+                "config_entry_id": powercalc_entry.entry_id,
+                "identifiers": {(DOMAIN, "helper")},
+                "composite_device_id": COMPOSITE_ID,
+            },
+        },
     )
+    device_registry = dr.async_get(hass)
+    source_device = devices["source-device"]
+    helper_device = devices["helper-device"]
     helper_entity = entity_registry.async_get_or_create(
         "sensor",
         DOMAIN,
@@ -328,8 +272,35 @@ async def test_migrate_config_entry_removes_split_helper_device(
     assert powercalc_entry.version == PowercalcConfigFlow.VERSION
 
 
+@requires_composite_devices
+async def test_migrate_config_entry_removes_legacy_device_link(hass: HomeAssistant) -> None:
+    """Test migration removes the legacy device link on older HA versions."""
+    powercalc_entry = MockConfigEntry(domain=DOMAIN, version=8)
+    powercalc_entry.add_to_hass(hass)
+    device_entry = mock_devices(
+        hass,
+        {"source-device": {"config_entry_id": powercalc_entry.entry_id, "identifiers": {("test", "source")}}},
+    )["source-device"]
+    remove_legacy_link = Mock()
+
+    with (
+        patch("custom_components.powercalc.migrate.helper_integration.async_remove_helper_devices", None),
+        patch(
+            "custom_components.powercalc.migrate.helper_integration.async_remove_helper_config_entry_from_source_device",
+            remove_legacy_link,
+        ),
+    ):
+        await async_migrate_entry(hass, powercalc_entry)
+
+    remove_legacy_link.assert_called_once_with(
+        hass,
+        helper_config_entry_id=powercalc_entry.entry_id,
+        source_device_id=device_entry.id,
+    )
+
+
 @pytest.mark.parametrize(
-    ("input_model", "migrated_profile", "expected_model", "expect_update"),
+    "input_model, migrated_profile, expected_model, expect_update",
     [
         ("33955", ModelInfo("eglo", "900053"), "900053", True),
         ("33955/default", ModelInfo("eglo", "900053"), "900053/default", True),

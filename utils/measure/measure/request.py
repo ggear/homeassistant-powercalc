@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Iterable
 from enum import StrEnum
 import re
@@ -143,6 +141,12 @@ class BaseMeasurementRequest(BaseModel):
         if self.dummy_load is not None and isinstance(self.power_meter, DummyPowerMeterSpec):
             raise ValueError("A resistive dummy load cannot be used with the synthetic test power meter")
         return self
+
+    @property
+    def controlled_entity_id(self) -> str | None:
+        """Home Assistant entity driven during the measurement, when the controller uses one."""
+        entity_id = getattr(self.controller, "entity_id", None)
+        return str(entity_id) if entity_id else None
 
     @property
     def model_name(self) -> str:

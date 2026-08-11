@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -194,6 +192,7 @@ class ContributionService(Protocol):
         request: MeasurementRequest,
         artifact_root: Path,
         payload: ContributionPreviewRequest | None,
+        integration: str | None = None,
     ) -> ContributionPreviewResponse: ...
 
     def submit(

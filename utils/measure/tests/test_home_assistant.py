@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from time import sleep
@@ -43,7 +41,7 @@ def test_entity_registry_normalizes_numeric_unique_id() -> None:
 
 
 @pytest.mark.parametrize(
-    ("url", "expected"),
+    "url, expected",
     [
         ("http://ha.lan:8123/api", "ws://ha.lan:8123/api/websocket"),
         ("https://ha.lan:8123/api/", "wss://ha.lan:8123/api/websocket"),

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from measure.cli.request_adapter import request_from_answers
 from measure.const import PARAMETER_LIMITS, QUESTION_ENTITY_ID, QUESTION_MEASURE_DEVICE, MeasureType
 from measure.controller.light.const import LightControllerType, LutMode
@@ -45,6 +43,16 @@ def test_request_round_trip_preserves_typed_input() -> None:
 
     assert restored == request
     assert isinstance(restored.dummy_load, DummyLoadReuseRequest)
+
+
+def test_request_exposes_the_controlled_entity_only_when_the_controller_drives_one() -> None:
+    controlled = LightMeasurementRequest.model_validate(valid_request())
+    uncontrolled = AverageMeasurementRequest.model_validate(
+        {"power_meter": {"type": "hass", "entity_id": "sensor.test_power"}},
+    )
+
+    assert controlled.controlled_entity_id == "light.test"
+    assert uncontrolled.controlled_entity_id is None
 
 
 def test_request_normalizes_profile_metadata() -> None:
@@ -202,7 +210,7 @@ def test_request_preserves_subsecond_sleep_time() -> None:
 
 
 @pytest.mark.parametrize(
-    ("parameters", "message"),
+    "parameters, message",
     [
         ({"sleep_time_sample": -1}, "sleep_time_sample"),
         ({"max_retries": 101}, "max_retries"),
@@ -227,7 +235,7 @@ def test_request_rejects_invalid_exposed_tuning(parameters: dict[str, int], mess
 
 
 @pytest.mark.parametrize(
-    ("power_meter", "accepted"),
+    "power_meter, accepted",
     [
         ({"type": "manual"}, True),
         ({"type": "hass", "entity_id": "sensor.test_power"}, False),

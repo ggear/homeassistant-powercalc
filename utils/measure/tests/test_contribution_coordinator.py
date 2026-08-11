@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 
@@ -13,12 +11,13 @@ from measure.contribution.github import GitHubClient, GitHubRepository, GitHubUs
 from measure.contribution.models import (
     ContributionAuthor,
     ContributionJob,
+    ContributionJobStatus,
     ContributionMetadata,
     ContributionPreparedFile,
     ContributionPreview,
 )
 from measure.contribution.prepare import ProfilePreparer
-from measure.contribution.pull_request import deterministic_branch_name
+from measure.contribution.pull_request import deterministic_branch_name, pull_request_body
 from measure.controller.light.spec import DummyLightControllerSpec
 from measure.ha_app.contribution import (
     ContributionApiError,
@@ -118,29 +117,50 @@ class FakePreparer(ProfilePreparer):
         return tuple((file.path, b"content") for file in preview.files)
 
 
-def test_coordinator_persists_preview_and_submits_idempotently(tmp_path: Path) -> None:
-    preview = ContributionPreview(
+def make_preview() -> ContributionPreview:
+    """The single-file signify/LCT999 preview every coordinator test builds on."""
+    return ContributionPreview(
         manufacturer_directory="signify",
         model_directory="LCT999",
         files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
     )
-    metadata = ContributionMetadata(
+
+
+def make_metadata(github: str = "test-user") -> ContributionMetadata:
+    return ContributionMetadata(
         manufacturer="Philips",
         model_id="LCT999",
-        author=ContributionAuthor(name="Test User", github="test-user"),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_value = "secret"
-    credential_store.save(StoredCredential(kind="pat", token=credential_value, github_username="octo"))
-    github = FakeGitHubClient()
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-        github_client=github,
+        author=ContributionAuthor(name="Test User", github=github),
     )
 
-    job = coordinator.create_job(tmp_path / "artifacts", metadata, base_sha="base-sha")
+
+def make_credential_store(tmp_path: Path, kind: str = "pat") -> CredentialStore:
+    """A credential store already holding a token for GitHub user `octo`."""
+    store = CredentialStore(tmp_path / "credentials.json")
+    store.save(StoredCredential(kind=kind, token="secret", github_username="octo"))  # noqa: S106
+    return store
+
+
+def make_coordinator(
+    tmp_path: Path,
+    preview: ContributionPreview | None = None,
+    credential_store: CredentialStore | None = None,
+    github_client: GitHubClient | None = None,
+) -> ContributionJobCoordinator:
+    """A coordinator wired to fakes, storing its jobs under `tmp_path`."""
+    return ContributionJobCoordinator(
+        preparer=FakePreparer(preview or make_preview()),
+        credential_store=credential_store or CredentialStore(tmp_path / "missing.json"),
+        job_store=ContributionJobStore(tmp_path / "jobs"),
+        github_client=github_client,
+    )
+
+
+def test_coordinator_persists_preview_and_submits_idempotently(tmp_path: Path) -> None:
+    github = FakeGitHubClient()
+    coordinator = make_coordinator(tmp_path, credential_store=make_credential_store(tmp_path), github_client=github)
+
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata(), base_sha="base-sha")
     submitted = coordinator.submit(job.id, tmp_path / "artifacts")
     submitted_again = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -158,29 +178,9 @@ def test_coordinator_persists_preview_and_submits_idempotently(tmp_path: Path) -
 
 
 def test_coordinator_targets_configured_repository_and_branch(tmp_path: Path) -> None:
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_store.save(StoredCredential(kind="pat", token="secret", github_username="octo"))  # noqa: S106
     github = FakeGitHubClient(GitHubRepository(owner="test-owner", name="powercalc-sandbox", branch="main"))
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-        github_client=github,
-    )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="test-user"),
-        ),
-        base_sha="base-sha",
-    )
+    coordinator = make_coordinator(tmp_path, credential_store=make_credential_store(tmp_path), github_client=github)
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata(), base_sha="base-sha")
 
     submitted = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -200,29 +200,9 @@ def test_coordinator_targets_configured_repository_and_branch(tmp_path: Path) ->
 
 
 def test_coordinator_uses_owned_target_without_trying_to_fork_it(tmp_path: Path) -> None:
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_store.save(StoredCredential(kind="pat", token="secret", github_username="octo"))  # noqa: S106
     github = FakeGitHubClient(GitHubRepository(owner="octo", name="powercalc-sandbox", branch="main"))
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-        github_client=github,
-    )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="octo"),
-        ),
-        base_sha="base-sha",
-    )
+    coordinator = make_coordinator(tmp_path, credential_store=make_credential_store(tmp_path), github_client=github)
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata("octo"), base_sha="base-sha")
 
     submitted = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -240,24 +220,8 @@ def test_coordinator_uses_owned_target_without_trying_to_fork_it(tmp_path: Path)
 
 
 def test_coordinator_records_missing_credentials_failure(tmp_path: Path) -> None:
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=CredentialStore(tmp_path / "missing.json"),
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-    )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="test-user"),
-        ),
-    )
+    coordinator = make_coordinator(tmp_path)
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata())
 
     failed = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -267,29 +231,14 @@ def test_coordinator_records_missing_credentials_failure(tmp_path: Path) -> None
 
 
 def test_coordinator_reports_missing_workflow_scope_before_writing_fork(tmp_path: Path) -> None:
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_store.save(StoredCredential(kind="oauth", token="secret", github_username="octo"))  # noqa: S106
     github = FakeGitHubClient()
     github.user = GitHubUser(login="octo", scopes=("public_repo",), scopes_reported=True)
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
+    coordinator = make_coordinator(
+        tmp_path,
+        credential_store=make_credential_store(tmp_path, kind="oauth"),
         github_client=github,
     )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="test-user"),
-        ),
-    )
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata())
 
     failed = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -301,30 +250,10 @@ def test_coordinator_reports_missing_workflow_scope_before_writing_fork(tmp_path
 
 
 def test_coordinator_accepts_classic_repo_scope_as_public_repo(tmp_path: Path) -> None:
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_store.save(StoredCredential(kind="pat", token="secret", github_username="octo"))  # noqa: S106
     github = FakeGitHubClient()
     github.user = GitHubUser(login="octo", scopes=("repo", "workflow"), scopes_reported=True)
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-        github_client=github,
-    )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="test-user"),
-        ),
-        base_sha="base-sha",
-    )
+    coordinator = make_coordinator(tmp_path, credential_store=make_credential_store(tmp_path), github_client=github)
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata(), base_sha="base-sha")
 
     submitted = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -338,29 +267,9 @@ def test_coordinator_refreshes_existing_pull_request_with_new_commit(tmp_path: P
             self.calls.append(f"find_pr:{head}:{base}")
             return {"html_url": "https://github.test/pr/7", "number": 7, "head": {"sha": "old-commit"}}
 
-    preview = ContributionPreview(
-        manufacturer_directory="signify",
-        model_directory="LCT999",
-        files=(ContributionPreparedFile(path="profile_library/signify/LCT999/model.json", size=20),),
-    )
-    credential_store = CredentialStore(tmp_path / "credentials.json")
-    credential_store.save(StoredCredential(kind="pat", token="secret", github_username="octo"))  # noqa: S106
     github = ExistingPullRequestClient()
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=credential_store,
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-        github_client=github,
-    )
-    job = coordinator.create_job(
-        tmp_path / "artifacts",
-        ContributionMetadata(
-            manufacturer="Philips",
-            model_id="LCT999",
-            author=ContributionAuthor(name="Test User", github="test-user"),
-        ),
-        base_sha="base-sha",
-    )
+    coordinator = make_coordinator(tmp_path, credential_store=make_credential_store(tmp_path), github_client=github)
+    job = coordinator.create_job(tmp_path / "artifacts", make_metadata(), base_sha="base-sha")
 
     submitted = coordinator.submit(job.id, tmp_path / "artifacts")
 
@@ -375,12 +284,7 @@ def test_coordinator_refreshes_existing_pull_request_with_new_commit(tmp_path: P
 
 
 def test_coordinator_submit_of_unknown_job_reports_expired_preview(tmp_path: Path) -> None:
-    preview = ContributionPreview(manufacturer_directory="signify", model_directory="LCT999", files=())
-    coordinator = ContributionJobCoordinator(
-        preparer=FakePreparer(preview),
-        credential_store=CredentialStore(tmp_path / "missing.json"),
-        job_store=ContributionJobStore(tmp_path / "jobs"),
-    )
+    coordinator = make_coordinator(tmp_path)
 
     with pytest.raises(ContributionJobExpiredError, match="refresh the preview"):
         coordinator.submit("0badc0ffee", tmp_path / "artifacts")
@@ -390,6 +294,33 @@ def test_deterministic_branch_name_collapses_non_alphanumeric_runs() -> None:
     preview = ContributionPreview(manufacturer_directory="ajax online", model_directory="AJ-100 (EU)+", files=())
 
     assert deterministic_branch_name(preview) == "powercalc-profile-ajax-online-aj-100-eu"
+
+
+def test_pull_request_body_reports_the_integration_of_the_measured_entity() -> None:
+    metadata = ContributionMetadata(
+        manufacturer="Philips",
+        model_id="LCT999",
+        measure_type="light",
+        integration="hue",
+        author=ContributionAuthor(name="Test User", github="test-user"),
+    )
+    job = ContributionJob(
+        id="job-1",
+        status=ContributionJobStatus.PREVIEWED,
+        metadata=metadata,
+        preview=ContributionPreview(manufacturer_directory="signify", model_directory="LCT999", files=()),
+        created_at="2026-07-16T12:00:00Z",
+        updated_at="2026-07-16T12:00:00Z",
+    )
+
+    without_integration = job.model_copy(
+        update={"metadata": metadata.model_copy(update={"integration": None})},
+    )
+
+    body = pull_request_body(job)
+
+    assert "## Home Assistant Device information\n\n- Measure type: light\n- Integration: hue\n" in body
+    assert "- Integration:" not in pull_request_body(without_integration)
 
 
 def test_contribution_author_rejects_blank_required_fields() -> None:
@@ -423,10 +354,11 @@ def test_metadata_from_request_maps_validation_errors_to_invalid_metadata() -> N
         _metadata_from_request(request, payload, auth)
     assert info.value.code == ContributionApiErrorCode.INVALID_METADATA
 
-    metadata = _metadata_from_request(request, payload.model_copy(update={"manufacturer_directory": ""}), auth)
+    metadata = _metadata_from_request(request, payload.model_copy(update={"manufacturer_directory": ""}), auth, "hue")
     assert metadata.manufacturer_directory is None
     assert metadata.measure_type == "light"
     assert metadata.measure_device == "Test meter"
+    assert metadata.integration == "hue"
 
 
 def test_submit_preview_validation_rejects_base_or_content_drift() -> None:

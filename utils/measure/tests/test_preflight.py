@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -181,7 +179,7 @@ def test_preflight_includes_minimum_dummy_load_calibration_duration() -> None:
 
 
 @pytest.mark.parametrize(
-    ("measurement", "message"),
+    "measurement, message",
     [
         (
             LightMeasurementRequest(

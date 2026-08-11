@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import deque
 from collections.abc import Collection
 import csv
@@ -9,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 import shutil
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 from uuid import uuid4
 
 from measure.clock import utc_now
@@ -17,6 +15,7 @@ from measure.controller.light.const import MAX_MIRED, MIN_MIRED, LutMode
 from measure.controller.light.controller import LightInfo
 from measure.dummy_load import DummyLoadCalibration
 from measure.execution import OperatingPoint
+from measure.ha_app.contribution.models import ContributionStatus
 from measure.ha_app.preferences import AppPreferences
 from measure.ha_app.session import (
     ACTIVE_SESSION_STATES,
@@ -25,6 +24,7 @@ from measure.ha_app.session import (
     SessionSnapshot,
     SessionState,
 )
+from measure.ha_app.shelly_credentials import ShellyCredentials, ShellyCredentialStore
 from measure.request import LightMeasurementRequest, MeasurementRequest, parse_measurement_request
 from measure.runner.light_plan import (
     CSV_HEADERS,
@@ -35,13 +35,11 @@ from measure.runner.light_plan import (
     variation_from_csv_row,
 )
 
-if TYPE_CHECKING:
-    from measure.ha_app.contribution import ContributionStatus
-
 _LOGGER = logging.getLogger("measure")
 
 _DUMMY_LOAD_CALIBRATION_FILENAME = "dummy_load_calibration.json"
 _CONTRIBUTION_STATUS_FILENAME = "contribution_status.json"
+_SHELLY_CREDENTIALS_FILENAME = "shelly_credentials.json"
 
 
 class SessionStorage:
@@ -217,6 +215,19 @@ class SessionStorage:
         self._write_json(self.data_root / "settings.json", settings.model_dump(mode="json"))
         return settings
 
+    def load_shelly_credentials(self) -> ShellyCredentials | None:
+        try:
+            return ShellyCredentialStore(self.data_root / _SHELLY_CREDENTIALS_FILENAME).load()
+        except (OSError, ValueError) as error:
+            _LOGGER.warning("Could not load persisted Shelly credentials: %s", error)
+            return None
+
+    def save_shelly_credentials(self, credentials: ShellyCredentials) -> None:
+        ShellyCredentialStore(self.data_root / _SHELLY_CREDENTIALS_FILENAME).save(credentials)
+
+    def clear_shelly_credentials(self) -> None:
+        ShellyCredentialStore(self.data_root / _SHELLY_CREDENTIALS_FILENAME).clear()
+
     def load_dummy_load_calibration(self) -> DummyLoadCalibration | None:
         path = self.data_root / _DUMMY_LOAD_CALIBRATION_FILENAME
         if not path.exists():
@@ -256,8 +267,6 @@ class SessionStorage:
         return calibration
 
     def load_contribution_status(self) -> ContributionStatus:
-        from measure.ha_app.contribution import ContributionStatus
-
         path = self.data_root / _CONTRIBUTION_STATUS_FILENAME
         if not path.exists():
             return ContributionStatus()

@@ -17,6 +17,7 @@ from custom_components.powercalc.config_flow import (
 )
 from custom_components.powercalc.const import (
     CONF_CREATE_ENERGY_SENSOR,
+    CONF_CREATE_STANDBY_ENERGY_SENSOR,
     CONF_CREATE_UTILITY_METERS,
     CONF_ENERGY_FILTER_OUTLIER_ENABLED,
     CONF_ENERGY_INTEGRATION_METHOD,
@@ -25,6 +26,7 @@ from custom_components.powercalc.const import (
     CONF_MODE,
     CONF_MODEL,
     CONF_SENSOR_TYPE,
+    DISCOVERY_INTEGRATION_NAME,
     DISCOVERY_POWER_PROFILES,
     DISCOVERY_SOURCE_ENTITY,
     ENERGY_INTEGRATION_METHOD_LEFT,
@@ -253,6 +255,7 @@ async def initialize_discovery_flow(
     discovery_data = {
         CONF_NAME: "test",
         CONF_ENTITY_ID: DEFAULT_ENTITY_ID,
+        DISCOVERY_INTEGRATION_NAME: "Test Components",
         DISCOVERY_SOURCE_ENTITY: source_entity,
     }
 
@@ -375,6 +378,7 @@ def assert_default_virtual_power_entry_data(
             CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
             CONF_MODE: strategy,
             CONF_CREATE_ENERGY_SENSOR: True,
+            CONF_CREATE_STANDBY_ENERGY_SENSOR: False,
             CONF_CREATE_UTILITY_METERS: False,
             CONF_NAME: "test",
             CONF_ENERGY_INTEGRATION_METHOD: ENERGY_INTEGRATION_METHOD_LEFT,
