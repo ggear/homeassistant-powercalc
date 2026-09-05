@@ -2,19 +2,31 @@
   "calculation_strategy": "lut",
   "created_at": "2023-02-18T16:04:50Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2000,
+    "rated_power": 20,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.3.5:docker"
   },
-  "name": "Livarno Lux LED Deckenleuchte (1400 lm) RGBCT",
+  "name": "Livarno Home LED ceiling light",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "vyruz1986",
-    "email": "alex.goris@fastlikehell.com",
-    "github": "vyruz1986"
-  }
+  "authors": [
+    {
+      "name": "vyruz1986",
+      "email": "alex.goris@fastlikehell.com",
+      "github": "vyruz1986"
+    }
+  ]
 }

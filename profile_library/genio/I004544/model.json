@@ -2,18 +2,31 @@
   "calculation_strategy": "lut",
   "created_at": "2023-08-17T18:34:01Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "downlight",
+    "lumens": 750,
+    "rated_power": 9.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Tapo P110",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "master"
   },
-  "name": "Wi-Fi Smart RGBW/CCT 9 W Downlight (750lm)",
+  "name": "Wi-Fi Dimmable RGB+CCT 9W LED Downlight (750lm)",
+  "product_url": "https://www.mirabella.com.au/products/i004544",
   "standby_power": 0.24,
-  "author_info": {
-    "name": "Wolfieeewolf",
-    "github": "Wolfieeewolf"
-  }
+  "authors": [
+    {
+      "name": "Wolfieeewolf",
+      "github": "Wolfieeewolf"
+    }
+  ]
 }

@@ -27,9 +27,10 @@ repos:
         exclude: (tsconfig|library)\.json$
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+        exclude: \.svg$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.1
+    rev: v0.16.5
     hooks:
       - id: ruff
         args: [--fix]
@@ -43,13 +44,15 @@ repos:
         language: script
         types: [python]
         require_serial: true
-        files: ^custom_components/powercalc
+        files: ^(custom_components/powercalc|\.github/scripts|utils/library)/
+        exclude: /tests/
       - id: ty
         name: ty
-        entry: uv run ty check custom_components/powercalc
+        entry: uv run ty check custom_components/powercalc .github/scripts utils/library
         language: system
         pass_filenames: false
-        files: ^custom_components/powercalc/.*\.py$
+        files: ^(custom_components/powercalc|\.github/scripts|utils/library)/.*\.py$
+        exclude: /tests/
       - id: uv-lock
         name: uv lock --check
         entry: uv lock --check
@@ -70,12 +73,12 @@ repos:
         files: ^utils/visualize/(pyproject\.toml|uv\.lock)$
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.3
     hooks:
       - id: codespell
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.36.1
+    rev: 0.38.0
     hooks:
       - id: check-github-workflows
         args: [ "--verbose" ]
@@ -87,14 +90,18 @@ repos:
         name: validate power profile manufacturer.json
         args: [ --schemafile, profile_library/manufacturer_schema.json ]
         files: ^profile_library/[^/]+/manufacturer\.json$
+      - id: check-jsonschema
+        name: validate generated power profile library.json
+        args: [ --schemafile, profile_library/library_schema.json ]
+        files: ^profile_library/library\.json$
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.10
+    rev: v1.7.12
     hooks:
       - id: actionlint
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.26.1
+    rev: v1.29.0
     hooks:
       - id: zizmor
         args: [--no-progress, --fix]

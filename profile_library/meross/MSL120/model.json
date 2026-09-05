@@ -1,0 +1,46 @@
+{
+  "aliases": [
+    "msl120d 2.0.0"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2022-09-26T21:02:13Z",
+  "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": [
+      "E26",
+      "E27",
+      "B22"
+    ],
+    "lumens": 810,
+    "rated_power": 9.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "0680306683277"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "TP-Link Tapo P110",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v0.25.5:docker"
+  },
+  "name": "Smart Wi-Fi LED Bulb",
+  "product_url": "https://www.meross.com/en-gc/smart-light/light-bulb-that-changes-color/28",
+  "standby_power": 0.56,
+  "authors": [
+    {
+      "name": "Joshua Rich",
+      "email": "joshua.rich@gmail.com",
+      "github": "joshuar"
+    }
+  ],
+  "legacy_ids": [
+    "msl120d 2.0.0"
+  ]
+}

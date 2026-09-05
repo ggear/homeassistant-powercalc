@@ -2,6 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "model.json describes a number of devices, typically lights, for use within the HomeAssistant Powercalc extension.",
   "type": "object",
+  "propertyNames": {
+    "not": {
+      "$ref": "#/definitions/sensor_naming_option"
+    }
+  },
   "required": [
     "name",
     "device_type",
@@ -27,8 +32,146 @@
           "standby_power"
         ]
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "const": "light"
+          }
+        },
+        "required": [
+          "device_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "$ref": "#/definitions/light_specs"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "enum": [
+              "smart_switch",
+              "smart_dimmer"
+            ]
+          }
+        },
+        "required": [
+          "device_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "$ref": "#/definitions/switch_specs"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "const": "network"
+          }
+        },
+        "required": [
+          "device_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "$ref": "#/definitions/network_specs"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "enum": [
+              "air_purifier",
+              "fan"
+            ]
+          }
+        },
+        "required": [
+          "device_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "$ref": "#/definitions/fan_specs"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "const": "smart_speaker"
+          }
+        },
+        "required": [
+          "device_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "$ref": "#/definitions/smart_speaker_specs"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "device_type": {
+            "enum": [
+              "smart_switch",
+              "smart_dimmer"
+            ]
+          },
+          "only_self_usage": {
+            "const": true
+          }
+        },
+        "required": [
+          "device_type",
+          "only_self_usage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "device_specs": {
+            "properties": {
+              "power_monitoring": {
+                "const": true
+              }
+            },
+            "required": [
+              "power_monitoring"
+            ]
+          }
+        },
+        "required": [
+          "device_specs"
+        ]
+      }
     }
   ],
+  "additionalProperties": false,
   "properties": {
     "aliases": {
       "type": "array",
@@ -51,27 +194,45 @@
       },
       "description": "List of compatible integrations for this model"
     },
-    "author_info": {
-      "type": "object",
-      "description": "Info about the contributor of the profile",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the contributor"
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the contributor"
-        },
-        "github": {
-          "type": "string",
-          "description": "GitHub username of the contributor"
-        }
+    "ean": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{8}$|^[0-9]{12,14}$"
       },
-      "required": [
-        "name",
-        "github"
-      ]
+      "description": "Barcode numbers printed on the packaging (EAN-8, UPC-12, EAN-13 or GTIN-14). A model often ships under several, one per region"
+    },
+    "product_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "Manufacturer product page for this model"
+    },
+    "authors": {
+      "type": "array",
+      "description": "Contributors to the profile",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the contributor"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address of the contributor"
+          },
+          "github": {
+            "type": "string",
+            "description": "GitHub username of the contributor"
+          }
+        },
+        "required": [
+          "name",
+          "github"
+        ]
+      }
     },
     "calculation_enabled_condition": {
       "type": "string",
@@ -153,13 +314,17 @@
     "device_type": {
       "type": "string",
       "enum": [
+        "air_conditioner",
+        "air_purifier",
         "camera",
         "cover",
         "fan",
         "generic_iot",
+        "humidifier",
         "light",
         "power_meter",
         "printer",
+        "set_top_box",
         "smart_dimmer",
         "smart_switch",
         "smart_speaker",
@@ -168,18 +333,23 @@
         "vacuum_robot",
         "lawn_mower_robot",
         "heating",
-        "ups"
+        "ups",
+        "water_heater"
       ],
       "description": "Type of device"
+    },
+    "device_specs": {
+      "$ref": "#/definitions/generic_specs"
     },
     "discovery_by": {
       "type": "string",
       "enum": [
         "config_entry",
         "device",
-        "entity"
+        "entity",
+        "manual"
       ],
-      "description": "Whether to discover the profile by config entry, device, or entity"
+      "description": "Whether to discover the profile by config entry, device, or entity; manual profiles cannot be discovered"
     },
     "fields": {
       "type": "object",
@@ -312,7 +482,14 @@
     },
     "max_voltage": {
       "type": "number",
-      "description": "Maximum voltage observed during measurement"
+      "deprecated": true,
+      "description": "DEPRECATED: use voltage_range.max instead. Maximum voltage observed during measurement"
+    },
+    "mains_voltage": {
+      "type": "number",
+      "minimum": 90,
+      "maximum": 260,
+      "description": "Nominal mains voltage the measurements were taken on, e.g. 230 or 120. Derived from voltage_range when that is present"
     },
     "min_version": {
       "type": "string",
@@ -320,7 +497,27 @@
     },
     "min_voltage": {
       "type": "number",
-      "description": "Minimum voltage observed during measurement"
+      "deprecated": true,
+      "description": "DEPRECATED: use voltage_range.min instead. Minimum voltage observed during measurement"
+    },
+    "voltage_range": {
+      "type": "object",
+      "description": "Range of voltages observed during measurement",
+      "properties": {
+        "min": {
+          "type": "number",
+          "description": "Minimum voltage observed during measurement"
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum voltage observed during measurement"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false
     },
     "linear_config": {
       "type": "object",
@@ -348,6 +545,24 @@
     "linked_profile": {
       "type": "string",
       "description": "Use data from another model"
+    },
+    "multi_switch_config": {
+      "type": "object",
+      "description": "Configuration for multi_switch calculation strategy",
+      "properties": {
+        "power": {
+          "type": "number",
+          "description": "Power draw of a single switch when it is on"
+        },
+        "power_off": {
+          "type": "number",
+          "description": "Power draw of a single switch when it is off"
+        }
+      },
+      "required": [
+        "power"
+      ],
+      "additionalProperties": false
     },
     "only_self_usage": {
       "type": "boolean",
@@ -386,17 +601,32 @@
     },
     "sensor_config": {
       "type": "object",
-      "description": "Sensor configuration options. See the README"
+      "description": "Sensor configuration options. See the README",
+      "propertyNames": {
+        "not": {
+          "$ref": "#/definitions/sensor_naming_option"
+        }
+      }
     },
     "standby_power": {
-      "type": "number",
+      "type": [
+        "number",
+        "string"
+      ],
       "minimum": 0.05,
-      "description": "Power draw when the device is turned off. When you are not able to measure set to 0.4 for lights"
+      "description": "Power draw when the device is turned off, in watts, or a template evaluating to one. When you are not able to measure it, set 0.4 for lights and mark it with standby_power_estimated"
+    },
+    "standby_power_estimated": {
+      "type": "boolean",
+      "description": "Set when standby_power could not be measured and holds an assumed value, so consumers do not present a guess as a measurement"
     },
     "standby_power_on": {
-      "type": "number",
+      "type": [
+        "number",
+        "string"
+      ],
       "minimum": 0.05,
-      "description": "Power draw when the device is turned on."
+      "description": "Power draw when the device is turned on, in watts, or a template evaluating to one."
     },
     "sub_profile_select": {
       "type": "object",
@@ -457,6 +687,241 @@
     }
   },
   "definitions": {
+    "light_socket": {
+      "type": "string",
+      "enum": [
+        "E27",
+        "E26",
+        "E14",
+        "E12",
+        "B22",
+        "GU10",
+        "GU5.3",
+        "GU24",
+        "GX53",
+        "G9",
+        "G4",
+        "integrated"
+      ]
+    },
+    "generic_specs": {
+      "type": "object",
+      "description": "Manufacturer specifications shared by all device types",
+      "properties": {
+        "rated_power": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Power draw claimed by the manufacturer, in watts"
+        },
+        "connectivity": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "zigbee",
+              "wifi",
+              "zwave",
+              "matter",
+              "thread",
+              "bluetooth",
+              "ethernet",
+              "usb",
+              "rf433",
+              "infrared",
+              "proprietary"
+            ]
+          },
+          "description": "Protocols the device communicates over"
+        }
+      }
+    },
+    "light_specs": {
+      "description": "device_specs of a light. Manufacturer claims, not measurements: rated_power is what the box says, max_power in the library index is what was measured",
+      "allOf": [
+        {
+          "$ref": "#/definitions/generic_specs"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "socket": {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/light_socket"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/light_socket"
+                  },
+                  "minItems": 2,
+                  "uniqueItems": true
+                }
+              ],
+              "description": "Lamp base or bases the bulb fits, or integrated when the light source is not replaceable"
+            },
+            "form_factor": {
+              "type": "string",
+              "enum": [
+                "bulb",
+                "spot",
+                "candle",
+                "globe",
+                "filament",
+                "strip",
+                "panel",
+                "downlight",
+                "tube",
+                "fixture",
+                "other"
+              ],
+              "description": "Shape of the light"
+            },
+            "lumens": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Nominal luminous flux at full brightness, in lumens"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "switch_specs": {
+      "description": "device_specs of a smart switch or smart dimmer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/generic_specs"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "form_factor": {
+              "type": "string",
+              "enum": [
+                "plug",
+                "wall_switch",
+                "in_wall",
+                "inline",
+                "din_rail",
+                "power_strip",
+                "led_driver",
+                "other"
+              ],
+              "description": "Physical form of the switch or dimmer"
+            },
+            "max_load_watts": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Maximum connected load supported by the device, in watts"
+            },
+            "power_monitoring": {
+              "type": "boolean",
+              "description": "Whether the device can monitor the connected load's power consumption"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "network_specs": {
+      "description": "device_specs of network equipment",
+      "allOf": [
+        {
+          "$ref": "#/definitions/generic_specs"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "form_factor": {
+              "type": "string",
+              "enum": [
+                "router",
+                "modem",
+                "access_point",
+                "repeater",
+                "switch",
+                "gateway",
+                "bridge",
+                "other"
+              ],
+              "description": "Role or physical form of the network device"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "fan_specs": {
+      "description": "device_specs of a fan or fan-like appliance",
+      "allOf": [
+        {
+          "$ref": "#/definitions/generic_specs"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "form_factor": {
+              "type": "string",
+              "enum": [
+                "table",
+                "tower",
+                "pedestal",
+                "ceiling",
+                "floor",
+                "air_purifier",
+                "purifier_fan",
+                "white_noise_machine",
+                "other"
+              ],
+              "description": "Physical form of the fan or fan-like appliance"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "smart_speaker_specs": {
+      "description": "device_specs of a smart speaker or networked audio device",
+      "allOf": [
+        {
+          "$ref": "#/definitions/generic_specs"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "form_factor": {
+              "type": "string",
+              "enum": [
+                "speaker",
+                "smart_display",
+                "soundbar",
+                "soundbase",
+                "subwoofer",
+                "amplifier",
+                "streamer",
+                "clock",
+                "speaker_lamp",
+                "picture_frame",
+                "other"
+              ],
+              "description": "Physical form of the speaker or networked audio device"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "sensor_naming_option": {
+      "description": "Naming options a profile must not set. Sensor naming is a user preference, configured globally or per sensor.",
+      "enum": [
+        "power_sensor_naming",
+        "power_sensor_friendly_naming",
+        "energy_sensor_naming",
+        "energy_sensor_friendly_naming"
+      ]
+    },
     "condition": {
       "type": "object",
       "properties": {

@@ -1,10 +1,15 @@
 {
-  "name": "T17 infrared header",
+  "name": "Infrared Heater",
   "created_at": "2026-03-02T16:05:27Z",
   "aliases": [
     "jpiit02hwjtwjxnd"
   ],
   "device_type": "heating",
+  "device_specs": {
+    "connectivity": [
+      "wifi"
+    ]
+  },
   "compatible_integrations": [
     "tuya"
   ],
@@ -24,9 +29,12 @@
   },
   "measure_description": "Measured with homewizard energy socket, measured each preset separately for 10 seconds.",
   "measure_method": "manual",
-  "author_info": {
-    "name": "Rogier Lommers",
-    "github": "rogierlommers",
-    "email": "rogier@lommers.org"
-  }
+  "mains_voltage": 230,
+  "authors": [
+    {
+      "name": "Rogier Lommers",
+      "github": "rogierlommers",
+      "email": "rogier@lommers.org"
+    }
+  ]
 }

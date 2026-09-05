@@ -2,16 +2,32 @@
   "calculation_strategy": "fixed",
   "created_at": "2026-02-14T20:27:59Z",
   "device_type": "network",
+  "device_specs": {
+    "form_factor": "router",
+    "rated_power": 30,
+    "connectivity": [
+      "zigbee",
+      "wifi",
+      "ethernet"
+    ]
+  },
   "discovery_by": "device",
+  "ean": [
+    "4023125030475"
+  ],
   "fixed_config": {
     "power": 12.14
   },
   "measure_description": "Measured with Powercalc measure tool in Average mode (600 seconds)",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "name": "FRITZ!Box 6670 Cable",
-  "author_info": {
-    "name": "hpuac",
-    "github": "hpuac"
-  }
+  "product_url": "https://fritz.com/en/products/fritz-box-6670-cable-20003047",
+  "authors": [
+    {
+      "name": "hpuac",
+      "github": "hpuac"
+    }
+  ]
 }

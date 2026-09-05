@@ -6,9 +6,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-07-10T21:08:46Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 250,
+    "rated_power": 2.7,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -16,9 +26,11 @@
   },
   "name": "TRADFRI bulb E27 WW clear 250lm",
   "standby_power": 0.27,
-  "author_info": {
-    "name": "Linus",
-    "email": "linus.nordin@gmail.com",
-    "github": "gribber"
-  }
+  "authors": [
+    {
+      "name": "Linus",
+      "email": "linus.nordin@gmail.com",
+      "github": "gribber"
+    }
+  ]
 }

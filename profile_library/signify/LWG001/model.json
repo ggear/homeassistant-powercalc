@@ -1,15 +1,34 @@
 {
+  "aliases": [
+    "9290018195"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2021-09-12T16:46:36Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "spot",
+    "lumens": 400,
+    "rated_power": 5.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718699605513",
+    "8718699605537"
+  ],
   "measure_description": "Measure Script for Tasmota",
   "measure_device": "Gosund SP111",
   "measure_device_firmware": "Tasmota 9.5.0",
   "measure_method": "script",
+  "mains_voltage": 230,
   "name": "Hue White GU10",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "Stefan Gries",
-    "github": "stefangries"
-  }
+  "authors": [
+    {
+      "name": "Stefan Gries",
+      "github": "stefangries"
+    }
+  ]
 }

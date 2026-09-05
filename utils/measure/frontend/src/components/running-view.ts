@@ -1,7 +1,10 @@
 import { LitElement, css, html, nothing, svg, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { createRef, ref } from "lit/directives/ref.js";
 import type { OperatingPoint, SessionProgress, SessionSnapshot } from "../types";
-import { sharedStyles } from "../styles";
+import { emit } from "../events";
+import { remaining } from "../format";
+import { diagnosticsDownload, sharedStyles } from "../styles";
 
 type StateChipIcon =
   | "battery"
@@ -22,28 +25,35 @@ interface StateChip {
   icon: StateChipIcon;
 }
 
+@customElement("measure-running-view")
 export class RunningView extends LitElement {
-  static readonly properties = {
-    snapshot: { attribute: false },
-    confirmationAction: { type: String },
-    warningConfirmation: { type: Boolean },
-    connected: { type: Boolean },
-    logs: { attribute: false },
-    samples: { attribute: false },
-    diagnosticsUrl: { type: String },
-    busy: { type: Boolean },
-    logOpen: { state: true },
-  };
-
+  @property({ attribute: false })
   snapshot!: SessionSnapshot;
+
+  @property({ type: String })
   confirmationAction = "";
+
+  @property({ type: Boolean })
   warningConfirmation = false;
+
+  @property({ type: Boolean })
   connected = false;
+
+  @property({ attribute: false })
   logs: string[] = [];
+
+  @property({ attribute: false })
   samples: number[] = [];
+
+  @property({ type: String })
   diagnosticsUrl = "";
+
+  @property({ type: Boolean })
   busy = false;
+
+  @state()
   logOpen = false;
+
   private readonly logContainer = createRef<HTMLDivElement>();
 
   static readonly styles = [sharedStyles, css`
@@ -84,6 +94,12 @@ export class RunningView extends LitElement {
     .spark .area { fill: color-mix(in srgb, var(--signal) 14%, transparent); stroke: none; }
     .spark .line { fill: none; stroke: var(--signal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
     .chart-scale { display: flex; justify-content: space-between; margin-top: 0.3rem; color: var(--muted); font: 0.68rem/1 ui-monospace, monospace; }
+    .entity-states { position: relative; margin-top: 1.35rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+    .entity-states > span { display: block; margin-bottom: 0.65rem; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .entity-state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 0.55rem; }
+    .entity-state { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; min-width: 0; padding: 0.65rem 0.75rem; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--signal) 5%, var(--well)); }
+    .entity-state code { overflow: hidden; color: var(--muted); font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
+    .entity-state strong { flex: none; font: 650 0.82rem/1.2 ui-monospace, monospace; color: var(--ink); }
     .preparation { position: relative; display: grid; justify-items: center; gap: 0.8rem; padding: clamp(2rem, 8vw, 4rem) 1rem; text-align: center; }
     .preparation h3, .preparation p { margin: 0; }
     .preparation-spinner { width: 42px; height: 42px; border: 3px solid var(--track); border-top-color: var(--signal); border-radius: 50%; animation: spin 850ms linear infinite; }
@@ -99,7 +115,6 @@ export class RunningView extends LitElement {
     .ready-card.warning .ready-eyebrow { color: var(--warning); }
     .ready-message { max-width: 620px; color: var(--muted); line-height: 1.6; white-space: pre-line; }
     .ready-topline { display: flex; justify-content: flex-end; align-items: center; gap: 0.9rem; width: 100%; }
-    @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes prepare { 0% { transform: translateX(-105%); } 50% { transform: translateX(165%); } 100% { transform: translateX(-105%); } }
     @media (max-width: 640px) { .metrics { grid-template-columns: 1fr 1fr; } .topline { align-items: flex-start; flex-direction: column; } }
     @media (prefers-reduced-motion: reduce) {
@@ -127,24 +142,36 @@ export class RunningView extends LitElement {
         <div class="instrument">
           <div class="topline">
             <span class="muted" aria-live="polite">${this.snapshot.phase ?? "Preparing measurement"}</span>
-            <span class="topline-right">
-              ${this.logs.length ? html`<button class="log-toggle" type="button" @click=${this.toggleLog} aria-expanded=${this.logOpen}>View log <span class="log-count">${this.logs.length}</span></button>` : nothing}
-              <span class="connection ${this.connected ? "connected" : ""}" role="status">${this.connected ? "Live" : "Reconnecting"}</span>
-            </span>
+            <span class="topline-right">${this.renderLogToggle()}${this.renderConnection(true)}</span>
           </div>
           ${preparing ? this.renderPreparation() : this.renderMeasurement(openEnded, progress)}
         </div>
-        ${this.renderLatestWarning()}
-        ${this.logOpen && this.logs.length ? this.renderLog() : nothing}
-        <div class="diagnostics-download">
-          <span>Session snapshot and logs for issue reporting.</span>
-          <a href=${this.diagnosticsUrl} download>Download diagnostics</a>
-        </div>
-        <div class="actions">
-          ${this.renderStopButton(openEnded)}
-        </div>
+        ${this.renderFooter(openEnded)}
       </section>
     `;
+  }
+
+  /** Warnings, the log drawer, diagnostics and the stop control — the same on both screens. */
+  private renderFooter(openEnded: boolean) {
+    return html`
+      ${this.renderLatestWarning()}
+      ${this.logOpen && this.logs.length ? this.renderLog() : nothing}
+      ${diagnosticsDownload(this.diagnosticsUrl)}
+      <div class="actions">${this.renderStopButton(openEnded)}</div>
+    `;
+  }
+
+  private renderLogToggle() {
+    if (!this.logs.length) return nothing;
+    return html`<button class="log-toggle" type="button" @click=${this.toggleLog} aria-expanded=${this.logOpen}>
+      View log <span class="log-count">${this.logs.length}</span>
+    </button>`;
+  }
+
+  private renderConnection(announce: boolean) {
+    return html`<span class="connection ${this.connected ? "connected" : ""}" role=${announce ? "status" : nothing}>
+      ${this.connected ? "Live" : "Reconnecting"}
+    </span>`;
   }
 
   private renderReady() {
@@ -155,10 +182,7 @@ export class RunningView extends LitElement {
         <p class="eyebrow">03 / Measurement</p>
         <h2 id="running-title">Ready when you are</h2>
         <div class="ready-card ${warning ? "warning" : ""}">
-          <span class="ready-topline">
-            ${this.logs.length ? html`<button class="log-toggle" type="button" @click=${this.toggleLog} aria-expanded=${this.logOpen}>View log <span class="log-count">${this.logs.length}</span></button>` : nothing}
-            <span class="connection ${this.connected ? "connected" : ""}">${this.connected ? "Live" : "Reconnecting"}</span>
-          </span>
+          <span class="ready-topline">${this.renderLogToggle()}${this.renderConnection(false)}</span>
           <div class="ready-announcement" role=${warning ? "alert" : "status"} aria-live=${warning ? "assertive" : "polite"}>
             <span class="ready-icon" aria-hidden="true">${warning ? svg`
               <svg viewBox="0 0 24 24">
@@ -172,13 +196,7 @@ export class RunningView extends LitElement {
           </div>
           <button class="primary confirm" type="button" @click=${this.confirm} ?disabled=${this.busy}>${this.busy ? "Starting…" : this.confirmationAction || "Start measurement"}</button>
         </div>
-        ${this.renderLatestWarning()}
-        ${this.logOpen && this.logs.length ? this.renderLog() : nothing}
-        <div class="diagnostics-download">
-          <span>Session snapshot and logs for issue reporting.</span>
-          <a href=${this.diagnosticsUrl} download>Download diagnostics</a>
-        </div>
-        <div class="actions">${this.renderStopButton(false)}</div>
+        ${this.renderFooter(false)}
       </section>
     `;
   }
@@ -186,9 +204,11 @@ export class RunningView extends LitElement {
   private renderMeasurement(openEnded: boolean, progress: SessionProgress) {
     return html`
       ${this.renderProgress(openEnded, progress)}
+      ${this.renderCalibrationSample()}
       ${this.snapshot.operating_point ? this.renderOperatingPoint(this.snapshot.operating_point) : nothing}
       ${this.renderMetrics(openEnded, progress)}
       ${this.samples.length ? this.renderChart() : nothing}
+      ${this.renderEntityStates()}
     `;
   }
 
@@ -203,6 +223,22 @@ export class RunningView extends LitElement {
       </div>
       ${this.snapshot.operating_point ? this.renderOperatingPoint(this.snapshot.operating_point) : nothing}
       ${this.samples.length ? this.renderChart() : nothing}
+      ${this.renderEntityStates()}
+    `;
+  }
+
+  private renderEntityStates() {
+    const states = Object.entries(this.snapshot.entity_states ?? {});
+    if (!states.length) return nothing;
+    return html`
+      <div class="entity-states" aria-live="polite">
+        <span>Tracked entities</span>
+        <div class="entity-state-grid">
+          ${states.map(([entityId, state]) => html`
+            <div class="entity-state"><code title=${entityId}>${entityId}</code><strong>${state}</strong></div>
+          `)}
+        </div>
+      </div>
     `;
   }
 
@@ -234,7 +270,20 @@ export class RunningView extends LitElement {
         <div class="metric"><span>Mode</span><strong>${this.snapshot.mode ?? "—"}</strong></div>
         <div class="metric"><span>${progressLabel}</span><strong>${openEnded ? progress.completed : html`${progress.completed} / ${progress.total}`}</strong></div>
         ${progress.skipped ? html`<div class="metric"><span>Skipped</span><strong>${progress.skipped}</strong></div>` : nothing}
-        <div class="metric"><span>Remaining</span><strong>${openEnded ? "Until stopped" : this.remaining(progress.estimated_remaining_seconds)}</strong></div>
+        <div class="metric"><span>Remaining</span><strong>${openEnded ? "Until stopped" : remaining(progress.estimated_remaining_seconds)}</strong></div>
+      </div>
+    `;
+  }
+
+  private renderCalibrationSample() {
+    const sample = this.snapshot.calibration_sample;
+    const phase = `${this.snapshot.phase ?? ""} ${this.snapshot.mode ?? ""}`;
+    if (!sample || !/dummy[- ]load/i.test(phase)) return nothing;
+    return html`
+      <div class="metrics calibration-metrics" aria-label="Live dummy-load calibration reading">
+        <div class="metric"><span>Wattage</span><strong>${sample.power.toFixed(2)} W</strong></div>
+        <div class="metric"><span>Resistance</span><strong>${sample.resistance.toFixed(2)} Ω</strong></div>
+        <div class="metric"><span>Voltage</span><strong>${sample.voltage.toFixed(2)} V</strong></div>
       </div>
     `;
   }
@@ -361,18 +410,12 @@ export class RunningView extends LitElement {
     this.logOpen = !this.logOpen;
   }
 
-  private remaining(seconds?: number | null): string {
-    if (seconds == null) return "Calculating";
-    const minutes = Math.ceil(seconds / 60);
-    return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
-  }
-
   private cancel(): void {
-    this.dispatchEvent(new CustomEvent("cancel", { bubbles: true, composed: true }));
+    emit(this, "cancel");
   }
 
   private confirm(): void {
-    this.dispatchEvent(new CustomEvent("confirm", { bubbles: true, composed: true }));
+    emit(this, "confirm");
   }
 
   private runningTitle(preparing = false): string {
@@ -382,5 +425,3 @@ export class RunningView extends LitElement {
     return "Sampling in progress";
   }
 }
-
-customElements.define("measure-running-view", RunningView);

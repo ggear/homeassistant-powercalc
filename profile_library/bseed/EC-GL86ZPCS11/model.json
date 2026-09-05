@@ -1,0 +1,32 @@
+{
+  "aliases": [
+    "1 gang switch with scene and backlight",
+    "Smart Zigbee Switch 1-Gang"
+  ],
+  "name": "1-Gang Light Switch",
+  "legacy_ids": [
+    "zigbee_switch_1_gang"
+  ],
+  "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "wall_switch",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "calculation_strategy": "fixed",
+  "measure_device": "Shelly Plug S Gen3",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "measure_description": "Measured via Powercalc Measure Tool",
+  "created_at": "2026-07-27T15:17:25Z",
+  "standby_power": 0.59,
+  "standby_power_on": 0.89,
+  "authors": [
+    {
+      "name": "Maxik933",
+      "github": "Maxik933"
+    }
+  ]
+}

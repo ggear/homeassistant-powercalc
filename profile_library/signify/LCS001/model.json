@@ -8,18 +8,35 @@
   "calculation_strategy": "lut",
   "created_at": "2021-10-08T13:31:47Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "spot",
+    "lumens": 640,
+    "rated_power": 8,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718696167960",
+    "8718696167977",
+    "8718696169087"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2
   },
   "name": "Hue Lily Outdoor Spot Light RGBCCT",
   "standby_power": 0.36,
-  "author_info": {
-    "name": "mariwing",
-    "email": "mariwing@gmail.com",
-    "github": "mariwing"
-  }
+  "authors": [
+    {
+      "name": "mariwing",
+      "email": "mariwing@gmail.com",
+      "github": "mariwing"
+    }
+  ]
 }

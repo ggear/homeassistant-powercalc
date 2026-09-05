@@ -2,22 +2,37 @@
   "aliases": [
     "9290038539"
   ],
+  "ean": [
+    "046677591298"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2026-02-15T09:02:05Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 1600,
+    "rated_power": 13.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug US Gen4",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.5:docker"
   },
-  "name": "Hue White and color ambiance 100W A19- E26 smart bulb",
+  "name": "Hue White and Color Ambiance 100W A19 E26 Smart Bulb",
   "standby_power": 0.07,
-  "author_info": {
-    "name": "pinkfin",
-    "github": "pinkfin",
-    "email": "hot.wire1618@fastmail.com"
-  }
+  "authors": [
+    {
+      "name": "pinkfin",
+      "github": "pinkfin",
+      "email": "hot.wire1618@fastmail.com"
+    }
+  ]
 }

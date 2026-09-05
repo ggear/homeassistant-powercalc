@@ -1,16 +1,32 @@
 {
+  "aliases": [
+    "929003050601"
+  ],
   "calculation_strategy": "fixed",
   "created_at": "2022-10-21T09:32:56Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8719514342309"
+  ],
   "measure_description": "Manually measured. Copied from LOM001",
   "measure_device": "Shelly Plug S",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Hue Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.15,
   "standby_power_on": 0.85,
-  "author_info": {
-    "name": "msteenhuiz",
-    "github": "msteenhuiz"
-  }
+  "authors": [
+    {
+      "name": "msteenhuiz",
+      "github": "msteenhuiz"
+    }
+  ]
 }

@@ -2,9 +2,22 @@
   "calculation_strategy": "lut",
   "created_at": "2026-06-15T03:44:26Z",
   "device_type": "light",
+  "ean": [
+    "8719514448278"
+  ],
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 530,
+    "rated_power": 6.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 10,
     "SLEEP_TIME": 3,
@@ -12,8 +25,10 @@
   },
   "name": "Hue Go Table Lamp",
   "standby_power": 0.45,
-  "author_info": {
-    "name": "phoenixxx-1",
-    "github": "phoenixxx-1"
-  }
+  "authors": [
+    {
+      "name": "phoenixxx-1",
+      "github": "phoenixxx-1"
+    }
+  ]
 }

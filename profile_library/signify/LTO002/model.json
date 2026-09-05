@@ -1,13 +1,27 @@
 {
   "aliases": [
-    "9290024781"
+    "9290024781",
+    "8719514301542"
+  ],
+  "ean": [
+    "8719514301542"
   ],
   "calculation_strategy": "lut",
   "created_at": "2024-06-06T13:07:17Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "lumens": 550,
+    "rated_power": 7.0,
+    "form_factor": "filament",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,8 +29,10 @@
   },
   "name": "Hue G125 E27 Filament Globe Bulb",
   "standby_power": 0.15,
-  "author_info": {
-    "name": "Pierre",
-    "github": "bemble"
-  }
+  "authors": [
+    {
+      "name": "Pierre",
+      "github": "bemble"
+    }
+  ]
 }

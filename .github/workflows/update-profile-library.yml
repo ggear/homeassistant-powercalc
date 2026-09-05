@@ -7,10 +7,15 @@ on:
     branches:
       - master
     paths:
-      - '.github/scripts/profile_library/**'
+      - 'utils/library/common.py'
+      - 'utils/library/scan_lut_quality.py'
+      - 'utils/library/update_library.py'
+      - 'utils/library/validate_lut_files.py'
   push:
     paths:
       - '**/model.json'
+      - '**/manufacturer.json'
+      - '**/*.csv.gz'
     branches:
       - master
   workflow_dispatch:
@@ -19,38 +24,42 @@ permissions:
   contents: write
   pull-requests: read
 
+concurrency:
+  group: profile-library-writes
+  cancel-in-progress: false
+
 jobs:
   format:
     name: Update profile library
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: true
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: '0.12.1'
+          version: '0.12.7'
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
-      - name: Pull again
-        run: git pull || true
       - name: Update library.json, authors and translations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           uv run --locked --only-group profile-library --no-build
-          python .github/scripts/profile_library/update_library.py
-      - uses: EndBug/add-and-commit@290ea2c423ad77ca9c62ae0f5b224379612c0321 # v10
+          python -m utils.library.update_library
+      - uses: EndBug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8 # v11
         if: github.ref == 'refs/heads/master'
         with:
           add: 'profile_library'
-          message: 'Update profile library'
-          push: 'origin HEAD:master --force'
+          message: 'chore(profile): update generated library'
+          pull: '--rebase --autostash'
+          push: 'origin HEAD:master'
       - name: Wait 5 seconds
         run: sleep 5
       - name: Purge cloudflare cache
@@ -64,6 +73,7 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{
           	"files": [
-          		"https://api.powercalc.nl/library"
+          		"https://api.powercalc.nl/library",
+          		"https://api.powercalc.nl/library/full"
           	]
           }'

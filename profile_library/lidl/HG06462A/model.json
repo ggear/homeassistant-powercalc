@@ -2,19 +2,34 @@
   "calculation_strategy": "lut",
   "created_at": "2022-06-26T09:59:41Z",
   "device_type": "light",
+  "ean": [
+    "4056233688771"
+  ],
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "filament",
+    "lumens": 550,
+    "rated_power": 7,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Gosund SP111",
   "measure_device_firmware": "Tasmota",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v0.22.0:docker"
   },
-  "name": "Livarno Lux E27 filament bulb",
+  "name": "Livarno Lux E27 A60 filament bulb",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "Stefan Gries",
-    "github": "stefangries"
-  }
+  "authors": [
+    {
+      "name": "Stefan Gries",
+      "github": "stefangries"
+    }
+  ]
 }

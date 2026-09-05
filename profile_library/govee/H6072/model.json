@@ -2,9 +2,23 @@
   "calculation_strategy": "lut",
   "created_at": "2022-10-16T16:46:33Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 1500,
+    "rated_power": 23,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "6974316990864"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 10,
@@ -12,9 +26,12 @@
   },
   "name": "Lyra RGBICWW Corner Floor Lamp",
   "standby_power": 1.78,
-  "author_info": {
-    "name": "sockmonkey0223",
-    "email": "joshua.oswald@gmail.com",
-    "github": "sockmonkey0223"
-  }
+  "product_url": "https://uk.govee.com/products/refurbished-govee-lyra-rgbicww-corner-floor-lamp",
+  "authors": [
+    {
+      "name": "sockmonkey0223",
+      "email": "joshua.oswald@gmail.com",
+      "github": "sockmonkey0223"
+    }
+  ]
 }

@@ -1,0 +1,50 @@
+{
+  "aliases": [
+    "E1 Pro (E330)"
+  ],
+  "calculation_strategy": "fixed",
+  "compatible_integrations": [
+    "reolink"
+  ],
+  "created_at": "2026-01-11T13:50:00Z",
+  "device_type": "camera",
+  "device_specs": {
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "6976930225094",
+    "6972489770306"
+  ],
+  "legacy_ids": [
+    "E1 Pro"
+  ],
+  "measure_description": "Manually measured, took average values from HA for a day",
+  "measure_device": "Shelly 1PM Mini Gen3",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "name": "Smart 5MP Wi-Fi PT Indoor Security Camera",
+  "product_url": "https://reolink.com/us/product/e-series-e330/",
+  "sub_profile_select": {
+    "matchers": [
+      {
+        "type": "entity_state",
+        "entity_id": "sensor.{{source_object_id}}_day_night_state",
+        "map": {
+          "day": "default",
+          "night": "infrared"
+        }
+      }
+    ],
+    "default": "default"
+  },
+  "authors": [
+    {
+      "name": "Bram Gerritsen",
+      "email": "bgerritsen@gmail.com",
+      "github": "bramstroker"
+    }
+  ]
+}

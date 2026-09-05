@@ -5,9 +5,23 @@
   "calculation_strategy": "lut",
   "created_at": "2025-12-11T00:43:44Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 1100,
+    "rated_power": 8.1,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "8720169364806"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Nous A1",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 5,
@@ -15,9 +29,11 @@
   },
   "name": "Hue White Ambiance E27 1100lm with Bluetooth",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "mbks",
-    "email": "mbks@mbks.mbks",
-    "github": "mbks"
-  }
+  "authors": [
+    {
+      "name": "mbks",
+      "email": "mbks@mbks.mbks",
+      "github": "mbks"
+    }
+  ]
 }

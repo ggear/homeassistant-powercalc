@@ -5,19 +5,35 @@
   "calculation_strategy": "lut",
   "created_at": "2025-02-08T10:24:51Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "filament",
+    "lumens": 580,
+    "rated_power": 7,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "8719514342941"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Kasa HS110",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.6:docker"
   },
-  "name": "Hue Filament Standard A60/E27 bluetooth",
+  "name": "Hue Filament Standard A60/E27 Bulb with Bluetooth",
   "standby_power": 0.14,
-  "author_info": {
-    "name": "Dr-Seltsam",
-    "email": "sebastian.jaekel@web.de",
-    "github": "Dr-Seltsam"
-  }
+  "authors": [
+    {
+      "name": "Dr-Seltsam",
+      "email": "sebastian.jaekel@web.de",
+      "github": "Dr-Seltsam"
+    }
+  ]
 }

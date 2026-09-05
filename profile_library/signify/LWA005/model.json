@@ -5,9 +5,22 @@
   "calculation_strategy": "lut",
   "created_at": "2022-05-11T16:41:49Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "filament",
+    "lumens": 530,
+    "rated_power": 7.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "046677551773"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Sonoff S31",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 7,
     "SLEEP_TIME": 15,
@@ -15,9 +28,11 @@
   },
   "name": "Hue Filament E26",
   "standby_power": 0.11,
-  "author_info": {
-    "name": "Scott Hoyt",
-    "email": "scottrhoyt@gmail.com",
-    "github": "scottrhoyt"
-  }
+  "authors": [
+    {
+      "name": "Scott Hoyt",
+      "email": "scottrhoyt@gmail.com",
+      "github": "scottrhoyt"
+    }
+  ]
 }

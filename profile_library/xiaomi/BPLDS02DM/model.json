@@ -1,0 +1,37 @@
+{
+  "calculation_strategy": "linear",
+  "created_at": "2025-08-14T08:10:08Z",
+  "device_type": "fan",
+  "device_specs": {
+    "form_factor": "pedestal",
+    "rated_power": 15,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "linear_config": {
+    "attribute": "percentage",
+    "calibrate": [
+      "33 -> 24",
+      "66 -> 26",
+      "100 -> 34"
+    ]
+  },
+  "measure_description": "Manually measured",
+  "measure_device": "Meross mss310",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "name": "Mi Smart Standing Fan 2",
+  "product_url": "https://www.mi.com/global/product/mi-smart-standing-fan-2/",
+  "standby_power": 1,
+  "authors": [
+    {
+      "name": "olivr2s",
+      "email": "olivr2s@users.noreply.github.com",
+      "github": "olivr2s"
+    }
+  ],
+  "legacy_ids": [
+    "Mi Smart Standing Fan 2"
+  ]
+}

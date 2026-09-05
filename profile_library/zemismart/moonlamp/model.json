@@ -2,19 +2,29 @@
   "calculation_strategy": "lut",
   "created_at": "2022-11-30T17:57:54Z",
   "device_type": "light",
+  "device_specs": {
+    "connectivity": [
+      "wifi"
+    ],
+    "form_factor": "fixture",
+    "socket": "integrated"
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.1.2:docker"
   },
-  "name": "Moonlamp (esphome)",
+  "name": "Moon Lamp (ESPHome)",
   "standby_power": 0.5,
-  "author_info": {
-    "name": "Kenneth Fribert",
-    "email": "fribse@gmail.com",
-    "github": "fribse"
-  }
+  "authors": [
+    {
+      "name": "Kenneth Fribert",
+      "email": "fribse@gmail.com",
+      "github": "fribse"
+    }
+  ]
 }

@@ -2,18 +2,30 @@
   "calculation_strategy": "lut",
   "created_at": "2022-11-10T19:42:22Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "spot",
+    "lumens": 300,
+    "rated_power": 4.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 2,
     "VERSION": "v1.0.3:docker"
   },
-  "name": "Smart Zigbee pro GU10 spotlight bulb",
+  "name": "Smart Zigbee Pro GU10 Spotlight Bulb (4 W)",
   "standby_power": 0.35,
-  "author_info": {
-    "name": "gary-oneill82",
-    "github": "gary-oneill82"
-  }
+  "authors": [
+    {
+      "name": "gary-oneill82",
+      "github": "gary-oneill82"
+    }
+  ]
 }

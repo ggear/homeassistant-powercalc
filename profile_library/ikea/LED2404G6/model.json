@@ -6,19 +6,33 @@
   "calculation_strategy": "lut",
   "created_at": "2026-01-22T21:15:31Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "bulb",
+    "lumens": 806,
+    "rated_power": 5.9,
+    "connectivity": [
+      "matter",
+      "thread"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.2:docker"
   },
   "name": "KAJPLATS E14 WS globe 806lm",
+  "product_url": "https://www.ikea.com/de/de/p/kajplats-led-leuchtmittel-e14-806-lm-smart-weissspektrum-rund-opalweiss-00611312/",
   "standby_power": 0.21,
-  "author_info": {
-    "name": "Linus Nordin",
-    "email": "linus.nordin@gmail.com",
-    "github": "gribber"
-  }
+  "authors": [
+    {
+      "name": "Linus Nordin",
+      "email": "linus.nordin@gmail.com",
+      "github": "gribber"
+    }
+  ]
 }

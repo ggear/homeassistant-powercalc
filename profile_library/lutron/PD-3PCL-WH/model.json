@@ -1,24 +1,34 @@
 {
   "aliases": [
-    "PD-3PCL-WH",
     "PlugInDimmer"
   ],
   "calculation_strategy": "linear",
   "created_at": "2025-07-16T04:50:00Z",
   "device_type": "smart_dimmer",
+  "device_specs": {
+    "form_factor": "plug",
+    "max_load_watts": 300,
+    "power_monitoring": false,
+    "connectivity": [
+      "proprietary"
+    ]
+  },
+  "ean": [
+    "784276072069"
+  ],
   "discovery_by": "entity",
-  "measure_description": "Measured standby power with using a Shelly Plus Plug. Standby power was almost too low to capture.",
+  "measure_description": "Measured no-load self-consumption using a Shelly Plus Plug. During a 120-second standby sample, three readings were 0.1 W and the remaining readings were 0 W.",
   "measure_device": "Shelly Plus Plug",
   "measure_method": "script",
-  "name": "Plug-In Lamp Dimmer (Wireless Smart Dimmer)",
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
+  "mains_voltage": 120,
+  "name": "Plug-In Lamp Dimmer",
+  "product_url": "https://www.casetawireless.com/us/en/products/smart-plugs/lamp-dimming-smart-plug",
   "standby_power": 0.1,
   "standby_power_on": 0.56,
-  "author_info": {
-    "name": "Josh Barnard",
-    "github": "barndawgie"
-  }
+  "authors": [
+    {
+      "name": "Josh Barnard",
+      "github": "barndawgie"
+    }
+  ]
 }

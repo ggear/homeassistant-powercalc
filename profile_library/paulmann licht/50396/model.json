@@ -1,20 +1,35 @@
 {
+  "ean": [
+    "4000870503966"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-11-15T11:59:34Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "filament",
+    "lumens": 806,
+    "rated_power": 7.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TS011F",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.15.4:docker"
   },
-  "name": "LED Pear Smart Home Zigbee 3.0 LED Globe E27 806lm 7W Tunable White dimmable Opal",
+  "name": "Filament LED Globe E27 806lm 7W Tunable White",
   "standby_power": 0.25,
-  "author_info": {
-    "name": "Bart Kummel",
-    "email": "bart@leap.ac",
-    "github": "bartkummel"
-  }
+  "authors": [
+    {
+      "name": "Bart Kummel",
+      "email": "bart@leap.ac",
+      "github": "bartkummel"
+    }
+  ]
 }

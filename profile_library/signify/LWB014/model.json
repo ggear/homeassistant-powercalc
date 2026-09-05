@@ -1,10 +1,25 @@
 {
+  "aliases": [
+    "9290011370",
+    "9290011369B",
+    "453100"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-05-25T11:29:34Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "lumens": 840,
+    "rated_power": 9.5,
+    "socket": "E26",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Smart Wi-Fi Plug Mini",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -12,9 +27,11 @@
   },
   "name": "Hue White Bulb A19 840lm",
   "standby_power": 0.34,
-  "author_info": {
-    "name": "mariwing",
-    "email": "mariwing@gmail.com",
-    "github": "mariwing"
-  }
+  "authors": [
+    {
+      "name": "mariwing",
+      "email": "mariwing@gmail.com",
+      "github": "mariwing"
+    }
+  ]
 }

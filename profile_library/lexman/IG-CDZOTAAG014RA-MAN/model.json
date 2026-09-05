@@ -2,19 +2,36 @@
   "calculation_strategy": "lut",
   "created_at": "2022-03-25T08:38:09Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 1521,
+    "rated_power": 14.0,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "3276007273854"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "GreenWave GWPN1",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
     "VERSION": "v0.18.4:docker"
   },
-  "name": "RGBW E27 Smart LED Bulb (14 W to 100 W equivalent)",
+  "name": "ENKI RGBW E27 Globe Bulb 14W",
+  "product_url": "https://www.leroymerlin.pt/produtos/lampada-led-e27-filamentos-g95-1521lm-6500k-lexman-enki-84372273.html",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "sensei73",
-    "email": "sensei73@gmail.com",
-    "github": "sensei73"
-  }
+  "authors": [
+    {
+      "name": "sensei73",
+      "email": "sensei73@gmail.com",
+      "github": "sensei73"
+    }
+  ]
 }

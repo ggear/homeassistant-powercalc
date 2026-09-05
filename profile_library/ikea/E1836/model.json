@@ -6,16 +6,30 @@
   "calculation_strategy": "fixed",
   "created_at": "2023-12-31T20:16:31Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "inline",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "legacy_ids": [
+    "ASKVADER"
+  ],
   "measure_description": "Manually measured.",
   "measure_device": "Shelly Plus Plug S / AVM Fritz!DECT 200",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "ASKVADER on/off switch",
+  "product_url": "https://www.ikea.com/de/en/p/askvaeder-on-off-switch-50463880/",
   "only_self_usage": false,
   "standby_power": 0.21,
   "standby_power_on": 0.78,
-  "author_info": {
-    "name": "confucius78",
-    "email": "dekker.wj@gmail.com",
-    "github": "confucius78"
-  }
+  "authors": [
+    {
+      "name": "confucius78",
+      "email": "dekker.wj@gmail.com",
+      "github": "confucius78"
+    }
+  ]
 }

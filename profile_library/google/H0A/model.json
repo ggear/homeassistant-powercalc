@@ -1,0 +1,51 @@
+{
+  "aliases": [
+    "Home Mini",
+    "Google Home Mini"
+  ],
+  "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
+  "calculation_strategy": "linear",
+  "created_at": "2022-10-05T10:14:54Z",
+  "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "842776101945"
+  ],
+  "linear_config": {
+    "calibrate": [
+      "0 -> 1.80",
+      "10 -> 1.84",
+      "20 -> 1.87",
+      "30 -> 1.90",
+      "40 -> 1.92",
+      "50 -> 1.97",
+      "60 -> 2.07",
+      "70 -> 2.20",
+      "80 -> 2.35",
+      "90 -> 2.42",
+      "100 -> 2.49"
+    ]
+  },
+  "legacy_ids": [
+    "Home Mini (HOA)"
+  ],
+  "measure_description": "Streamed 'Armin van Buuren - Come Around Again' using spotify, and took average measurements using the measure.py tool on different volume levels",
+  "measure_device": "Shelly Plug S",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "name": "Home Mini",
+  "standby_power": 1.65,
+  "authors": [
+    {
+      "name": "Daniel O'Connor",
+      "email": "daniel.oconnor@gmail.com",
+      "github": "CloCkWeRX"
+    }
+  ]
+}

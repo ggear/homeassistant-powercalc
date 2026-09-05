@@ -1,6 +1,7 @@
 from measure.cli.request_adapter import request_from_answers
 from measure.const import PARAMETER_LIMITS, QUESTION_ENTITY_ID, QUESTION_MEASURE_DEVICE, MeasureType
 from measure.controller.light.const import LightControllerType, LutMode
+from measure.controller.light.spec import HassMultiLightControllerSpec
 from measure.powermeter.const import PowerMeterType
 from measure.powermeter.spec import DummyPowerMeterSpec
 from measure.request import (
@@ -11,6 +12,8 @@ from measure.request import (
     DummyLoadReuseRequest,
     LightMeasurementRequest,
     RecorderMeasurementRequest,
+    RecorderProfileRecipe,
+    RecorderPurpose,
     parse_measurement_request,
 )
 from measure.runner.const import QUESTION_EXPORT_FILENAME, QUESTION_MODE
@@ -45,14 +48,35 @@ def test_request_round_trip_preserves_typed_input() -> None:
     assert isinstance(restored.dummy_load, DummyLoadReuseRequest)
 
 
-def test_request_exposes_the_controlled_entity_only_when_the_controller_drives_one() -> None:
+def test_request_exposes_the_controlled_entities_only_when_the_controller_drives_them() -> None:
     controlled = LightMeasurementRequest.model_validate(valid_request())
     uncontrolled = AverageMeasurementRequest.model_validate(
         {"power_meter": {"type": "hass", "entity_id": "sensor.test_power"}},
     )
 
-    assert controlled.controlled_entity_id == "light.test"
-    assert uncontrolled.controlled_entity_id is None
+    assert controlled.controlled_entity_ids == ("light.test",)
+    assert uncontrolled.controlled_entity_ids == ()
+
+
+def test_request_exposes_all_controlled_entities_for_multi_light_controller() -> None:
+    request = LightMeasurementRequest.model_validate(
+        valid_request()
+        | {"controller": {"type": "hass_multi", "entity_ids": ["light.one", "light.two"]}, "multiple_light_count": 2},
+    )
+
+    assert isinstance(request.controller, HassMultiLightControllerSpec)
+    assert request.controlled_entity_ids == ("light.one", "light.two")
+
+
+@pytest.mark.parametrize(
+    "entity_ids",
+    [["light.one"], ["light.one", "light.one"], ["light.one", "switch.two"]],
+)
+def test_multi_light_controller_requires_multiple_unique_light_entities(entity_ids: list[str]) -> None:
+    with pytest.raises(ValidationError):
+        LightMeasurementRequest.model_validate(
+            valid_request() | {"controller": {"type": "hass_multi", "entity_ids": entity_ids}},
+        )
 
 
 def test_request_normalizes_profile_metadata() -> None:
@@ -186,6 +210,124 @@ def test_recorder_request_rejects_unsafe_export_filename(export_filename: str) -
         RecorderMeasurementRequest(
             power_meter=power_meter,
             export_filename=export_filename,
+        )
+
+
+def test_playbook_recorder_rejects_a_jsonl_export_filename() -> None:
+    """Plotting picks its reader by extension, so a CSV under a .jsonl name reads as empty."""
+
+    with pytest.raises(ValidationError, match=r"must use a \.csv export filename"):
+        RecorderMeasurementRequest(power_meter=DummyPowerMeterSpec(), export_filename="record.jsonl")
+
+
+def test_recorder_defaults_to_legacy_playbook_recording() -> None:
+    request = RecorderMeasurementRequest(power_meter=DummyPowerMeterSpec())
+
+    assert request.recorder_purpose == RecorderPurpose.PLAYBOOK
+    assert request.recorded_entity_ids == ()
+
+
+def test_generic_recorder_preserves_tracked_entity_order() -> None:
+    request = RecorderMeasurementRequest(
+        power_meter=DummyPowerMeterSpec(),
+        recorder_purpose=RecorderPurpose.COMPLEX_PROFILE,
+        profile_recipe=RecorderProfileRecipe.GENERIC,
+        tracked_entity_ids=("switch.plug", "sensor.mode"),
+    )
+
+    assert request.recorded_entity_ids == ("switch.plug", "sensor.mode")
+    assert request.export_filename == "record.jsonl"
+
+
+def test_complex_recorder_rejects_non_json_lines_filename() -> None:
+    power_meter = DummyPowerMeterSpec()
+    with pytest.raises(ValidationError, match=r"must use a \.jsonl"):
+        RecorderMeasurementRequest(
+            power_meter=power_meter,
+            recorder_purpose=RecorderPurpose.COMPLEX_PROFILE,
+            profile_recipe=RecorderProfileRecipe.GENERIC,
+            tracked_entity_ids=("switch.plug",),
+            export_filename="custom.csv",
+        )
+
+
+def test_vacuum_recorder_orders_required_roles_before_additional_entities() -> None:
+    request = RecorderMeasurementRequest(
+        power_meter=DummyPowerMeterSpec(),
+        recorder_purpose=RecorderPurpose.COMPLEX_PROFILE,
+        profile_recipe=RecorderProfileRecipe.VACUUM_ROBOT,
+        vacuum_entity_id="vacuum.robot",
+        battery_entity_id="sensor.robot_battery",
+        additional_entity_ids=("sensor.dock_state",),
+    )
+
+    assert request.recorded_entity_ids == ("vacuum.robot", "sensor.robot_battery", "sensor.dock_state")
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"profile_recipe": "generic", "tracked_entity_ids": ["switch.plug"]},
+        {"recorder_purpose": "complex_profile"},
+        {"recorder_purpose": "complex_profile", "profile_recipe": "generic"},
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "generic",
+            "tracked_entity_ids": ["switch.plug"],
+            "vacuum_entity_id": "vacuum.robot",
+        },
+        {"recorder_purpose": "complex_profile", "profile_recipe": "vacuum_robot"},
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "vacuum_robot",
+            "tracked_entity_ids": ["switch.plug"],
+            "vacuum_entity_id": "vacuum.robot",
+            "battery_entity_id": "sensor.robot_battery",
+        },
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "vacuum_robot",
+            "vacuum_entity_id": "switch.robot",
+            "battery_entity_id": "sensor.robot_battery",
+        },
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "vacuum_robot",
+            "vacuum_entity_id": "vacuum.robot",
+            "battery_entity_id": "binary_sensor.robot_battery",
+        },
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "vacuum_robot",
+            "vacuum_entity_id": "vacuum.robot",
+            "battery_entity_id": "sensor.robot_battery",
+            "additional_entity_ids": ["sensor.robot_battery"],
+        },
+        {
+            "recorder_purpose": "complex_profile",
+            "profile_recipe": "generic",
+            "tracked_entity_ids": ["invalid entity"],
+        },
+    ],
+)
+def test_recorder_rejects_inconsistent_profile_selections(values: dict[str, object]) -> None:
+    payload = {"power_meter": DummyPowerMeterSpec(), **values}
+    with pytest.raises(ValidationError):
+        RecorderMeasurementRequest.model_validate(payload)
+
+
+def test_recorder_rejects_more_than_one_hundred_combined_entities() -> None:
+    additional_entities = tuple(f"sensor.extra_{index}" for index in range(99))
+    power_meter = DummyPowerMeterSpec()
+
+    with pytest.raises(ValidationError, match="at most 100 entities"):
+        RecorderMeasurementRequest(
+            power_meter=power_meter,
+            recorder_purpose=RecorderPurpose.COMPLEX_PROFILE,
+            profile_recipe=RecorderProfileRecipe.VACUUM_ROBOT,
+            vacuum_entity_id="vacuum.robot",
+            battery_entity_id="sensor.robot_battery",
+            additional_entity_ids=additional_entities,
         )
 
 

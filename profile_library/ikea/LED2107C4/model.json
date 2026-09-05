@@ -5,9 +5,19 @@
   "calculation_strategy": "lut",
   "created_at": "2023-11-23T08:29:35Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "candle",
+    "lumens": 470,
+    "rated_power": 3.2,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script; 2.99 Watts dummy load",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 5,
     "SLEEP_TIME": 3,
@@ -15,8 +25,10 @@
   },
   "name": "TRADFRI bulb E14 WS candle 470lm",
   "standby_power": 0.15,
-  "author_info": {
-    "name": "dansie",
-    "github": "dansie"
-  }
+  "authors": [
+    {
+      "name": "dansie",
+      "github": "dansie"
+    }
+  ]
 }

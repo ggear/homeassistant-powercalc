@@ -1,4 +1,9 @@
 {
   "name": "Bose",
-  "aliases": []
+  "aliases": [
+    "Bose Corporation"
+  ],
+  "website": "https://www.bose.com",
+  "country": "US",
+  "description": "American audio manufacturer."
 }

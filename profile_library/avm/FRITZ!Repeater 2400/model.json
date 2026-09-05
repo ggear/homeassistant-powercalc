@@ -2,20 +2,31 @@
   "calculation_strategy": "fixed",
   "created_at": "2023-12-31T08:21:16Z",
   "device_type": "network",
+  "device_specs": {
+    "form_factor": "repeater",
+    "rated_power": 8.5,
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
   "discovery_by": "device",
+  "ean": [
+    "4023125028557"
+  ],
   "fixed_config": {
     "power": 3.15
   },
   "measure_description": "Manually measured",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "FRITZ!Repeater 2400",
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
-  "author_info": {
-    "name": "ca-dmin",
-    "github": "ca-dmin"
-  }
+  "product_url": "https://fritz.com/en/products/fritz-repeater-2400-20002855",
+  "authors": [
+    {
+      "name": "ca-dmin",
+      "github": "ca-dmin"
+    }
+  ]
 }

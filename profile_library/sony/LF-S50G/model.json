@@ -3,6 +3,20 @@
   "calculation_strategy": "linear",
   "created_at": "2025-08-27T11:10:15Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "027242908031",
+    "4548736066137",
+    "4548736066144",
+    "4548736066151"
+  ],
+  "device_specs": {
+    "form_factor": "speaker",
+    "rated_power": 8.0,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "0 -> 3.79",
@@ -21,10 +35,13 @@
   "measure_description": "Streamed white noise from Spotify for this test",
   "measure_device": "Meross mss305",
   "measure_method": "manual",
-  "name": "Smart Wireless Speaker with Google Assistant",
+  "name": "Google Assistant Built-in Wireless Speaker",
+  "product_url": "https://www.sony.com/electronics/support/speakers-wireless-speakers/lf-s50g/specifications",
   "standby_power": 3.28,
-  "author_info": {
-    "name": "jonathanlflatt",
-    "github": "jonathanlflatt"
-  }
+  "authors": [
+    {
+      "name": "jonathanlflatt",
+      "github": "jonathanlflatt"
+    }
+  ]
 }

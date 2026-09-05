@@ -6,9 +6,19 @@
   "calculation_strategy": "lut",
   "created_at": "2021-12-29T19:34:57Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "bulb",
+    "lumens": 470,
+    "rated_power": 5.2,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -16,8 +26,10 @@
   },
   "name": "TRADFRI bulb E14 WS 470lm",
   "standby_power": 0.25,
-  "author_info": {
-    "name": "marthubner",
-    "github": "marthubner"
-  }
+  "authors": [
+    {
+      "name": "marthubner",
+      "github": "marthubner"
+    }
+  ]
 }

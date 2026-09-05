@@ -1,10 +1,26 @@
 {
+  "aliases": [
+    "929004581901"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2026-04-06T18:05:55Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 1000,
+    "rated_power": 17.1,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8720169371538"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -12,8 +28,10 @@
   },
   "name": "Hue Festavia Outdoor White & Colour Gradient Globe String Lights, 14m",
   "standby_power": 0.38,
-  "author_info": {
-    "name": "phoenixxx-1",
-    "github": "phoenixxx-1"
-  }
+  "authors": [
+    {
+      "name": "phoenixxx-1",
+      "github": "phoenixxx-1"
+    }
+  ]
 }

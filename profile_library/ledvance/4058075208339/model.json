@@ -2,22 +2,38 @@
   "aliases": [
     "FLEX RGBW Z3"
   ],
+  "ean": [
+    "4058075208339"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-10-21T07:32:02Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "strip",
+    "socket": "integrated",
+    "lumens": 700,
+    "rated_power": 11.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "master"
   },
-  "name": "SMART+ ZB FLEX 3P RGB + TW",
+  "name": "SMART+ ZB Flex 3P RGB + TW",
+  "product_url": "https://www.ledvance.com/gtin/4058075208339",
   "standby_power": 0.26,
-  "author_info": {
-    "name": "RubenKelevra",
-    "email": "cyrond@gmail.com",
-    "github": "RubenKelevra"
-  }
+  "authors": [
+    {
+      "name": "RubenKelevra",
+      "email": "cyrond@gmail.com",
+      "github": "RubenKelevra"
+    }
+  ]
 }

@@ -6,9 +6,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-01-28T15:48:57Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "bulb",
+    "lumens": 345,
+    "rated_power": 3.4,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 3,
     "SLEEP_TIME": 6,
@@ -16,8 +26,10 @@
   },
   "name": "TRADFRI bulb GU10 345 lumen, dimmable, white spectrum",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "giu889",
-    "github": "giu889"
-  }
+  "authors": [
+    {
+      "name": "giu889",
+      "github": "giu889"
+    }
+  ]
 }

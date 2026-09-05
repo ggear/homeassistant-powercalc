@@ -2,16 +2,26 @@
   "calculation_strategy": "fixed",
   "created_at": "2022-09-06T08:26:19Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Manually measured w/3.65W Incandescent nightlight.",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "manual",
-  "name": "Zigbee Smart Plug",
+  "mains_voltage": 230,
+  "name": "Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.18,
   "standby_power_on": 0.83,
-  "author_info": {
-    "name": "Daniel O'Connor",
-    "email": "daniel.oconnor@gmail.com",
-    "github": "CloCkWeRX"
-  }
+  "authors": [
+    {
+      "name": "Daniel O'Connor",
+      "email": "daniel.oconnor@gmail.com",
+      "github": "CloCkWeRX"
+    }
+  ]
 }

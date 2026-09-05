@@ -1,0 +1,55 @@
+{
+  "aliases": [
+    "Nest Wifi Point"
+  ],
+  "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
+  "calculation_strategy": "linear",
+  "created_at": "2026-01-21T21:30:47Z",
+  "device_type": "generic_iot",
+  "device_specs": {
+    "connectivity": [
+      "wifi",
+      "thread",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "193575001586"
+  ],
+  "linear_config": {
+    "calibrate": [
+      "10 -> 4.0",
+      "20 -> 3.94",
+      "30 -> 4.06",
+      "40 -> 4.04",
+      "50 -> 4.35",
+      "60 -> 4.54",
+      "70 -> 4.32",
+      "80 -> 5.18",
+      "90 -> 5.1",
+      "100 -> 4.9",
+      "0 -> 4.54"
+    ]
+  },
+  "legacy_ids": [
+    "Nest Wifi Point (H2E)"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "TP-Link Tapo P110M",
+  "measure_method": "script",
+  "mains_voltage": 120,
+  "measure_settings": {
+    "SAMPLE_COUNT": 1,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.20.2:docker"
+  },
+  "name": "Nest Wifi Point",
+  "standby_power": 3.71,
+  "authors": [
+    {
+      "name": "Bob Shaker",
+      "email": "bobshaker1@gmail.com",
+      "github": "EpicBurrito"
+    }
+  ]
+}

@@ -24,7 +24,7 @@ No port, host networking, Home Assistant configuration mapping, or API credentia
 | Fan | `fan` | Linear percentage calibration and optional `model.json` |
 | Charging device | `vacuum` or `lawn_mower` | Battery-level charging calibration and optional `model.json` |
 | Average | No controlled device required | Average power over a configured duration |
-| Recorder | No controlled device required | Power time-series CSV until the user stops the recording |
+| Recorder | Optional tracked entities from any domain; guided vacuum and battery selection | Playbook CSV or power plus entity-state JSON Lines until stopped |
 
 The app supports these power-meter types:
 
@@ -37,7 +37,7 @@ Direct Hue, Tuya, Tasmota and myStrom controllers or meters, OCR, and manual pow
 
 ## Measurement device setup
 
-Configure the measurement device once from the app settings before creating a session. Select the power-meter type, choose or discover the sensor or plug, and enter a recognizable measurement-device name for generated profile metadata.
+Configure the measurement device once from the app settings before creating a session. Select the power-meter type, choose or discover the sensor or plug, and choose the meter name used by existing Powercalc profiles. The app loads these canonical names from the published library. You can still type a name when your meter is not listed or the library is temporarily unavailable.
 
 Use **Test connection** to sample the configured meter before starting a long run. For Home Assistant sensors, the app checks:
 
@@ -54,7 +54,7 @@ GitHub authentication can be configured in **Settings** before starting a measur
 
 The credential is stored separately in the app's private `/data` directory and is never included in session diagnostics. Home Assistant may include it in app backups. Disconnect locally and revoke the OAuth authorization or token in GitHub when it is no longer needed.
 
-After a completed light, speaker, fan, or charging measurement, the result page can prepare a profile contribution. Review the manufacturer, model, exact file list, JSON, commit message, and pull-request text before explicitly creating the pull request. The app creates or reuses your fork and submits one device to the Powercalc `master` branch.
+After a completed light, speaker, fan, or charging measurement, the result page can prepare a profile contribution. Enter the marketed product name without repeating the manufacturer. When the manufacturer already exists, use the link to its library page to compare names and metadata with existing profiles. Review the manufacturer, model, exact file list, JSON, commit message, and pull-request text before explicitly creating the pull request. The app creates or reuses your fork and submits one device to the Powercalc `master` branch.
 
 Manual contribution remains available at all times. You can still download every generated file and follow the contribution guide when GitHub is not configured, automatic contribution is unavailable, or an existing profile needs to be updated.
 
@@ -89,29 +89,61 @@ During the actual run, live and saved power readings show the target device cons
 
 ## Running a measurement
 
-1. Configure and test the measurement device in **Settings**.
-2. Select a measurement type and the Home Assistant entity when that measurement controls a device.
-3. Enter the profile details and measurement-specific options. Light measurements also let you choose the modes advertised by the selected entity. Enable a resistive dummy load only when the device load would otherwise be too low for the meter.
-4. Review preflight estimates, warnings, meter diagnostics, and advanced timing settings.
-5. Start the session. Complete the dummy-load calibration or reuse confirmation when enabled. Average, recorder, speaker, and charging measurements also pause for an explicit confirmation when the physical device must be prepared or the actual sampling period is about to begin.
-6. Follow live progress, current operating values, recent power samples, and session logs. You can close or reload the browser; the app owns the job and restores its persisted status when you return.
-7. Review plots and download generated CSV, model, or recording files from the result view. For generated profiles, either prepare a GitHub pull request in the app or use the permanent manual-contribution option.
+1. Open **All sessions** and select **New measurement**.
+2. Configure and test the measurement device in **Settings**.
+3. Select a measurement type and the Home Assistant entity when that measurement controls a device.
+4. Enter the profile details and measurement-specific options. Light measurements also let you choose the modes advertised by the selected entity. Enable a resistive dummy load only when the device load would otherwise be too low for the meter.
+5. Run the setup check and review its estimates, warnings, meter diagnostics, and advanced timing settings. For a
+   light measurement without a dummy load, this briefly tests representative low-load white and color settings and
+   leaves the selected lights off. A successful result is reused when the unchanged measurement is started shortly
+   afterwards. See [Measuring low-power devices](low-power-measurements.md) when a point repeatedly reads `0` W.
+6. Start the session. Complete the dummy-load calibration or reuse confirmation when enabled. Average, recorder, speaker, and charging measurements also pause for an explicit confirmation when the physical device must be prepared or the actual sampling period is about to begin.
+7. Follow live progress, current operating values, recent power samples, and session logs. You can close or reload the browser; the app owns the job and restores its persisted status when you return.
+8. Review plots and download generated CSV, model, or recording files from the result view. For generated profiles, either prepare a GitHub pull request in the app or use the permanent manual-contribution option.
 
-Only one measurement runs at a time.
+The PowerCalc logo and the **All sessions** action in the top bar return to the session dashboard. Only one measurement runs at a time; while one is active, its dashboard entry provides the monitor action and starting or resuming another session is disabled.
+
+## Measure session status sensor
+
+When both the Powercalc integration and the Measure app are running, Powercalc creates
+`sensor.measure_session_status` after it receives the first status update from the app. The sensor is not created for
+installations that do not use the Measure app.
+
+The sensor reports the current session state, such as `idle`, `running`, `completed`, or `failed`. Its attributes
+include the Measure app version and, when available, the session ID and error message. The sensor becomes unavailable
+when the app stops sending status updates, for example when the app is stopped.
+
+You can use the sensor in an automation to be notified when a long-running measurement completes. Replace the notify
+action with the one for your device:
+
+```yaml
+automation:
+  - alias: "Notify when a Powercalc measurement completes"
+    triggers:
+      - trigger: state
+        entity_id: sensor.measure_session_status
+        to: "completed"
+    actions:
+      - action: notify.mobile_app_your_phone
+        data:
+          title: "Powercalc measurement completed"
+          message: >-
+            Session {{ trigger.to_state.attributes.session_id }} has completed.
+```
 
 ## Cancellation and resume
 
 Cancellation is cooperative. A device request or configured wait already in progress may finish before the app stops changing the device. The app keeps complete output rows and does not mark partial output as completed.
 
-Light LUT measurements can resume compatible partial output. Resume with the same light, meter, modes, and measurement settings. Other measurement types currently start a new session after interruption. If the UI does not offer resume, start over rather than manually editing session files.
+Light LUT measurements can resume compatible partial output. Select **Resume** on the retained session to continue with the same light, meter, modes, and measurement settings. Other measurement types currently start a new session after interruption. If the dashboard does not offer resume, use **Duplicate config** to create a new draft with the stored measurement configuration. Duplication does not copy output or progress.
 
 ## Storage and backups
 
-Requests, session state, events, and output are stored in the app's private `/data` directory. Home Assistant includes this directory in app backups. The app does not mount or write to the Home Assistant configuration directory.
+Requests, session state, events, and output are stored in the app's private `/data` directory. Completed, failed, and cancelled sessions remain available on the session dashboard until you explicitly confirm deletion. Home Assistant includes this directory in app backups. The app does not mount or write to the Home Assistant configuration directory.
 
 Persisted GitHub credentials are also stored under `/data`, separately from preferences, sessions, and diagnostics. Treat app backups as sensitive while a GitHub account is connected.
 
-The result view provides:
+The session dashboard provides per-session progress, file count, storage use, diagnostics, resume when compatible, configuration duplication, and explicit deletion. Opening a stopped session restores its result view, which provides:
 
 - raw measurement and generated model files;
 - interactive plots for supported output;
@@ -153,7 +185,7 @@ Reload the app. Browser and ingress connections do not control the worker, and t
 
 ### An interrupted run cannot resume
 
-Resume is rejected when output is incomplete or settings that determine the measurement sequence changed. Preserve the existing files for diagnosis, then start a new session with overwrite when appropriate.
+Resume is rejected when output is incomplete or settings that determine the measurement sequence changed. Preserve the existing files for diagnosis, then duplicate the session configuration and start a new measurement when appropriate.
 
 ### Storage errors
 

@@ -5,18 +5,34 @@
   "calculation_strategy": "lut",
   "created_at": "2025-11-28T07:12:17Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 3600,
+    "rated_power": 32.5,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "4018412685872"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 3,
     "SLEEP_TIME": 3,
     "VERSION": "v1.19.0:docker"
   },
-  "name": "Tint Amela 50 cm",
+  "name": "tint Amela White+Ambiance Ceiling Light (50 cm)",
   "standby_power": 0.19,
-  "author_info": {
-    "name": "LtKowalski",
-    "github": "LtKowalski"
-  }
+  "authors": [
+    {
+      "name": "LtKowalski",
+      "github": "LtKowalski"
+    }
+  ]
 }

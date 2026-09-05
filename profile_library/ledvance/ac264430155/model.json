@@ -1,20 +1,36 @@
 {
+  "ean": [
+    "4058075484313"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-11-16T20:39:28Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "panel",
+    "socket": "integrated",
+    "lumens": 1600,
+    "rated_power": 20,
+    "connectivity": [
+      "wifi"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.1.1:docker"
   },
-  "name": "SMART+ Wifi Planon 30x30 TW",
+  "name": "SMART+ WiFi Planon Frameless 300x300mm TW",
+  "product_url": "https://www.ledvance.com/gtin/4058075484313",
   "standby_power": 0.9,
-  "author_info": {
-    "name": "Kenneth Fribert",
-    "email": "fribse@gmail.com",
-    "github": "fribse"
-  }
+  "authors": [
+    {
+      "name": "Kenneth Fribert",
+      "email": "fribse@gmail.com",
+      "github": "fribse"
+    }
+  ]
 }

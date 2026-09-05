@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import MagicMock
 
 from homeassistant import data_entry_flow
 from homeassistant.components.sensor import SensorDeviceClass
@@ -110,7 +111,7 @@ async def test_manual_setup_from_library_skips_to_manufacturer_step(
     assert result["step_id"] == Step.MANUFACTURER
 
 
-async def test_manufacturer_listing_is_filtered_by_entity_domain(
+async def test_manufacturer_listing_is_filtered_for_light_entity(
     hass: HomeAssistant,
 ) -> None:
     mock_entities_in_registry(hass, {"light.test": {"unique_id": DEFAULT_UNIQUE_ID}})
@@ -127,7 +128,7 @@ async def test_manufacturer_listing_is_filtered_by_entity_domain(
     assert {"value": "signify", "label": "Signify"} in manufacturer_options
 
 
-async def test_manufacturer_listing_is_filtered_by_entity_domain2(
+async def test_manufacturer_listing_is_filtered_for_switch_entity(
     hass: HomeAssistant,
 ) -> None:
     result = await goto_virtual_power_strategy_step(
@@ -252,6 +253,12 @@ async def test_change_manufacturer_model_from_options_flow(hass: HomeAssistant) 
     )
 
     result = await initialize_options_flow(hass, entry, Step.LIBRARY_OPTIONS)
+
+    assert result["description_placeholders"] == {
+        "manufacturer": "ikea",
+        "model": "LED1545G12",
+        "profile_details": ("\n\n[View measurement details](https://library.powercalc.nl/profiles/ikea/led1545g12)"),
+    }
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -473,7 +480,7 @@ async def test_change_device_from_options_flow_discovery_by_device(hass: HomeAss
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_DEVICE] == "device-b"
 
-    registry_entry = er.async_get(hass).async_get("sensor.some_switch_device_power")
+    registry_entry = er.async_get(hass).async_get("sensor.some_switch_power")
     assert registry_entry
     assert registry_entry.device_id == "device-b"
 
@@ -837,6 +844,14 @@ async def test_discovery_flow_documentation_url_in_remarks(hass: HomeAssistant) 
     assert result["step_id"] == Step.LIBRARY
     remarks = result["description_placeholders"]["remarks"]
     assert "[Documentation](https://docs.powercalc.nl/cookbook/ups/)" in remarks
+
+
+def test_custom_profile_has_no_public_library_link() -> None:
+    """Custom profiles are not available in the public library."""
+    flow = MagicMock()
+    profile = MagicMock(is_custom_profile=True)
+
+    assert LibraryConfigFlow(flow)._build_profile_details(profile) == ""  # noqa: SLF001
 
 
 async def test_custom_fields_documentation_url_placeholder(

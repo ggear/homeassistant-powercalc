@@ -6,9 +6,24 @@
   "calculation_strategy": "lut",
   "created_at": "2022-12-28T10:31:30Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "B22",
+    "form_factor": "bulb",
+    "lumens": 1100,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "8719514288270",
+    "8719514289154"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "HOPI HP-9800",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 3,
@@ -16,9 +31,11 @@
   },
   "name": "Hue White Bulb A60 B22 1100lm with Bluetooth",
   "standby_power": 0.39,
-  "author_info": {
-    "name": "Paul Nicholls",
-    "email": "paul.n@next.gen.nz",
-    "github": "pauln"
-  }
+  "authors": [
+    {
+      "name": "Paul Nicholls",
+      "email": "paul.n@next.gen.nz",
+      "github": "pauln"
+    }
+  ]
 }

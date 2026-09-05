@@ -2,18 +2,28 @@
   "calculation_strategy": "lut",
   "created_at": "2024-02-03T10:43:57Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "filament",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Tapo P110",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.10.0:docker"
   },
-  "name": "Livarno Lux E27 ST64 Filament Bulb",
+  "name": "Livarno Lux E27 ST64 filament bulb",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "bobsbrain",
-    "github": "bobsbrain"
-  }
+  "authors": [
+    {
+      "name": "bobsbrain",
+      "github": "bobsbrain"
+    }
+  ]
 }

@@ -1,8 +1,22 @@
 {
+  "aliases": [
+    "S16"
+  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2023-04-03T20:55:15Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "8717755775696"
+  ],
+  "device_specs": {
+    "form_factor": "amplifier",
+    "connectivity": [
+      "wifi",
+      "ethernet",
+      "infrared"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "10 -> 14.82",
@@ -21,16 +35,20 @@
   "measure_description": "Measured with utils/measure script. Used Sonance Ceiling Speakers",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 1,
     "VERSION": "v1.3.13:docker"
   },
   "name": "Amp",
+  "product_url": "https://www.sonos.com/en-us/shop/amp",
   "standby_power": 6.42,
-  "author_info": {
-    "name": "vandalon",
-    "email": "joris@vandalon.nl",
-    "github": "vandalon"
-  }
+  "authors": [
+    {
+      "name": "vandalon",
+      "email": "joris@vandalon.nl",
+      "github": "vandalon"
+    }
+  ]
 }

@@ -4,6 +4,17 @@
   "config_flow_discovery_remarks": "**Warning**, please verify this device is a single speaker and not part of a stereo or Home theater configuration. This powercalc profile is specifically for a single speaker, so when you accept it anyway power estimation will be way off. When this is the case for you please ignore this discovery by clicking the three dots and ignore.",
   "created_at": "2022-11-20T21:11:36Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "8717755776594",
+    "8717755776617"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 3.48",
@@ -22,10 +33,14 @@
   "measure_description": "Streamed 'Pink noise' from https://www.genelec.com/audio-test-signals and measured using docker container",
   "measure_device": "Shelly Plug US",
   "measure_method": "script",
+  "mains_voltage": 120,
   "name": "One SL",
+  "product_url": "https://www.sonos.com/en-us/shop/one-sl",
   "standby_power": 2.83,
-  "author_info": {
-    "name": "Chris",
-    "github": "darthsebulba04"
-  }
+  "authors": [
+    {
+      "name": "Chris",
+      "github": "darthsebulba04"
+    }
+  ]
 }

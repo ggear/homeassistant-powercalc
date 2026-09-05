@@ -1,20 +1,38 @@
 {
+  "aliases": [
+    "929002966501"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-02-12T19:18:57Z",
   "device_type": "light",
+  "ean": [
+    "8720169159136"
+  ],
+  "device_specs": {
+    "socket": "integrated",
+    "lumens": 1760,
+    "form_factor": "panel",
+    "rated_power": 25.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 5,
     "VERSION": "v1.10.2:docker"
   },
-  "name": "Hue White and Color Ambiance Surimu square panel 30x30",
+  "name": "Hue White and Color Ambiance Surimu Square Panel 30x30cm",
   "standby_power": 0.38,
-  "author_info": {
-    "name": "gerritjonker",
-    "email": "gerrit.jonker@icloud.com",
-    "github": "gerritjonker"
-  }
+  "authors": [
+    {
+      "name": "gerritjonker",
+      "email": "gerrit.jonker@icloud.com",
+      "github": "gerritjonker"
+    }
+  ]
 }

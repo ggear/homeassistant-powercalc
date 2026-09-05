@@ -5,19 +5,36 @@
   "calculation_strategy": "lut",
   "created_at": "2022-03-17T21:45:16Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 1700,
+    "rated_power": 33.0,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "6924922203292",
+    "6924922226765"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 1,
     "VERSION": "master"
   },
-  "name": "Smart Crystal Pendant LED Light (33 W, Tunable White + RGB)",
+  "name": "Crystal LED Pendant Light (33W, Tunable White + RGB)",
   "standby_power": 0.72,
-  "author_info": {
-    "name": "Morten Trab",
-    "email": "morten@trab.dk",
-    "github": "MTrab"
-  }
+  "authors": [
+    {
+      "name": "Morten Trab",
+      "email": "morten@trab.dk",
+      "github": "MTrab"
+    }
+  ]
 }

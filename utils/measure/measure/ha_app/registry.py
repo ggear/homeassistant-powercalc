@@ -5,6 +5,7 @@ from measure.const import MEASURE_TYPE_LABELS, MeasureType
 from measure.controller.charging.const import ChargingDeviceType
 from measure.controller.charging.spec import charging_entity_domain
 from measure.controller.light.const import LutMode
+from measure.request import RecorderProfileRecipe, RecorderPurpose
 
 
 class FieldControl(StrEnum):
@@ -37,6 +38,8 @@ class FieldOption:
     entity_domain: str | None = None
     #: Measurement parameters that only apply while this option is selected.
     enables: tuple[str, ...] = ()
+    description: str = ""
+    guidance: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,23 @@ class FormFieldDefinition:
     default: str | int | bool | None = None
     minimum: int | float | None = None
     maximum: int | float | None = None
+    #: Whether several entities can be selected for this field at once.
+    multiple: bool = False
+    #: Label to use while several entities are selected.
+    plural_label: str = ""
+    #: Entity field whose number of selected entities this count follows by default.
+    derived_from: str | None = None
+    hint: str = ""
+    #: Other field values required for this field to be shown.
+    visible_when: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    #: Load the full Home Assistant entity catalog rather than one supported controller domain.
+    all_entities: bool = False
+    entity_device_classes: tuple[str, ...] = ()
+    #: Entity field whose Home Assistant device should be preferred or required.
+    related_to: str | None = None
+    same_device_only: bool = False
+    #: Restate this field on the review screen.
+    review: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,7 +98,7 @@ class ParameterDefinition:
 
 @dataclass(frozen=True)
 class MeasurementDefinition:
-    kind: MeasureType
+    measure_type: MeasureType
     description: str
     icon: str
     confirmation_action: str | None = None
@@ -95,10 +115,17 @@ class MeasurementDefinition:
 
     @property
     def label(self) -> str:
-        return MEASURE_TYPE_LABELS[self.kind]
+        return MEASURE_TYPE_LABELS[self.measure_type]
 
 
-def _controller(name: str, label: str, *domains: str, narrowed_by: str | None = None) -> FormFieldDefinition:
+def _controller(
+    name: str,
+    label: str,
+    *domains: str,
+    narrowed_by: str | None = None,
+    multiple: bool = False,
+    plural_label: str = "",
+) -> FormFieldDefinition:
     """Entity field that selects the device being measured, and becomes the request controller."""
     return FormFieldDefinition(
         name=name,
@@ -107,6 +134,8 @@ def _controller(name: str, label: str, *domains: str, narrowed_by: str | None = 
         role=FieldRole.CONTROLLER,
         narrowed_by=narrowed_by,
         entity_domains=domains,
+        multiple=multiple,
+        plural_label=plural_label,
     )
 
 
@@ -242,15 +271,15 @@ POWER_FIELD = FormFieldDefinition(
 
 MEASUREMENT_REGISTRY: dict[MeasureType, MeasurementDefinition] = {
     MeasureType.LIGHT: MeasurementDefinition(
-        kind=MeasureType.LIGHT,
+        measure_type=MeasureType.LIGHT,
         description="Build a lookup-table power profile for a light.",
         icon="💡",
         model_id_example="LWA017",
-        product_name_example="Philips Hue White Ambiance A60 E27",
+        product_name_example="Hue White Ambiance A60 E27",
         parameters=LIGHT_PARAMETERS,
         fields=(
             POWER_FIELD,
-            _controller("light_entity_id", "Light", "light"),
+            _controller("light_entity_id", "Light", "light", multiple=True, plural_label="Lights"),
             MODES_FIELD,
             FormFieldDefinition(
                 name="multiple_light_count",
@@ -259,12 +288,14 @@ MEASUREMENT_REGISTRY: dict[MeasureType, MeasurementDefinition] = {
                 default=1,
                 minimum=1,
                 maximum=100,
+                derived_from="light_entity_id",
+                hint="Total number of identical physical lights; measured power is divided by this value.",
             ),
         ),
         supports_resume=True,
     ),
     MeasureType.SPEAKER: MeasurementDefinition(
-        kind=MeasureType.SPEAKER,
+        measure_type=MeasureType.SPEAKER,
         description="Measure power across media-player volume levels.",
         icon="🔊",
         model_id_example="B7W64E",
@@ -288,24 +319,134 @@ MEASUREMENT_REGISTRY: dict[MeasureType, MeasurementDefinition] = {
         ),
     ),
     MeasureType.RECORDER: MeasurementDefinition(
-        kind=MeasureType.RECORDER,
-        description="Record live power readings to a CSV file until cancelled.",
+        measure_type=MeasureType.RECORDER,
+        description="Record power readings, optionally together with Home Assistant entity states.",
         icon="⏺",
         confirmation_action="Start recording",
         parameters=(READING_INTERVAL, *POINT_SAMPLING),
         fields=(
             POWER_FIELD,
             FormFieldDefinition(
+                name="recorder_purpose",
+                label="What do you want to create?",
+                control=FieldControl.SELECT,
+                options=(
+                    FieldOption(
+                        value=RecorderPurpose.PLAYBOOK,
+                        label="A Playbook CSV",
+                        description="Record power readings in the two-column format used to build a playbook.",
+                    ),
+                    FieldOption(
+                        value=RecorderPurpose.COMPLEX_PROFILE,
+                        label="Data for a complex power profile (experimental)",
+                        description=(
+                            "This workflow is not feature complete. It records power with entity states and attributes "
+                            "as JSON Lines source data, but does not create a profile model.json yet."
+                        ),
+                    ),
+                ),
+                default=RecorderPurpose.PLAYBOOK,
+                review=True,
+            ),
+            FormFieldDefinition(
+                name="profile_recipe",
+                label="Device type",
+                control=FieldControl.SELECT,
+                options=(
+                    FieldOption(
+                        value=RecorderProfileRecipe.GENERIC,
+                        label="Generic device",
+                        description="Choose the entities whose states may explain changes in power.",
+                    ),
+                    FieldOption(
+                        value=RecorderProfileRecipe.VACUUM_ROBOT,
+                        label="Robot vacuum",
+                        description="Capture the vacuum, its battery level, and optional dock or feature entities.",
+                        guidance=(
+                            "Measure the complete dock or base station at the wall outlet.",
+                            "Include a low-battery charging cycle and idle and cleaning states.",
+                            "Also capture washing, drying, and dust-emptying when the dock supports them.",
+                        ),
+                    ),
+                ),
+                default=RecorderProfileRecipe.GENERIC,
+                visible_when=(("recorder_purpose", (RecorderPurpose.COMPLEX_PROFILE,)),),
+                review=True,
+            ),
+            FormFieldDefinition(
+                name="tracked_entity_ids",
+                label="Tracked entity",
+                plural_label="Tracked entities",
+                control=FieldControl.ENTITY,
+                multiple=True,
+                all_entities=True,
+                visible_when=(
+                    ("recorder_purpose", (RecorderPurpose.COMPLEX_PROFILE,)),
+                    ("profile_recipe", (RecorderProfileRecipe.GENERIC,)),
+                ),
+                hint="Select at least one entity whose state or attributes may explain the device's power use.",
+                review=True,
+            ),
+            FormFieldDefinition(
+                name="vacuum_entity_id",
+                label="Vacuum",
+                control=FieldControl.ENTITY,
+                entity_domains=("vacuum",),
+                all_entities=True,
+                visible_when=(
+                    ("recorder_purpose", (RecorderPurpose.COMPLEX_PROFILE,)),
+                    ("profile_recipe", (RecorderProfileRecipe.VACUUM_ROBOT,)),
+                ),
+                review=True,
+            ),
+            FormFieldDefinition(
+                name="battery_entity_id",
+                label="Battery level sensor",
+                control=FieldControl.ENTITY,
+                entity_device_classes=("battery",),
+                all_entities=True,
+                related_to="vacuum_entity_id",
+                same_device_only=True,
+                visible_when=(
+                    ("recorder_purpose", (RecorderPurpose.COMPLEX_PROFILE,)),
+                    ("profile_recipe", (RecorderProfileRecipe.VACUUM_ROBOT,)),
+                ),
+                hint=(
+                    "PowerCalc vacuum profiles require a numeric battery percentage sensor on the same Home Assistant "
+                    "device."
+                ),
+                review=True,
+            ),
+            FormFieldDefinition(
+                name="additional_entity_ids",
+                label="Additional entity",
+                plural_label="Additional entities (optional)",
+                control=FieldControl.ENTITY,
+                required=False,
+                multiple=True,
+                all_entities=True,
+                related_to="vacuum_entity_id",
+                visible_when=(
+                    ("recorder_purpose", (RecorderPurpose.COMPLEX_PROFILE,)),
+                    ("profile_recipe", (RecorderProfileRecipe.VACUUM_ROBOT,)),
+                ),
+                hint=(
+                    "Entities from the vacuum's device are listed first. You can also choose an entity from elsewhere."
+                ),
+                review=True,
+            ),
+            FormFieldDefinition(
                 name="export_filename",
                 label="Export filename",
                 control=FieldControl.TEXT,
                 default="record.csv",
+                hint="Playbook recordings use CSV; complex-profile recordings use JSON Lines (.jsonl).",
             ),
         ),
         supports_profile=False,
     ),
     MeasureType.AVERAGE: MeasurementDefinition(
-        kind=MeasureType.AVERAGE,
+        measure_type=MeasureType.AVERAGE,
         description="Measure average power for a fixed duration.",
         icon="📊",
         confirmation_action="Start averaging",
@@ -324,7 +465,7 @@ MEASUREMENT_REGISTRY: dict[MeasureType, MeasurementDefinition] = {
         supports_profile=False,
     ),
     MeasureType.CHARGING: MeasurementDefinition(
-        kind=MeasureType.CHARGING,
+        measure_type=MeasureType.CHARGING,
         description="Measure charging power against battery level.",
         icon="🔋",
         model_id_example="s6_maxv",
@@ -359,7 +500,7 @@ MEASUREMENT_REGISTRY: dict[MeasureType, MeasurementDefinition] = {
         ),
     ),
     MeasureType.FAN: MeasurementDefinition(
-        kind=MeasureType.FAN,
+        measure_type=MeasureType.FAN,
         description="Measure fan power across percentage levels.",
         icon="🌀",
         model_id_example="TP07",

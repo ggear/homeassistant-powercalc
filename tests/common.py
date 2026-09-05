@@ -45,6 +45,7 @@ from custom_components.powercalc.const import (
     CalculationStrategy,
     SensorType,
 )
+from custom_components.powercalc.discovery import DISCOVERY_DELAY
 
 type StateDefinition = (
     tuple[str, StateType] | tuple[str, StateType, Mapping[str, Any]] | tuple[str, StateType, Mapping[str, Any], bool]
@@ -55,6 +56,11 @@ _HAS_SINGLE_CONFIG_ENTRY = hasattr(DeviceEntry, "config_entry_id")
 requires_composite_devices = pytest.mark.skipif(
     not hasattr(DeviceEntry, "composite_device_id"),
     reason="Composite devices were only split off in HA >=2026.8",
+)
+
+requires_child_devices = pytest.mark.skipif(
+    not hasattr(DeviceRegistry, "async_get_or_create_child"),
+    reason="Child devices are only available in HA >=2026.9",
 )
 
 requires_linked_devices = pytest.mark.skipif(
@@ -90,6 +96,9 @@ async def run_powercalc_setup(
 
     hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
     await hass.async_block_till_done()
+
+    # Initial discovery is scheduled DISCOVERY_DELAY after setup, so let it fire.
+    await async_advance_time(hass, DISCOVERY_DELAY)
 
 
 def get_simple_fixed_config(entity_id: str, power: float = 50) -> ConfigType:
@@ -240,7 +249,7 @@ def mock_device_with_entities(
     model: str = "LCT010",
     model_id: str | None = None,
     **entity_kwargs: Any,  # noqa: ANN401
-) -> None:
+) -> EntityRegistry:
     """Register entities on a single device carrying manufacturer/model info, so discovery can match a profile.
 
     Replaces both registries, so call it once per test and use `mock_devices` /
@@ -252,7 +261,7 @@ def mock_device_with_entities(
     if isinstance(entity_ids, str):
         entity_ids = [entity_ids]
     unique_id = entity_kwargs.pop("unique_id", None)
-    mock_entities_in_registry(
+    return mock_entities_in_registry(
         hass,
         {
             entity_id: {

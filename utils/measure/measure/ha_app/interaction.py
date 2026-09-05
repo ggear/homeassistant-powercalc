@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from measure.execution import OperatingPoint, RunInteraction
 from measure.ha_app.session import SessionControl
 
@@ -8,8 +10,8 @@ class SessionInteraction(RunInteraction):
     def __init__(self, control: SessionControl) -> None:
         self.control = control
 
-    def confirm(self, message: str) -> None:
-        self.control.confirm(message)
+    def confirm(self, message: str, *, action: str | None = None) -> None:
+        self.control.confirm(message, action=action)
 
     def notify(self, message: str) -> None:
         self.control.log(message)
@@ -48,3 +50,6 @@ class SessionInteraction(RunInteraction):
 
     def operating_point(self, point: OperatingPoint) -> None:
         self.control.operating_point(point)
+
+    def entity_states(self, states: Mapping[str, str]) -> None:
+        self.control.entity_states(states)

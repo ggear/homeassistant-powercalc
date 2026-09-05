@@ -5,9 +5,22 @@
   "calculation_strategy": "lut",
   "created_at": "2022-08-26T16:54:18Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "strip",
+    "lumens": 1650,
+    "rated_power": 37.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718699709853"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,8 +28,10 @@
   },
   "name": "Hue Lily Outdoor Lightstrip",
   "standby_power": 0.25,
-  "author_info": {
-    "name": "x5serv",
-    "github": "x5serv"
-  }
+  "authors": [
+    {
+      "name": "x5serv",
+      "github": "x5serv"
+    }
+  ]
 }

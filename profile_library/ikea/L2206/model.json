@@ -2,19 +2,32 @@
   "calculation_strategy": "lut",
   "created_at": "2024-11-25T16:19:34Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "panel",
+    "lumens": 1150,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.15.4:docker"
   },
   "name": "JETSTROM ceiling light panel, color/white spectrum, 30x30 cm",
+  "product_url": "https://www.ikea.com/de/en/p/jetstroem-led-wall-light-panel-smart-dimmable-wired-in-colour-and-white-spectrum-80536074/",
   "standby_power": 0.32,
-  "author_info": {
-    "name": "SAF",
-    "email": "andrei.staicu@gmail.com",
-    "github": "smarmie"
-  }
+  "authors": [
+    {
+      "name": "SAF",
+      "email": "andrei.staicu@gmail.com",
+      "github": "smarmie"
+    }
+  ]
 }

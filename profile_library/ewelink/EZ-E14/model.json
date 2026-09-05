@@ -1,0 +1,35 @@
+{
+  "aliases": [
+    "CK-BL702-AL-01",
+    "CK-BL702-AL-01(7009_Z102LG03-1)"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2025-01-23T13:08:49Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "bulb",
+    "rated_power": 5.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "TP-Link Kasa HS110",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.17.2:docker"
+  },
+  "name": "RGB+CCT Bulb 5W",
+  "standby_power": 0.44,
+  "authors": [
+    {
+      "name": "Dr-Seltsam",
+      "email": "sebastian.jaekel@web.de",
+      "github": "Dr-Seltsam"
+    }
+  ]
+}

@@ -1,8 +1,23 @@
 {
+  "aliases": [
+    "S39"
+  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2024-06-07T12:44:29Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "8717755779649",
+    "8717755779656"
+  ],
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth",
+      "ethernet"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "10 -> 3.57",
@@ -21,16 +36,20 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Mylocalbytes, Type G",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.12.7:docker"
   },
   "name": "Era 100",
+  "product_url": "https://www.sonos.com/en-us/shop/era-100",
   "standby_power": 2.0,
-  "author_info": {
-    "name": "Sam Dunne",
-    "email": "sam@sam-dunne.com",
-    "github": "samdunne"
-  }
+  "authors": [
+    {
+      "name": "Sam Dunne",
+      "email": "sam@sam-dunne.com",
+      "github": "samdunne"
+    }
+  ]
 }

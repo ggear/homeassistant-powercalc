@@ -1,0 +1,40 @@
+{
+  "aliases": [
+    "SHTWW"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2025-10-10T17:24:09Z",
+  "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": "E27",
+    "lumens": 1521,
+    "rated_power": 13.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "8719514372528"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly Plus Plug S",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 4,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.17.22:docker"
+  },
+  "legacy_ids": [
+    "SHTWW"
+  ],
+  "name": "Philips Smart LED A67 E27 Tunable White (13 W, 1521 lm)",
+  "standby_power": 0.3,
+  "authors": [
+    {
+      "name": "schuppan",
+      "github": "schuppan"
+    }
+  ]
+}

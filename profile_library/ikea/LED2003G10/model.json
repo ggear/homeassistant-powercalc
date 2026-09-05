@@ -5,9 +5,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-01-28T15:48:57Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 1055,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 3,
     "SLEEP_TIME": 6,
@@ -15,8 +25,10 @@
   },
   "name": "TRADFRI bulb E27 1055 lumen, dimmable, white spectrum, opal white",
   "standby_power": 0.17,
-  "author_info": {
-    "name": "giu889",
-    "github": "giu889"
-  }
+  "authors": [
+    {
+      "name": "giu889",
+      "github": "giu889"
+    }
+  ]
 }

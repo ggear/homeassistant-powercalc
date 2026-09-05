@@ -27,6 +27,7 @@ jobs:
   prepare:
     name: Prepare release pull request
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: write
@@ -38,9 +39,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: '0.12.1'
+          version: '0.12.7'
           working-directory: './utils/measure'
           python-version: '3.14'
           enable-cache: true
@@ -127,7 +128,7 @@ jobs:
             utils/measure/frontend/package-lock.json \
             utils/measure/home-assistant-app/powercalc_measure/CHANGELOG.md \
             utils/measure/home-assistant-app/powercalc_measure/config.yaml
-          git commit -m "chore: prepare Powercalc Measure release ${VERSION}"
+          git commit -m "chore(measure): prepare release ${VERSION}"
 
           # The branch is generated from master on every run, so overwriting a
           # previous attempt is always safe. The token is supplied only for

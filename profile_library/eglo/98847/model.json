@@ -1,0 +1,43 @@
+{
+  "aliases": [
+    "33957"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2025-11-02T16:45:52Z",
+  "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2500,
+    "rated_power": 21,
+    "connectivity": [
+      "bluetooth",
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "9002759988470"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly PM Mini Gen3",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.17.24:docker"
+  },
+  "legacy_ids": [
+    "FUEVA-Z"
+  ],
+  "name": "FUEVA-Z Surface-Mounted Light (285mm)",
+  "product_url": "https://www.eglo.com/lv/uz-virsmas-uzstadams-gais-fueva-z-98847.html",
+  "standby_power": 0.13,
+  "authors": [
+    {
+      "name": "Tom Frenzel",
+      "email": "admin@tom-frenzel.de",
+      "github": "tomfrenzel"
+    }
+  ]
+}

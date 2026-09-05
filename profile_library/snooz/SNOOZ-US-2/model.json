@@ -2,6 +2,17 @@
   "calculation_strategy": "linear",
   "created_at": "2025-05-10T19:41:31Z",
   "device_type": "fan",
+  "device_specs": {
+    "form_factor": "white_noise_machine",
+    "rated_power": 6,
+    "connectivity": [
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "865166000321",
+    "865166000338"
+  ],
   "linear_config": {
     "calibrate": [
       "5 -> 1.06",
@@ -29,16 +40,20 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.12:docker"
   },
-  "name": "Smart White Noise Machine",
+  "name": "Original White Noise Machine",
+  "product_url": "https://getsnooz.com/products/snooz-white-noise-machine",
   "standby_power": 0.31,
-  "author_info": {
-    "name": "Thomas R. Novak",
-    "email": "trnovak@illinoisalumni.org",
-    "github": "trnovak"
-  }
+  "authors": [
+    {
+      "name": "Thomas R. Novak",
+      "email": "trnovak@illinoisalumni.org",
+      "github": "trnovak"
+    }
+  ]
 }

@@ -2,19 +2,35 @@
   "calculation_strategy": "lut",
   "created_at": "2021-11-14T19:30:25Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": "E27",
+    "lumens": 800,
+    "rated_power": 8.5,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "0608887786446"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v0.20.3:docker"
   },
-  "name": "LED Bulb 1S",
+  "name": "LED Bulb 1S (Color)",
+  "product_url": "https://www.yeelight.com/en_us/product/lemon2-color",
   "standby_power": 1.22,
-  "author_info": {
-    "name": "RubenKelevra",
-    "email": "cyrond@gmail.com",
-    "github": "RubenKelevra"
-  }
+  "authors": [
+    {
+      "name": "RubenKelevra",
+      "email": "cyrond@gmail.com",
+      "github": "RubenKelevra"
+    }
+  ]
 }

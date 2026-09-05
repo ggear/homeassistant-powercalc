@@ -6,9 +6,19 @@
   "calculation_strategy": "lut",
   "created_at": "2025-09-10T07:24:05Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 1600,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 10,
     "SLEEP_TIME": 5,
@@ -16,8 +26,10 @@
   },
   "name": "Hue White Ambiance E26 1600lm with Bluetooth",
   "standby_power": 0.22,
-  "author_info": {
-    "name": "ltloopy",
-    "github": "ltloopy"
-  }
+  "authors": [
+    {
+      "name": "ltloopy",
+      "github": "ltloopy"
+    }
+  ]
 }

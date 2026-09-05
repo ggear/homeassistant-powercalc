@@ -1,0 +1,41 @@
+{
+  "aliases": [
+    "Elgato Key Light"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2022-08-08T08:27:59Z",
+  "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2800,
+    "rated_power": 45.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "4260195391758"
+  ],
+  "legacy_ids": [
+    "Elgato Key Light"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Zooz Z-Wave Plus Power Switch ZEN15",
+  "measure_method": "script",
+  "mains_voltage": 120,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v0.24.7:docker"
+  },
+  "name": "Key Light",
+  "product_url": "https://help.elgato.com/hc/en-us/articles/20935383021965-Elgato-Key-Light-How-to-Identify-if-You-Have-a-Key-Light-or-Key-Light-MK-2",
+  "standby_power": 0.86,
+  "authors": [
+    {
+      "name": "Adam Jacques",
+      "github": "ajacques"
+    }
+  ]
+}

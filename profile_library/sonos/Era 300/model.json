@@ -1,8 +1,23 @@
 {
+  "aliases": [
+    "S41"
+  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2025-08-30T17:48:07Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "8717755779502",
+    "8717755779519"
+  ],
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth",
+      "ethernet"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "10 -> 7.77",
@@ -21,15 +36,19 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.19:docker"
   },
   "name": "Era 300",
+  "product_url": "https://www.sonos.com/en-us/shop/era-300",
   "standby_power": 1.8,
-  "author_info": {
-    "name": "Josh Barnard",
-    "github": "barndawgie"
-  }
+  "authors": [
+    {
+      "name": "Josh Barnard",
+      "github": "barndawgie"
+    }
+  ]
 }

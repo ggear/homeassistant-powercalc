@@ -1,0 +1,37 @@
+{
+  "calculation_strategy": "lut",
+  "created_at": "2023-07-22T18:25:43Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "rated_power": 7.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Kasa EP25",
+  "measure_method": "script",
+  "mains_voltage": 120,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.8.1:docker"
+  },
+  "name": "Wi-Fi RGB+CCT LED Bulb",
+  "aliases": [
+    "Bulb RGBCW (0x35)"
+  ],
+  "legacy_ids": [
+    "Bulb RGBCW (0x35)"
+  ],
+  "standby_power": 0.56,
+  "authors": [
+    {
+      "name": "Joseph Livecchi",
+      "email": "joewashear007@gmail.com",
+      "github": "joewashear007"
+    }
+  ]
+}

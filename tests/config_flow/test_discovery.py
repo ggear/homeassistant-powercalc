@@ -172,7 +172,7 @@ async def test_discovery_flow_with_subprofile_selection(
         hass,
         "light.test",
         "lifx",
-        "LIFX Z",
+        "LZHC2M4INUC07",
         unique_id=DEFAULT_UNIQUE_ID,
     )
 
@@ -195,7 +195,7 @@ async def test_discovery_flow_with_subprofile_selection(
         CONF_ENTITY_ID: DEFAULT_ENTITY_ID,
         CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
         CONF_MANUFACTURER: "lifx",
-        CONF_MODEL: "LIFX Z/length_6",
+        CONF_MODEL: "LZHC2M4INUC07/length_6",
         CONF_NAME: "test",
     }
 
@@ -305,7 +305,7 @@ async def test_discovery_by_device(hass: HomeAssistant) -> None:
         CONF_DEVICE: "youless-device",
     }
 
-    assert hass.states.get("sensor.foobar_device_power")
+    assert hass.states.get("sensor.foobar_power")
 
 
 async def test_discovery_by_config_entry(hass: HomeAssistant) -> None:

@@ -2,13 +2,14 @@ from enum import StrEnum
 import math
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from measure.const import (
     HASS_DEVICE_REGISTRY_ID,
     HASS_DEVICE_REGISTRY_MODEL,
     HASS_DEVICE_REGISTRY_MODEL_ID,
     HASS_ENTITY_DEVICE_CLASS,
+    HASS_ENTITY_GROUP_MEMBERS,
     HASS_ENTITY_UNIT_OF_MEASUREMENT,
 )
 from measure.controller.light.capabilities import light_info_from_attributes, supported_light_modes
@@ -23,6 +24,10 @@ class EntityDomain(StrEnum):
     VACUUM = "vacuum"
     LAWN_MOWER = "lawn_mower"
     SENSOR = "sensor"
+
+
+#: Domains PowerCalc can measure, and the only ones whose attribute detail is described.
+_MEASURABLE_DOMAINS = frozenset(EntityDomain)
 
 
 class DeviceClass(StrEnum):
@@ -46,7 +51,7 @@ class EntityDescriptor(BaseModel):
 
     entity_id: str
     name: str
-    domain: EntityDomain
+    domain: str
     device_class: DeviceClass | None = None
     device_id: str | None = None
     #: Home Assistant integration providing the entity, as shown on the device page.
@@ -60,6 +65,7 @@ class EntityDescriptor(BaseModel):
     min_mired: int | None = None
     max_mired: int | None = None
     related_voltage_entity_id: str | None = None
+    member_entity_ids: list[str] = Field(default_factory=list)
 
 
 class EntityCatalogSnapshot:
@@ -72,7 +78,7 @@ class EntityCatalogSnapshot:
     def select(
         self,
         *,
-        domain: EntityDomain | None = None,
+        domain: EntityDomain | str | None = None,
         device_class: DeviceClass | None = None,
     ) -> list[EntityDescriptor]:
         if (domain is None) == (device_class is None):
@@ -95,6 +101,11 @@ class EntityCatalogSnapshot:
                 for entity in selected
             ]
         return selected
+
+    def all(self) -> list[EntityDescriptor]:
+        """Return every registry entity, including unsupported domains and unavailable states."""
+
+        return sorted(self._entities, key=lambda entity: (entity.name.casefold(), entity.entity_id))
 
     def attribute_names(self, entity_id: str) -> list[str]:
         entity = self._by_id.get(entity_id)
@@ -173,24 +184,58 @@ class HomeAssistantEntityCatalog:
         }
         descriptors: list[EntityDescriptor] = []
         for domain_value, group in data.entities.items():
-            try:
-                domain = EntityDomain(domain_value)
-            except ValueError:
-                continue
             descriptors.extend(
-                _describe_entity(entity, domain, registry.get(entity.entity_id), devices)
+                _describe_entity(entity, domain_value, registry.get(entity.entity_id), devices)
                 for entity in group.entities.values()
             )
-        return EntityCatalogSnapshot(descriptors)
+        by_id = {descriptor.entity_id: descriptor for descriptor in descriptors}
+        return EntityCatalogSnapshot([_with_group_model(descriptor, by_id) for descriptor in descriptors])
+
+
+def _with_group_model(
+    descriptor: EntityDescriptor,
+    by_id: dict[str, EntityDescriptor],
+) -> EntityDescriptor:
+    """Give a light group the model of its members, so a group can be measured as one product."""
+
+    if descriptor.model_id or not descriptor.member_entity_ids:
+        return descriptor
+    model_id = _group_model(descriptor, by_id, frozenset())
+    return descriptor.model_copy(update={"model_id": model_id}) if model_id else descriptor
+
+
+def _group_model(descriptor: EntityDescriptor, by_id: dict[str, EntityDescriptor], seen: frozenset[str]) -> str | None:
+    """Model shared by every member of a group, or None when they differ or any is unknown."""
+
+    if descriptor.model_id:
+        return descriptor.model_id
+    # Groups can nest, and a malformed one can point back at itself.
+    if descriptor.entity_id in seen or not descriptor.member_entity_ids:
+        return None
+    seen = seen | {descriptor.entity_id}
+    models = {
+        _group_model(member, by_id, seen) if (member := by_id.get(entity_id)) is not None else None
+        for entity_id in descriptor.member_entity_ids
+    }
+    return models.pop() if len(models) == 1 and None not in models else None
 
 
 def _describe_entity(
     entity: Any,  # noqa: ANN401
-    domain: EntityDomain,
+    domain: str,
     registry_entry: Any | None,  # noqa: ANN401
     device_registry: dict[str, dict[str, object]],
 ) -> EntityDescriptor:
+    """Describe one entity.
+
+    Entities outside the measurable domains only ever populate the "any entity" pickers,
+    which show a name, a domain, a device and a state. Their per-entity attribute detail
+    is neither read nor rendered, so it is left out rather than built and sent for every
+    entity in Home Assistant.
+    """
+
     attributes = entity.state.attributes
+    detailed = domain in _MEASURABLE_DOMAINS
     device_id = str(registry_entry.device_id) if registry_entry is not None and registry_entry.device_id else None
     device = device_registry.get(device_id, {}) if device_id is not None else {}
     model_id = device.get(HASS_DEVICE_REGISTRY_MODEL_ID) or device.get(HASS_DEVICE_REGISTRY_MODEL)
@@ -198,6 +243,7 @@ def _describe_entity(
     supported_modes = supported_light_modes(attributes) if domain == EntityDomain.LIGHT else None
     light_info = light_info_from_attributes(attributes) if domain == EntityDomain.LIGHT else None
     unit = attributes.get(HASS_ENTITY_UNIT_OF_MEASUREMENT)
+    members = attributes.get(HASS_ENTITY_GROUP_MEMBERS)
     return EntityDescriptor(
         entity_id=entity.entity_id,
         name=str(attributes.get("friendly_name", entity.entity_id)),
@@ -208,11 +254,12 @@ def _describe_entity(
         model_id=str(model_id) if model_id else None,
         state=str(entity.state.state),
         unit=str(unit) if unit else None,
-        attribute_names=sorted(attributes),
+        attribute_names=sorted(attributes) if detailed else [],
         supported_modes=supported_modes,
-        effect_list=[str(effect) for effect in attributes.get("effect_list", [])] or None,
+        effect_list=[str(effect) for effect in (attributes.get("effect_list") or [])] or None if detailed else None,
         min_mired=light_info.get_min_mired() if light_info is not None else None,
         max_mired=light_info.get_max_mired() if light_info is not None else None,
+        member_entity_ids=[str(member) for member in members] if detailed and isinstance(members, list) else [],
     )
 
 

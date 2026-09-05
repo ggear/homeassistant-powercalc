@@ -5,15 +5,28 @@
   "calculation_strategy": "fixed",
   "created_at": "2023-12-31T08:21:16Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718781552657"
+  ],
   "measure_description": "Manually measured",
   "measure_device": "Shelly Plus Plug S / AVM FRITZ!DECT 200",
   "measure_method": "manual",
-  "name": "Zigbee Smart Plug",
+  "mains_voltage": 230,
+  "name": "Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.5,
   "standby_power_on": 1.25,
-  "author_info": {
-    "name": "ca-dmin",
-    "github": "ca-dmin"
-  }
+  "authors": [
+    {
+      "name": "ca-dmin",
+      "github": "ca-dmin"
+    }
+  ]
 }

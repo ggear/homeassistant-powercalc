@@ -1,0 +1,42 @@
+{
+  "aliases": [
+    "Elgato Light Strip"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2025-03-17T20:00:14Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "strip",
+    "lumens": 2000,
+    "rated_power": 30.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "0840006636342"
+  ],
+  "legacy_ids": [
+    "Elgato Light Strip"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly PM Mini Gen3",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "master"
+  },
+  "name": "Light Strip",
+  "product_url": "https://help.elgato.com/hc/en-us/articles/360057812551-Elgato-Light-Strip-Technical-Specifications",
+  "standby_power": 0.55,
+  "authors": [
+    {
+      "name": "Franck Nijhof",
+      "email": "git@frenck.dev",
+      "github": "frenck"
+    }
+  ]
+}

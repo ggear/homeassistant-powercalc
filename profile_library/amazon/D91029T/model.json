@@ -10,6 +10,16 @@
   "calculation_strategy": "linear",
   "created_at": "2023-03-10T17:16:45Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "841667140315"
+  ],
   "linear_config": {
     "calibrate": [
       "10 -> 2.34",
@@ -28,6 +38,7 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Gosund UP111",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -35,8 +46,10 @@
   },
   "name": "Echo Dot (Gen3)",
   "standby_power": 1.75,
-  "author_info": {
-    "name": "wranglatang",
-    "github": "wranglatang"
-  }
+  "authors": [
+    {
+      "name": "wranglatang",
+      "github": "wranglatang"
+    }
+  ]
 }

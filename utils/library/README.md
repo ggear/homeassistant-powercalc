@@ -16,14 +16,63 @@ cd /path/to/powercalc
 
 ## Scripts
 
+### `update_library.py`
+
+Generate the profile-library index, populate missing author metadata, and add custom
+profile fields to the English translation file. This is normally run by the update
+workflow after a profile change. The index records the LUT quality scores from
+[`scan_lut_quality.py`](#scan_lut_qualitypy) per profile, which the
+[library website](https://library.powercalc.nl) renders and filters on.
+
+```bash
+uv run --group profile-library python -m utils.library.update_library --library-json
+```
+
 ### `validate_model_json.py`
 
-Validate every `profile_library/**/model.json` against `profile_library/model_schema.json`.
-Prints `VALID` / `INVALID` / `ERROR` per file.
+Validate every `profile_library/*/manufacturer.json` against
+`profile_library/manufacturer_schema.json` and every `profile_library/*/*/model.json`
+against `profile_library/model_schema.json`. Prints `VALID` / `INVALID` / `ERROR` per
+file.
 
 ```bash
 uv run --group library python -m utils.library.validate_model_json
 ```
+
+### `validate_lut_files.py`
+
+Validate the structure of every LUT (`*.csv.gz`) file in the library: the columns and
+value ranges required for its color mode, whether the measurements reach the top of the
+brightness range, and whether each profile exposes a color mode combination Home
+Assistant can report. Accepts an optional directory; defaults to the whole library.
+Exits non-zero when a problem is found, and runs on every pull request touching a LUT.
+
+```bash
+uv run --group library python -m utils.library.validate_lut_files
+
+# validate a single manufacturer
+uv run --group library python -m utils.library.validate_lut_files profile_library/signify
+```
+
+### `validate_product_urls.py`
+
+Validate that every `product_url` in the selected profiles follows redirects and ends
+in an HTTP 200 response. Official pages which block automated clients may list narrowly
+accepted status codes, together with a reason, in
+`product_url_status_allowlist.json`. The whole profile library is checked by default;
+pass one or more model files or directories to limit the scope.
+
+```bash
+uv run --group library python -m utils.library.validate_product_urls
+
+# validate one manufacturer
+uv run --group library python -m utils.library.validate_product_urls profile_library/signify
+```
+
+The weekly GitHub Actions check stores a small per-URL state artifact and only fails
+after the same URL has failed three consecutive checks. A successful check resets that
+URL immediately. Local runs remain strict and fail on the first error unless
+`--failure-threshold`, `--failure-state`, and `--failure-state-output` are supplied.
 
 ### `scan_lut_quality.py`
 

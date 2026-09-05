@@ -1,3 +1,5 @@
+import asyncio
+from dataclasses import replace
 from datetime import timedelta
 import logging
 from typing import Any
@@ -25,6 +27,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_registry import RegistryEntry
+from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -51,6 +54,7 @@ from custom_components.powercalc.const import (
     CONF_POWER,
     CONF_POWER_FACTOR,
     CONF_SENSOR_TYPE,
+    CONF_SENSORS,
     CONF_VOLTAGE,
     CONF_WLED,
     DISCOVERY_INTEGRATION_NAME,
@@ -59,7 +63,10 @@ from custom_components.powercalc.const import (
     SensorType,
 )
 from custom_components.powercalc.discovery import (
+    DISCOVERY_DELAY,
+    REDISCOVERY_INTERVAL,
     DiscoveryStatus,
+    get_discovery_manager,
     get_power_profile_by_source_device,
     get_power_profile_by_source_entity,
 )
@@ -74,6 +81,7 @@ from .common import (
     mock_device_with_entities,
     mock_devices,
     mock_entities_in_registry,
+    requires_child_devices,
     requires_composite_devices,
     requires_linked_devices,
     run_powercalc_setup,
@@ -439,8 +447,31 @@ async def test_get_power_profile_by_source_device_returns_none_without_required_
 
     source_entity = create_source_entity("sensor.test", hass)
 
-    assert await get_power_profile_by_source_device(hass, source_entity._replace(device_entry=None)) is None
-    assert await get_power_profile_by_source_device(hass, source_entity._replace(entity_entry=None)) is None
+    profile = await get_power_profile_by_source_device(hass, source_entity)
+    assert profile is not None
+    assert profile.model == "discovery_type_device"
+
+    assert await get_power_profile_by_source_device(hass, replace(source_entity, device_entry=None)) is None
+    assert await get_power_profile_by_source_device(hass, replace(source_entity, entity_entry=None)) is None
+
+
+async def test_get_power_profile_by_source_entity_returns_none_without_entity_entry(hass: HomeAssistant) -> None:
+    """A source with only a device must not resolve a profile through the entity path.
+
+    Otherwise callers lose the ability to fall back to a device lookup after the entity lookup
+    comes up empty, see the library flow.
+    """
+    device_entry = mock_device(hass, model="discovery_type_device")
+    mock_entities_in_registry(
+        hass,
+        {
+            "sensor.test": {"unique_id": "test-entity", "device_id": device_entry.id, "platform": "test"},
+        },
+    )
+
+    source_entity = create_source_entity("sensor.test", hass)
+
+    assert await get_power_profile_by_source_entity(hass, replace(source_entity, entity_entry=None)) is None
 
 
 @pytest.mark.parametrize(
@@ -486,7 +517,7 @@ async def test_get_power_profile_by_source_device_returns_none_without_required_
             "media_player.test",
             ModelInfo("Apple", "HomePod (gen 2)"),
             "apple",
-            "MQJ83",
+            "A2825",
         ),
         (
             "light.test",
@@ -584,6 +615,23 @@ async def test_wled_not_discovered_twice(
     assert len(mock_calls) == 0
 
 
+async def test_wled_discovery_uses_standard_dispatch_path(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """WLED discovery should dispatch once without being reported as a missing profile."""
+    caplog.set_level(logging.DEBUG)
+    mock_device_with_entities(hass, "light.test", "WLED", "FOSS")
+
+    await run_powercalc_setup(hass)
+
+    assert len(mock_flow_init.mock_calls) == 1
+    discovery_data = mock_flow_init.mock_calls[0][2]["data"]
+    assert discovery_data[CONF_MODE] == "wled"
+    assert not any(record.message.startswith("light.test: Model not found in library") for record in caplog.records)
+
+
 async def test_wled_skipped_when_light_device_type_excluded(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
@@ -655,6 +703,27 @@ async def test_get_power_profile_empty_manufacturer(
 
     assert not profile
     assert not caplog.records
+
+
+async def test_model_is_skipped_when_profile_cannot_be_loaded(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A model listed in the library, but for which no profile can be built, is logged and skipped."""
+    caplog.set_level(logging.DEBUG)
+
+    mock_device_with_entities(hass, "light.test", "signify", "LCT010")
+
+    with patch(
+        "custom_components.powercalc.discovery.get_power_profile",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        await run_powercalc_setup(hass)
+
+    assert len(mock_flow_init.mock_calls) == 0
+    assert "light.test: Could not load profile signify/LCT010, skipping model" in caplog.text
 
 
 async def test_no_power_sensors_are_created_for_ignored_config_entries(
@@ -745,9 +814,10 @@ async def test_get_model_information(
 ) -> None:
     if device_entry:
         mock_device_registry(hass, {str(device_entry.id): device_entry})
-    mock_registry(hass, {str(entity_entry.id): entity_entry})
+    mock_registry(hass, {entity_entry.entity_id: entity_entry})
     discovery_manager = DiscoveryManager(hass, {})
-    assert await discovery_manager.get_model_information_from_entity(entity_entry) == model_info
+    source_entity = create_source_entity(entity_entry.entity_id, hass)
+    assert discovery_manager.extract_model_info(source_entity) == model_info
 
 
 async def test_interval_based_rediscovery(
@@ -838,27 +908,59 @@ async def test_discovery_by_config_entry(
     assert mock_calls[0][2]["data"][CONF_UNIQUE_ID] == f"pc_config_entry_{source_entry.entry_id}"
 
 
+def test_get_config_entries_builds_device_index_when_not_supplied(hass: HomeAssistant) -> None:
+    """Config-entry collection should support callers which do not already have a device index."""
+    source_entry = MockConfigEntry(domain="test")
+    source_entry.add_to_hass(hass)
+    mock_device(hass, config_entry_id=source_entry.entry_id)
+
+    config_entries = DiscoveryManager(hass, {}).get_config_entries()
+
+    assert source_entry in config_entries
+
+
+@requires_composite_devices
 async def test_composite_devices_are_ignored_for_device_discovery(
     hass: HomeAssistant,
 ) -> None:
-    mocked_devices = mock_devices(
-        hass,
-        {
-            "regular-device": {"manufacturer": "test", "model": "regular"},
-            "composite-device": {"manufacturer": "test", "model": "composite"},
-        },
-    )
-    regular_device = mocked_devices["regular-device"]
-    composite_device = mocked_devices["composite-device"]
+    _mock_split_devices(hass)
     discovery_manager = DiscoveryManager(hass, {})
 
-    with patch(
-        "custom_components.powercalc.discovery.is_composite_device_id",
-        side_effect=lambda _hass, device_id: device_id == composite_device.id,
-    ):
-        devices = discovery_manager.get_devices()
+    devices = discovery_manager.get_devices()
 
-    assert devices == [regular_device]
+    assert {device.id for device in devices} == {"split-device-0", "split-device-1"}
+
+
+@requires_child_devices
+def test_child_device_is_excluded_from_model_discovery(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Child devices have no manufacturer/model fields and must not use their compatibility shim."""
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+    parent = device_registry.async_get_or_create(
+        config_entry_id=config_entry.entry_id,
+        identifiers={("test", "parent")},
+        name="Parent",
+    )
+    child = device_registry.async_get_or_create_child(
+        config_entry_id=config_entry.entry_id,
+        identifiers={("test", "child")},
+        name="Child",
+        parent_device_id=parent.id,
+    )
+
+    source_entity = SourceEntity(
+        object_id="child",
+        entity_id="switch.child",
+        domain="switch",
+        device_entry=child,
+    )
+
+    assert DiscoveryManager(hass, {}).extract_model_info(source_entity) is None
+    assert "accesses ChildDeviceEntry" not in caplog.text
 
 
 def _mock_split_devices(hass: HomeAssistant) -> None:
@@ -956,31 +1058,58 @@ async def test_no_discovery_for_devices_sharing_identifiers_with_configured_devi
 
 
 @requires_linked_devices
-async def test_discovery_for_devices_sharing_identifiers_without_configured_device(
+async def test_removing_entry_releases_all_related_device_discovery_keys(hass: HomeAssistant) -> None:
+    """Removing an entry must release discovery keys for every related device."""
+    _mock_linked_devices(hass)
+    entry = await create_mock_config_entry(
+        hass,
+        {
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_ENTITY_ID: DUMMY_ENTITY_ID,
+            CONF_DEVICE: "linked-device-0",
+        },
+        unique_id="pc_linked-device-0",
+        setup=False,
+    )
+    discovery_manager = DiscoveryManager(hass, {})
+    discovery_manager.initialize_existing_entries()
+    linked_device = dr.async_get(hass).async_get("linked-device-1")
+    assert linked_device is not None
+    candidate = next(discovery_manager._create_device_candidates([linked_device]))  # noqa: SLF001
+
+    assert discovery_manager._is_already_discovered(candidate, "pc_linked-device-1")  # noqa: SLF001
+
+    discovery_manager.remove_initialized_flow(entry)
+
+    assert not discovery_manager._is_already_discovered(candidate, "pc_linked-device-1")  # noqa: SLF001
+
+
+@requires_linked_devices
+async def test_discovery_deduplicates_devices_sharing_identifiers(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
 ) -> None:
-    """Devices sharing identifiers must still be discovered when none of them is setup yet."""
+    """Only one representation of a linked physical device should be discovered."""
     _mock_linked_devices(hass)
 
     await run_powercalc_setup(hass)
 
     unique_ids = {call[2]["data"][CONF_UNIQUE_ID] for call in mock_flow_init.mock_calls}
-    assert unique_ids == {"pc_linked-device-0", "pc_linked-device-1"}
+    assert unique_ids == {"pc_linked-device-0"}
 
 
 @requires_composite_devices
-async def test_discovery_for_devices_split_from_unconfigured_composite_device(
+async def test_discovery_deduplicates_devices_split_from_unconfigured_composite(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
 ) -> None:
-    """Split devices must still be discovered when no Powercalc entry exists for the composite."""
+    """Only one split representation of an unconfigured composite device should be discovered."""
     _mock_split_devices(hass)
 
     await run_powercalc_setup(hass)
 
     unique_ids = {call[2]["data"][CONF_UNIQUE_ID] for call in mock_flow_init.mock_calls}
-    assert unique_ids == {"pc_split-device-0", "pc_split-device-1"}
+    assert unique_ids == {"pc_split-device-0"}
 
 
 async def test_powercalc_sensors_are_ignored_for_discovery(
@@ -1078,6 +1207,29 @@ async def test_get_entities(
     assert entity_ids == expected_entities
 
 
+def test_load_manually_configured_entities_flattens_nested_entity_id_lists(hass: HomeAssistant) -> None:
+    """Entity IDs in composite YAML lists should all be treated as manually configured."""
+    discovery_manager = DiscoveryManager(
+        hass,
+        {
+            DOMAIN: {
+                CONF_SENSORS: [
+                    {
+                        CONF_ENTITY_ID: ["light.first", "light.second"],
+                        "nested": [{CONF_ENTITY_ID: "switch.third"}],
+                    },
+                ],
+            },
+        },
+    )
+
+    assert discovery_manager._load_manually_configured_entities() == {  # noqa: SLF001
+        "light.first",
+        "light.second",
+        "switch.third",
+    }
+
+
 async def test_discovery_enable_runtime(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
@@ -1101,6 +1253,9 @@ async def test_discovery_enable_runtime(
     new_data[CONF_DISCOVERY] = {CONF_ENABLED: True}
     hass.config_entries.async_update_entry(entry, data=new_data)
     await hass.async_block_till_done()
+
+    # Enabling discovery at runtime schedules a delayed initial run, same as during setup.
+    await async_advance_time(hass, DISCOVERY_DELAY)
 
     assert len(mock_flow_init.mock_calls) == 1
 
@@ -1134,6 +1289,84 @@ async def test_discovery_disable_runtime(
     await hass.async_block_till_done(True)
 
     assert "Start auto discovery" not in caplog.text
+
+
+async def test_library_keeps_updating_when_discovery_disabled(hass: HomeAssistant) -> None:
+    """Startup loads the library from local storage, so the periodic update must run regardless.
+
+    Manually configured sensors rely on the library just as much as discovered ones.
+    """
+    await run_powercalc_setup(hass, {}, {CONF_DISCOVERY: {CONF_ENABLED: False}})
+
+    with patch(
+        "custom_components.powercalc.power_profile.library.ProfileLibrary.initialize",
+    ) as mock_initialize:
+        await async_advance_time(hass, REDISCOVERY_INTERVAL)
+
+    mock_initialize.assert_any_call(prefer_cached=False)
+
+
+async def test_initial_discovery_is_delayed(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+) -> None:
+    """Initial discovery must only start after DISCOVERY_DELAY, to let HA settle first."""
+    mock_device_with_entities(hass, "light.test", "signify", "LCT010")
+
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+
+    assert not mock_flow_init.mock_calls
+
+    await async_advance_time(hass, DISCOVERY_DELAY)
+
+    assert len(mock_flow_init.mock_calls) == 1
+
+
+async def test_initial_discovery_propagates_cancellation_while_running(hass: HomeAssistant) -> None:
+    discovery_manager = DiscoveryManager(hass, {})
+
+    with (
+        patch.object(discovery_manager, "start_discovery", side_effect=asyncio.CancelledError),
+        patch("custom_components.powercalc.discovery.async_call_later") as mock_call_later,
+    ):
+        discovery_manager._schedule_initial_discovery()  # noqa: SLF001
+        scheduled_job = mock_call_later.call_args.args[2]
+        with pytest.raises(asyncio.CancelledError):
+            await scheduled_job.target(None)
+
+
+async def test_initial_discovery_logs_unexpected_failure(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    discovery_manager = DiscoveryManager(hass, {})
+
+    with (
+        patch.object(discovery_manager, "start_discovery", side_effect=RuntimeError("boom")),
+        patch("custom_components.powercalc.discovery.async_call_later") as mock_call_later,
+    ):
+        discovery_manager._schedule_initial_discovery()  # noqa: SLF001
+        scheduled_job = mock_call_later.call_args.args[2]
+        await scheduled_job.target(None)
+
+    assert "Error during initial discovery" in caplog.text
+
+
+async def test_pending_initial_discovery_is_cancelled_when_disabled(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+) -> None:
+    """Disabling discovery before the delay elapsed must not leave a run scheduled."""
+    mock_device_with_entities(hass, "light.test", "signify", "LCT010")
+
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: {}})
+    await hass.async_block_till_done()
+
+    await get_discovery_manager(hass).disable()
+    await async_advance_time(hass, DISCOVERY_DELAY)
+
+    assert not mock_flow_init.mock_calls
 
 
 @pytest.mark.parametrize(
@@ -1207,55 +1440,55 @@ async def test_discovery_compatible_integrations(
     assert mock_calls[0][2]["data"][CONF_ENTITY_ID] == "light.hue_light"
 
 
-async def test_discovery_ignored_domain_filters_entities(
+async def test_discovery_low_priority_domain_filters_entities(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
 ) -> None:
-    """Entities provided by a globally ignored integration must not be discovered."""
+    """Entities provided by a low priority integration must never be discovered."""
     mock_entities_in_registry(
         hass,
         {
-            "light.ignored": {"platform": "ignored", "device_id": "ignored-device"},
-            "light.allowed": {"platform": "hue", "device_id": "allowed-device"},
+            "light.low_priority": {"platform": "low_priority", "device_id": "low-priority-device"},
+            "light.preferred": {"platform": "hue", "device_id": "preferred-device"},
         },
     )
     mock_devices(
         hass,
         {
-            "ignored-device": {"manufacturer": "test", "model": "compatible_integrations"},
-            "allowed-device": {"manufacturer": "test", "model": "compatible_integrations"},
+            "low-priority-device": {"manufacturer": "test", "model": "compatible_integrations"},
+            "preferred-device": {"manufacturer": "test", "model": "compatible_integrations"},
         },
     )
 
     with patch(
-        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_ignored_domains",
-        return_value={"ignored"},
+        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_low_priority_domains",
+        return_value={"low_priority"},
     ):
         await run_powercalc_setup(hass)
 
     assert len(mock_flow_init.mock_calls) == 1
-    assert mock_flow_init.mock_calls[0][2]["data"][CONF_ENTITY_ID] == "light.allowed"
+    assert mock_flow_init.mock_calls[0][2]["data"][CONF_ENTITY_ID] == "light.preferred"
 
 
-async def test_discovery_ignored_domain_filters_devices(
+async def test_discovery_low_priority_domain_is_fallback_for_unrelated_devices(
     hass: HomeAssistant,
     mock_flow_init: AsyncMock,
 ) -> None:
-    """Devices belonging to a globally ignored integration must not be discovered."""
-    ignored_entry = MockConfigEntry(domain="ignored")
-    ignored_entry.add_to_hass(hass)
-    allowed_entry = MockConfigEntry(domain="allowed")
-    allowed_entry.add_to_hass(hass)
+    """A low priority integration remains eligible when it is the only representation of a device."""
+    low_priority_entry = MockConfigEntry(domain="low_priority")
+    low_priority_entry.add_to_hass(hass)
+    preferred_entry = MockConfigEntry(domain="preferred")
+    preferred_entry.add_to_hass(hass)
     mock_devices(
         hass,
         {
-            "ignored-device": {
-                "config_entry_id": ignored_entry.entry_id,
+            "low-priority-device": {
+                "config_entry_id": low_priority_entry.entry_id,
                 "manufacturer": "test",
                 "model": "discovery_type_device",
             },
-            "allowed-device": {
-                "config_entry_id": allowed_entry.entry_id,
+            "preferred-device": {
+                "config_entry_id": preferred_entry.entry_id,
                 "manufacturer": "test",
                 "model": "discovery_type_device",
             },
@@ -1263,10 +1496,86 @@ async def test_discovery_ignored_domain_filters_devices(
     )
 
     with patch(
-        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_ignored_domains",
-        return_value={"ignored"},
+        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_low_priority_domains",
+        return_value={"low_priority"},
     ):
         await run_powercalc_setup(hass)
 
-    assert len(mock_flow_init.mock_calls) == 1
-    assert mock_flow_init.mock_calls[0][2]["data"][CONF_UNIQUE_ID] == "pc_allowed-device"
+    unique_ids = {call[2]["data"][CONF_UNIQUE_ID] for call in mock_flow_init.mock_calls}
+    assert unique_ids == {"pc_low-priority-device", "pc_preferred-device"}
+
+
+@requires_linked_devices
+async def test_discovery_prefers_higher_priority_device_representation(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+) -> None:
+    """A matching higher priority integration should win over a low priority representation."""
+    low_priority_entry = MockConfigEntry(domain="low_priority")
+    low_priority_entry.add_to_hass(hass)
+    preferred_entry = MockConfigEntry(domain="preferred")
+    preferred_entry.add_to_hass(hass)
+    mock_devices(
+        hass,
+        {
+            "low-priority-device": {
+                "config_entry_id": low_priority_entry.entry_id,
+                "manufacturer": "test",
+                "model": "discovery_type_device",
+                "connections": {(dr.CONNECTION_NETWORK_MAC, "aa:bb:cc:dd:ee:ff")},
+            },
+            "preferred-device": {
+                "config_entry_id": preferred_entry.entry_id,
+                "manufacturer": "test",
+                "model": "discovery_type_device",
+                "connections": {(dr.CONNECTION_NETWORK_MAC, "aa:bb:cc:dd:ee:ff")},
+            },
+        },
+    )
+
+    with patch(
+        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_low_priority_domains",
+        return_value={"low_priority"},
+    ):
+        await run_powercalc_setup(hass)
+
+    unique_ids = {call[2]["data"][CONF_UNIQUE_ID] for call in mock_flow_init.mock_calls}
+    assert unique_ids == {"pc_preferred-device"}
+
+
+@requires_linked_devices
+async def test_discovery_uses_low_priority_device_when_preferred_representation_has_no_profile(
+    hass: HomeAssistant,
+    mock_flow_init: AsyncMock,
+) -> None:
+    """A low priority representation should be the fallback when preferred devices do not match a profile."""
+    low_priority_entry = MockConfigEntry(domain="low_priority")
+    low_priority_entry.add_to_hass(hass)
+    preferred_entry = MockConfigEntry(domain="preferred")
+    preferred_entry.add_to_hass(hass)
+    mock_devices(
+        hass,
+        {
+            "low-priority-device": {
+                "config_entry_id": low_priority_entry.entry_id,
+                "manufacturer": "test",
+                "model": "discovery_type_device",
+                "connections": {(dr.CONNECTION_NETWORK_MAC, "aa:bb:cc:dd:ee:ff")},
+            },
+            "preferred-device": {
+                "config_entry_id": preferred_entry.entry_id,
+                "manufacturer": "test",
+                "model": "unsupported",
+                "connections": {(dr.CONNECTION_NETWORK_MAC, "aa:bb:cc:dd:ee:ff")},
+            },
+        },
+    )
+
+    with patch(
+        "custom_components.powercalc.power_profile.loader.remote.RemoteLoader.get_discovery_low_priority_domains",
+        return_value={"low_priority"},
+    ):
+        await run_powercalc_setup(hass)
+
+    unique_ids = {call[2]["data"][CONF_UNIQUE_ID] for call in mock_flow_init.mock_calls}
+    assert unique_ids == {"pc_low-priority-device"}

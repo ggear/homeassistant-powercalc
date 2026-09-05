@@ -2,9 +2,25 @@
   "calculation_strategy": "lut",
   "created_at": "2026-01-12T15:10:41Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "strip",
+    "lumens": 1400,
+    "rated_power": 36,
+    "connectivity": [
+      "wifi",
+      "bluetooth",
+      "matter"
+    ]
+  },
+  "ean": [
+    "6974316995838",
+    "810172720374"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 2,
@@ -12,9 +28,12 @@
   },
   "name": "Strip Light with Skyline Kit",
   "standby_power": 1.2,
-  "author_info": {
-    "name": "Jonas Dambacher",
-    "email": "j.dambacher@basecom.de",
-    "github": "jdambacher"
-  }
+  "product_url": "https://us.govee.com/products/govee-strip-light-with-skyline-kit",
+  "authors": [
+    {
+      "name": "Jonas Dambacher",
+      "email": "j.dambacher@basecom.de",
+      "github": "jdambacher"
+    }
+  ]
 }

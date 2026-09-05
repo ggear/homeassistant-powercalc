@@ -5,9 +5,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-01-05T14:50:43Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 250,
+    "rated_power": 2.7,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Sonoff S31",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 5,
@@ -15,9 +25,11 @@
   },
   "name": "TRADFRI bulb E27 WW clear 250lm",
   "standby_power": 0.551,
-  "author_info": {
-    "name": "alanpaone",
-    "email": "alanpaone@gmail.com",
-    "github": "alanpaone"
-  }
+  "authors": [
+    {
+      "name": "alanpaone",
+      "email": "alanpaone@gmail.com",
+      "github": "alanpaone"
+    }
+  ]
 }

@@ -1,10 +1,26 @@
 {
+  "aliases": [
+    "9290037121"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-12-05T07:26:13Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "downlight",
+    "socket": "integrated",
+    "lumens": 1000,
+    "rated_power": 8.3,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8720169264151"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +28,10 @@
   },
   "name": "Hue Slim recessed light S",
   "standby_power": 0.42,
-  "author_info": {
-    "name": "buttonger",
-    "github": "buttonger"
-  }
+  "authors": [
+    {
+      "name": "buttonger",
+      "github": "buttonger"
+    }
+  ]
 }

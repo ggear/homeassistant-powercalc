@@ -2,15 +2,29 @@
   "calculation_strategy": "fixed",
   "created_at": "2026-01-21T16:17:00Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "859696007790"
+  ],
   "measure_description": "Manually measured.",
   "measure_device": "Shelly EM Mini Gen4",
   "measure_method": "manual",
+  "mains_voltage": 120,
   "name": "Plug",
   "standby_power": 1.4,
   "standby_power_on": 1.6,
-  "author_info": {
-    "name": "Bob Shaker",
-    "email": "bobshaker1@gmail.com",
-    "github": "EpicBurrito"
-  }
+  "authors": [
+    {
+      "name": "Bob Shaker",
+      "email": "bobshaker1@gmail.com",
+      "github": "EpicBurrito"
+    }
+  ]
 }

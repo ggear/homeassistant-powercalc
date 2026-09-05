@@ -6,19 +6,33 @@
   "calculation_strategy": "lut",
   "created_at": "2026-01-25T00:28:14Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "spot",
+    "lumens": 575,
+    "rated_power": 5,
+    "connectivity": [
+      "matter",
+      "thread"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.3:docker"
   },
   "name": "KAJPLATS GU10 WS 575lm",
+  "product_url": "https://www.ikea.com/es/es/p/kajplats-bombilla-led-gu10-575-lumenes-inteligente-espectro-blanco-50611442/",
   "standby_power": 0.22,
-  "author_info": {
-    "name": "Linus Nordin",
-    "github": "gribber",
-    "email": "linus.nordin@gmail.com"
-  }
+  "authors": [
+    {
+      "name": "Linus Nordin",
+      "github": "gribber",
+      "email": "linus.nordin@gmail.com"
+    }
+  ]
 }

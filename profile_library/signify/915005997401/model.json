@@ -1,13 +1,27 @@
 {
   "aliases": [
-    "9150059974"
+    "9150059974",
+    "915005997501"
   ],
   "calculation_strategy": "lut",
   "created_at": "2025-12-10T15:59:58Z",
   "device_type": "light",
+  "ean": [
+    "8718696176511"
+  ],
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 3700,
+    "rated_power": 52.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM Gen4",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,9 +29,11 @@
   },
   "name": "Hue Infuse Ceiling Lamp",
   "standby_power": 0.06,
-  "author_info": {
-    "name": "Thorsten1982",
-    "email": "ThorstenNiemann.TN@googlemail.com",
-    "github": "Thorsten1982"
-  }
+  "authors": [
+    {
+      "name": "Thorsten1982",
+      "email": "ThorstenNiemann.TN@googlemail.com",
+      "github": "Thorsten1982"
+    }
+  ]
 }

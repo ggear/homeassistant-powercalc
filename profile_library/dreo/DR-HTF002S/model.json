@@ -2,6 +2,13 @@
   "calculation_strategy": "linear",
   "created_at": "2025-07-14T08:10:08Z",
   "device_type": "fan",
+  "device_specs": {
+    "form_factor": "tower",
+    "connectivity": [
+      "wifi"
+    ],
+    "rated_power": 50
+  },
   "linear_config": {
     "attribute": "percentage",
     "calibrate": [
@@ -16,10 +23,14 @@
   "measure_description": "Manually measured",
   "measure_device": "Aqara Smart Plug EU (SP-EUC01)",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Cruiser Pro T2S Smart Tower Fan",
+  "product_url": "https://www.dreo.com/products/smart-tower-fan-519s",
   "standby_power": 1.04,
-  "author_info": {
-    "name": "Miguel",
-    "github": "miggi92"
-  }
+  "authors": [
+    {
+      "name": "Miguel",
+      "github": "miggi92"
+    }
+  ]
 }

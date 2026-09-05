@@ -1,0 +1,45 @@
+{
+  "calculation_strategy": "lut",
+  "created_at": "2026-08-17T11:48:24Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 806,
+    "rated_power": 8.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "4306517604141"
+  ],
+  "aliases": [
+    "VIYU_A60_806_CCT_10454469"
+  ],
+  "legacy_ids": [
+    "VIYU_A60_806_CCT_10454469"
+  ],
+  "measure_description": "Measured with utils/measure script using 2 identical lamps connected in parallel (MULTIPLE_LIGHTS=true, NUM_LIGHTS=2) on a Shelly Plus 1PM, because a single lamp draws below the meter's resolution floor. Reported values are per lamp. The lamp is CCT only (supported_color_modes: color_temp), so color_temp is the only mode measured. Measurement starts at brightness 2: at brightness 1 the meter consistently read 0 W for both lamps combined. The session was interrupted once by a Zigbee coordinator queue overflow and completed via resume, so voltage_range reflects the later part of the run.",
+  "measure_device": "Shelly Plus 1PM",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 3,
+    "SLEEP_TIME": 3.0,
+    "VERSION": "v0.3.0:cli"
+  },
+  "name": "FLAIR Viyu A60 E27 CCT Bulb (8.5W, 806 lm)",
+  "product_url": "https://www.hornbach.de/p/flair-viyu-led-lampe-dimmbar-e27-8-5w60w-806-lm-2200-5000-k-kompatibel-mit-smart-home-by-hornbach/10454469/",
+  "standby_power": 0.3,
+  "voltage_range": {
+    "min": 228.3,
+    "max": 235.5
+  },
+  "authors": [
+    {
+      "name": "philscottydev",
+      "github": "philscottydev"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from measure.controller.charging.controller import ChargingController
@@ -19,6 +19,7 @@ from measure.controller.light.hass import HassLightController
 from measure.controller.light.spec import (
     DummyLightControllerSpec,
     HassLightControllerSpec,
+    HassMultiLightControllerSpec,
     HueLightControllerSpec,
     LightControllerSpec,
 )
@@ -49,6 +50,7 @@ from measure.powermeter.spec import (
     ManualPowerMeterSpec,
     MyStromPowerMeterSpec,
     OcrPowerMeterSpec,
+    OwonOwh98xxPowerMeterSpec,
     PowerMeterSpec,
     ShellyPowerMeterSpec,
     TasmotaPowerMeterSpec,
@@ -69,7 +71,7 @@ from measure.runner.average import AverageRunner
 from measure.runner.charging import ChargingRunner
 from measure.runner.fan import FanRunner
 from measure.runner.light import LightRunner
-from measure.runner.recorder import RecorderRunner
+from measure.runner.recorder import EntityStateReader, RecorderEntityState, RecorderRunner
 from measure.runner.runner import MeasurementRunner
 from measure.runner.speaker import SpeakerRunner
 from measure.tuning import MeasurementParameters
@@ -87,6 +89,7 @@ class MeasurementAssembler:
         tuya_device_key: str | None = None,
         shelly_password: str | None = None,
         on_sample: Callable[[float], None] | None = None,
+        on_calibration_sample: Callable[[float, float, float], None] | None = None,
         dummy_load_calibration_store: DummyLoadCalibrationStore | None = None,
     ) -> None:
         self._interaction = interaction
@@ -94,6 +97,7 @@ class MeasurementAssembler:
         self._tuya_device_key = tuya_device_key
         self._shelly_password = shelly_password
         self._on_sample = on_sample
+        self._on_calibration_sample = on_calibration_sample
         self._dummy_load_calibration_store = dummy_load_calibration_store
 
     def assemble(self, request: MeasurementRequest) -> PreparedMeasurement:
@@ -108,6 +112,7 @@ class MeasurementAssembler:
             include_voltage=lambda: voltage_enabled,
             wait=self._interaction.wait,
             on_sample=self._on_sample,
+            on_calibration_sample=self._on_calibration_sample,
         )
         runner = self._runner(request, parameters, measure_util)
         preparations: list[MeasurementPreparation] = (
@@ -168,6 +173,10 @@ class MeasurementAssembler:
             from measure.powermeter.tuya import TuyaPowerMeter
 
             return TuyaPowerMeter(spec.device_id, spec.device_ip, self._tuya_device_key, spec.version)
+        if isinstance(spec, OwonOwh98xxPowerMeterSpec):
+            from measure.powermeter.serial_scpi import OwonOwh98xxPowerMeter
+
+            return OwonOwh98xxPowerMeter(spec.port, spec.baudrate, spec.timeout, spec.channel)
         raise PowerMeterError(f"Unsupported power meter specification: {type(spec).__name__}")
 
     def _runner(
@@ -178,7 +187,7 @@ class MeasurementAssembler:
     ) -> MeasurementRunner[Any]:
         interaction = self._interaction
         if isinstance(request, LightMeasurementRequest):
-            light_controller = self._light_controller(request.controller)
+            light_controller = self.build_light_controller(request.controller)
             return LightRunner(
                 measure_util,
                 parameters,
@@ -190,7 +199,8 @@ class MeasurementAssembler:
             media_controller = self._media_controller(request.controller)
             return SpeakerRunner(measure_util, parameters, media_controller, interaction)
         if isinstance(request, RecorderMeasurementRequest):
-            return RecorderRunner(measure_util, interaction)
+            state_reader = self._recorder_state_reader() if request.recorded_entity_ids else None
+            return RecorderRunner(measure_util, interaction, state_reader)
         if isinstance(request, AverageMeasurementRequest):
             return AverageRunner(measure_util, interaction=interaction)
         if isinstance(request, ChargingMeasurementRequest):
@@ -206,15 +216,35 @@ class MeasurementAssembler:
             return FanRunner(measure_util, parameters, fan_controller, interaction)
         raise ValueError(f"Unsupported measurement request: {type(request).__name__}")
 
-    def _light_controller(self, spec: LightControllerSpec) -> LightController:
+    def _recorder_state_reader(self) -> EntityStateReader:
+        home_assistant = self._home_assistant()
+
+        def read(entity_ids: Sequence[str]) -> Mapping[str, RecorderEntityState]:
+            # One dump per sample. `get_state` has no single-entity WebSocket command
+            # behind it, so asking per entity refetches every state in Home Assistant.
+            wanted = set(entity_ids)
+            states = {
+                state.entity_id: RecorderEntityState(state=str(state.state), attributes=state.attributes)
+                for state in home_assistant.get_states()
+                if state.entity_id in wanted
+            }
+            if missing := sorted(wanted - states.keys()):
+                raise ValueError(f"Entities not found in Home Assistant: {', '.join(missing)}")
+            return states
+
+        return read
+
+    def build_light_controller(self, spec: LightControllerSpec) -> LightController:
+        """Build a configured light controller for execution or active preflight checks."""
+
         if isinstance(spec, DummyLightControllerSpec):
             return DummyLightController()
-        if isinstance(spec, HassLightControllerSpec):
+        if isinstance(spec, HassLightControllerSpec | HassMultiLightControllerSpec):
             hass = self._home_assistant()
             return HassLightController(
                 hass,
                 spec.transition_time,
-                entity_id=spec.entity_id,
+                entity_ids=spec.entity_ids,
                 wait=self._interaction.wait,
             )
         if isinstance(spec, HueLightControllerSpec):

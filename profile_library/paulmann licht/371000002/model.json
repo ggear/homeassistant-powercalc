@@ -1,10 +1,23 @@
 {
+  "ean": [
+    "4000870798089"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-05-30T18:42:27Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "panel",
+    "socket": "integrated",
+    "lumens": 1800,
+    "rated_power": 22,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -12,8 +25,10 @@
   },
   "name": "Amaris RGBW LED Panels 595x295mm",
   "standby_power": 1.33,
-  "author_info": {
-    "name": "Jonas",
-    "github": "JonasJoKuJonas"
-  }
+  "authors": [
+    {
+      "name": "Jonas",
+      "github": "JonasJoKuJonas"
+    }
+  ]
 }

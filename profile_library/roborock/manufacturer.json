@@ -1,7 +1,9 @@
 {
   "name": "Roborock",
   "aliases": [
-    "Roborock",
     "rockrobo"
-  ]
+  ],
+  "website": "https://global.roborock.com",
+  "country": "CN",
+  "description": "Chinese manufacturer of robot vacuums, originally part of the Xiaomi ecosystem."
 }

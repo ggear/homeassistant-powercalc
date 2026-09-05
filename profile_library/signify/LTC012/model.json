@@ -1,13 +1,28 @@
 {
   "aliases": [
-    "3418931P6"
+    "3418931P6",
+    "3306431P7"
   ],
   "calculation_strategy": "lut",
   "created_at": "2021-12-05T11:25:07Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2400,
+    "rated_power": 32,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718696162873",
+    "8718696175835"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 3,
     "SLEEP_TIME": 1,
@@ -15,9 +30,11 @@
   },
   "name": "Hue Struana Ceiling Light",
   "standby_power": 0.35,
-  "author_info": {
-    "name": "mariwing",
-    "email": "mariwing@gmail.com",
-    "github": "mariwing"
-  }
+  "authors": [
+    {
+      "name": "mariwing",
+      "email": "mariwing@gmail.com",
+      "github": "mariwing"
+    }
+  ]
 }

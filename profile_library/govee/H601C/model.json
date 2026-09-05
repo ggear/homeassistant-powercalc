@@ -2,19 +2,37 @@
   "calculation_strategy": "lut",
   "created_at": "2024-09-29T02:06:51Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "downlight",
+    "lumens": 1000,
+    "rated_power": 13,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "810088347191",
+    "810088347207"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 3",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "master"
   },
-  "name": "Smart LED Downlight",
+  "name": "6-Inch Smart Retrofit Recessed Can Light",
   "standby_power": 0.85,
-  "author_info": {
-    "name": "Brian Egge",
-    "email": "brianegge@gmail.com",
-    "github": "brianegge"
-  }
+  "product_url": "https://us.govee.com/products/govee-smart-retrofit-recessed-lights",
+  "authors": [
+    {
+      "name": "Brian Egge",
+      "email": "brianegge@gmail.com",
+      "github": "brianegge"
+    }
+  ]
 }

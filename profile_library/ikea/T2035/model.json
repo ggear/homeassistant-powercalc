@@ -1,20 +1,36 @@
 {
+  "aliases": [
+    "STOFTMOLN ceiling/wall lamp 24 warm light dimmable"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2023-03-04T11:53:20Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 800,
+    "rated_power": 9,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.3.5:docker"
   },
-  "name": "STOFTMOLN ceiling/wall lamp 24 warm light dimmable",
+  "name": "STOFTMOLN LED Ceiling/Wall Lamp (24 cm)",
+  "product_url": "https://www.ikea.com/fi/fi/p/stoftmoln-led-katto-seinaevalaisin-aelylaite-langaton-himmennettaevae-laemmin-valkoinen-valkoinen-30497490/",
   "standby_power": 0.25,
-  "author_info": {
-    "name": "vyruz1986",
-    "email": "alex.goris@fastlikehell.com",
-    "github": "vyruz1986"
-  }
+  "authors": [
+    {
+      "name": "vyruz1986",
+      "email": "alex.goris@fastlikehell.com",
+      "github": "vyruz1986"
+    }
+  ]
 }

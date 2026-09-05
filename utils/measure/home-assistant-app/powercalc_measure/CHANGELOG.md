@@ -2,6 +2,58 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-09-02
+
+### 🚀 Features
+
+- #4667 Add entity state capture to recorder. 1st prep for complex profile creation @bramstroker
+
+## 0.5.0 - 2026-08-29
+
+- #4556 Add support for the OWON OWH98xx series power meters @MartinJM
+
+### 🚀 Features
+
+- #4614 Improve power profile contribution consistency @bramstroker
+
+### 🐛 Bug Fixes
+
+- #4592 Fix error with lights not having effect list @bramstroker
+
+## 0.4.1 - 2026-08-21
+
+### 🐛 Bug Fixes
+
+- #4563 Fix connectivity issues broken pipe in measure app @bramstroker
+
+## 0.4.0 - 2026-08-21
+
+- #4441 Reduce test suite duplication with shared helpers @bramstroker
+- #4473 Document conventional commits @bramstroker
+- #4528 Change min_voltage and max_voltage to voltage_range in library @bramstroker
+
+### 🚀 Features
+
+- #4435 Improve UI of view log button @bramstroker
+- #4507 Measure multiple lights directly in measure app @bramstroker
+- #4508 Add probe for lower power measurements @bramstroker
+- #4513 Add session overview to measure app @bramstroker
+- #4518 Add playwright tests @bramstroker
+- #4519 Add eslint @bramstroker
+- #4521 Add measure status sensor to HA @bramstroker
+
+### 🐛 Bug Fixes
+
+- #4449 Fix sonarcloud issues @bramstroker
+- #4451 Anable more ruff rules @bramstroker
+- #4549 Potential fix for broken connection after 10000 seconds @bramstroker
+- #4552 Fix MODE from .env being split into characters when a dummy load is configured @philscottydev
+
+### 🧰 Maintenance
+
+- #4474 ci: harden repository quality gates @bramstroker
+- #4479 chore: refresh lockfiles and enable Renovate lock maintenance @bramstroker
+
 ## 0.3.0 - 2026-07-31
 
 - #4428 Cleanup typing @bramstroker

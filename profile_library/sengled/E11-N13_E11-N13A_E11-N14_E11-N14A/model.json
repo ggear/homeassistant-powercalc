@@ -1,13 +1,30 @@
 {
   "aliases": [
-    "E11-N13/E11-N13A/E11-N14/E11-N14A"
+    "E11-N13/E11-N13A/E11-N14/E11-N14A",
+    "E11-N13",
+    "E11-N13A",
+    "E11-N14",
+    "E11-N14A"
   ],
   "calculation_strategy": "lut",
   "created_at": "2024-02-04T17:58:19Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 1500,
+    "rated_power": 14.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "0840696101960"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug US",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,9 +32,11 @@
   },
   "name": "Smart LED Extra Bright Soft White A19 Bulb",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "dhedges01",
-    "email": "dhedges01@gmail.com",
-    "github": "dhedges01"
-  }
+  "authors": [
+    {
+      "name": "dhedges01",
+      "email": "dhedges01@gmail.com",
+      "github": "dhedges01"
+    }
+  ]
 }

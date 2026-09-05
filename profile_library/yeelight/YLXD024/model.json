@@ -2,19 +2,29 @@
   "calculation_strategy": "lut",
   "created_at": "2026-04-20T14:23:54Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 4700,
+    "rated_power": 40,
+    "connectivity": [
+      "wifi"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "IKEA INSPELNING smart plug",
   "measure_method": "script",
+  "mains_voltage": 100,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 5,
     "VERSION": "v1.20.13:docker"
   },
   "min_version": "v1.20.14",
-  "supported_integrations": [
+  "compatible_integrations": [
     "yeelight"
   ],
-  "name": "LED Smart Ceiling Light(8-jō size)",
+  "name": "Smart LED Ceiling Light (8-jō)",
   "aliases": [
     "ceild"
   ],
@@ -30,9 +40,11 @@
     ]
   },
   "standby_power": 0.5,
-  "author_info": {
-    "name": "xxddff",
-    "github": "xxddff",
-    "email": "772327379@qq.com"
-  }
+  "authors": [
+    {
+      "name": "xxddff",
+      "github": "xxddff",
+      "email": "772327379@qq.com"
+    }
+  ]
 }

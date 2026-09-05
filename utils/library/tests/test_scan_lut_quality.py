@@ -17,6 +17,7 @@ from utils.library.scan_lut_quality import (
     format_text_report,
     read_lut,
     scan_library,
+    score_profile_directory,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -63,12 +64,59 @@ def test_ikea_led2408g10_color_temp_scans_cleanly() -> None:
     assert result.issues == []
 
 
-def test_emos_zqw516r_color_temp_scans_cleanly() -> None:
+def test_emos_zqw516r_color_temp_reports_outlier_on_first_curve_point() -> None:
+    """The first point of the 153 mired curve draws 7.9 W where its neighbors draw around 2 W."""
     lut_path = FIXTURES_DIR / "emos_zqw516r" / "color_temp.csv"
 
     result = analyze_color_temp_lut(lut_path, root=lut_path.parent)
 
     assert result.path == "color_temp.csv"
+    assert len(result.issues) == 1
+    assert result.issues[0].line == 2
+    assert result.issues[0].bri == 1
+    assert result.issues[0].mired == 153
+    assert result.issues[0].severity == "error"
+
+
+def test_last_curve_point_outlier_is_reported_with_line_number(tmp_path: Path) -> None:
+    """A broken final measurement must be blamed on itself, not on the point before it."""
+    lut_path = tmp_path / "color_temp.csv"
+    write_lut(
+        lut_path,
+        [
+            (221, 243, 9.45),
+            (226, 243, 9.66),
+            (231, 243, 9.86),
+            (236, 243, 10.05),
+            (241, 243, 10.33),
+            (255, 243, 4.0),
+        ],
+    )
+
+    result = analyze_color_temp_lut(lut_path, root=tmp_path)
+
+    assert len(result.issues) == 1
+    assert result.issues[0].bri == 255
+    assert result.issues[0].line == 7
+    assert "line 7 (brightness 255, mired 243)" in result.issues[0].message
+
+
+def test_uneven_brightness_steps_are_weighted_by_brightness(tmp_path: Path) -> None:
+    """A straight line stays clean even when the brightness steps are not evenly spaced."""
+    lut_path = tmp_path / "color_temp.csv"
+    write_lut(
+        lut_path,
+        [
+            (1, 200, 1.0),
+            (2, 200, 1.1),
+            (3, 200, 1.2),
+            (100, 200, 10.9),
+            (200, 200, 20.9),
+        ],
+    )
+
+    result = analyze_color_temp_lut(lut_path, root=tmp_path)
+
     assert result.issues == []
 
 
@@ -260,8 +308,8 @@ def test_scan_library_finds_supported_gzipped_luts(tmp_path: Path) -> None:
 
 def test_scan_library_skips_manually_verified_models(tmp_path: Path) -> None:
     verified_paths = [
-        tmp_path / "lifx" / "LIFX BR30 Night Vision" / "brightness.csv.gz",
-        tmp_path / "lifx" / "LIFX A19 Night Vision" / "infrared_100" / "color_temp.csv.gz",
+        tmp_path / "lifx" / "LHB30E27UC10P" / "brightness.csv.gz",
+        tmp_path / "lifx" / "LHLA19E26IRUS" / "infrared_100" / "color_temp.csv.gz",
     ]
     scanned_path = tmp_path / "lifx" / "Other Model" / "brightness.csv.gz"
     scanned_path.parent.mkdir(parents=True)
@@ -383,6 +431,70 @@ def test_error_severity_filter_hides_warning_only_results() -> None:
     filtered_results = filter_results_by_severity([result], "error")
 
     assert format_text_report(filtered_results, show_ok=False, min_score=0.0) == "No LUT quality issues found."
+
+
+def test_score_profile_directory_reports_brightness_only_profile(tmp_path: Path) -> None:
+    write_lut(tmp_path / "brightness.csv.gz", smooth_brightness_rows(), gzipped=True)
+
+    quality = score_profile_directory(tmp_path)
+
+    assert list(quality) == ["score", "brightness"]
+    assert quality["score"] == quality["brightness"] > 90.0
+
+
+def test_score_profile_directory_takes_worst_score_over_color_modes(tmp_path: Path) -> None:
+    write_lut(tmp_path / "brightness.csv.gz", smooth_brightness_rows(), gzipped=True)
+    write_lut(tmp_path / "color_temp.csv.gz", rough_color_temp_rows(), gzipped=True)
+
+    quality = score_profile_directory(tmp_path)
+
+    assert quality["color_temp"] < quality["brightness"]
+    assert quality["score"] == quality["color_temp"]
+
+
+def test_score_profile_directory_includes_sub_profiles(tmp_path: Path) -> None:
+    write_lut(tmp_path / "brightness.csv.gz", smooth_brightness_rows(), gzipped=True)
+    sub_profile_dir = tmp_path / "downlight"
+    sub_profile_dir.mkdir()
+    write_lut(sub_profile_dir / "brightness.csv.gz", rough_brightness_rows(), gzipped=True)
+
+    sub_profile_quality = score_profile_directory(sub_profile_dir)
+    quality = score_profile_directory(tmp_path)
+
+    # The rough sub profile drags the score of the whole profile down to its own.
+    assert quality["score"] == sub_profile_quality["score"]
+
+
+def test_score_profile_directory_without_lut_files_returns_nothing(tmp_path: Path) -> None:
+    (tmp_path / "model.json").write_text("{}")
+
+    assert score_profile_directory(tmp_path) == {}
+
+
+def test_score_profile_directory_scores_manually_verified_models(tmp_path: Path) -> None:
+    """The skip list only silences CI; the published score must still cover those profiles."""
+    model_directory = tmp_path / "signify" / "LCT012"
+    model_directory.mkdir(parents=True)
+    write_lut(model_directory / "brightness.csv.gz", rough_brightness_rows(), gzipped=True)
+
+    assert find_lut_files(tmp_path) == []
+    assert score_profile_directory(model_directory)["score"] < 100.0
+
+
+def smooth_brightness_rows() -> list[tuple[int, int | None, float]]:
+    return [(bri, None, float(bri)) for bri in range(1, 21)]
+
+
+def rough_brightness_rows() -> list[tuple[int, int | None, float]]:
+    rows = smooth_brightness_rows()
+    rows[10] = (11, None, 25.0)
+    return rows
+
+
+def rough_color_temp_rows() -> list[tuple[int, int | None, float]]:
+    rows = [(bri, mired, float(bri)) for mired in (150, 300) for bri in range(1, 21)]
+    rows[10] = (11, 150, 25.0)
+    return rows
 
 
 def write_lut(path: Path, rows: list[tuple[int, int | None, float]], *, gzipped: bool = False) -> None:

@@ -1,24 +1,36 @@
 {
   "aliases": [
-    "A1Z",
     "TS011F"
   ],
   "calculation_strategy": "fixed",
   "created_at": "2023-07-03T18:37:40Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "max_load_watts": 2500,
+    "power_monitoring": true,
+    "connectivity": [
+      "zigbee"
+    ],
+    "rated_power": 0.5
+  },
+  "ean": [
+    "5907772033517",
+    "5907772033524"
+  ],
   "measure_description": "Manually measured",
   "measure_device": "Brennenstuhl PM 231 E",
   "measure_method": "manual",
-  "name": "Smart Zigbee Power Metering Plug / Socket",
+  "mains_voltage": 230,
+  "name": "Smart Zigbee Socket with Power Meter",
   "only_self_usage": true,
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
+  "product_url": "https://nous.technology/product/a1z-1.html",
   "standby_power": 0.1,
   "standby_power_on": 0.4,
-  "author_info": {
-    "name": "Andreas Brett",
-    "github": "andreasbrett"
-  }
+  "authors": [
+    {
+      "name": "Andreas Brett",
+      "github": "andreasbrett"
+    }
+  ]
 }

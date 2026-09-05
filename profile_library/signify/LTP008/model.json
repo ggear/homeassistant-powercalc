@@ -1,11 +1,26 @@
 {
-  "aliases": [],
+  "aliases": [
+    "4098430P7"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-06-22T07:54:27Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 3000,
+    "rated_power": 39,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718696168615"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -13,9 +28,11 @@
   },
   "name": "Hue Being Pendant Light",
   "standby_power": 0.38,
-  "author_info": {
-    "name": "Stijn Bernards",
-    "email": "stijn@bernards.nl",
-    "github": "stijnbernards"
-  }
+  "authors": [
+    {
+      "name": "Stijn Bernards",
+      "email": "stijn@bernards.nl",
+      "github": "stijnbernards"
+    }
+  ]
 }

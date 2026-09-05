@@ -1,10 +1,26 @@
 {
+  "aliases": [
+    "8719514491229"
+  ],
+  "ean": [
+    "8719514491229"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2026-06-16T17:53:14Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "lumens": 470,
+    "rated_power": 5.1,
+    "form_factor": "bulb",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 10,
     "SLEEP_TIME": 3,
@@ -12,8 +28,10 @@
   },
   "name": "Hue White and Colour Ambiance E14 Lustre",
   "standby_power": 0.26,
-  "author_info": {
-    "name": "Stuart Pearson",
-    "github": "stuartp44"
-  }
+  "authors": [
+    {
+      "name": "Stuart Pearson",
+      "github": "stuartp44"
+    }
+  ]
 }

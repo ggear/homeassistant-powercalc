@@ -6,16 +6,29 @@
   "calculation_strategy": "lut",
   "created_at": "2026-02-14T21:41:43Z",
   "device_type": "light",
+  "ean": [
+    "8720169277618"
+  ],
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 3300,
+    "rated_power": 48.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM Mini Gen4",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.5:docker"
   },
   "min_version": "1.20.6",
-  "name": "Hue Datura ceiling light",
+  "name": "Hue Datura Ceiling Light",
   "sub_profile_select": {
     "default": "bottom",
     "matchers": [
@@ -32,8 +45,10 @@
     ]
   },
   "standby_power": 0.36,
-  "author_info": {
-    "name": "Lukas Köhl",
-    "github": "lkoehl"
-  }
+  "authors": [
+    {
+      "name": "Lukas Köhl",
+      "github": "lkoehl"
+    }
+  ]
 }

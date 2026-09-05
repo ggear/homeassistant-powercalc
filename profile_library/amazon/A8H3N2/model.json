@@ -1,13 +1,24 @@
 {
   "aliases": [
     "A15996VY63BQ2D",
-    "A8H3N2",
     "KNIGHT A15996VY63BQ2D"
   ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2024-07-05T16:34:44Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "smart_display",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "840080510798",
+    "840080570136",
+    "840080597843"
+  ],
   "linear_config": {
     "calibrate": [
       "10 -> 5.11",
@@ -26,10 +37,13 @@
   "measure_description": "Measured by playing pink noise and increasing volume in 10% steps.",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Echo Show 8 (Gen2)",
   "standby_power": 4.28,
-  "author_info": {
-    "name": "Stuart Pearson",
-    "github": "stuartp44"
-  }
+  "authors": [
+    {
+      "name": "Stuart Pearson",
+      "github": "stuartp44"
+    }
+  ]
 }

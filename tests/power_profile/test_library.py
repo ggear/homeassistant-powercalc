@@ -57,7 +57,7 @@ async def test_model_listing_sorted(hass: HomeAssistant) -> None:
     models = await library.get_model_listing("signify")
 
     expected = [
-        "1740193P0",
+        "915005561201",
         "9290030514",
         "LCA007",
         "LCT010",
@@ -80,6 +80,16 @@ async def test_find_models(hass: HomeAssistant, model_info: ModelInfo, expected_
     library = await ProfileLibrary.factory(hass)
     models = sorted(await library.find_models(model_info))
     assert [model.model for model in models] == expected_models
+
+
+async def test_factory_prefers_cached_library(hass: HomeAssistant) -> None:
+    """Startup must load the library from local storage, never blocking on the download API."""
+    with patch(
+        "custom_components.powercalc.power_profile.library.ProfileLibrary.initialize",
+    ) as mock_initialize:
+        await ProfileLibrary.factory(hass)
+
+    mock_initialize.assert_called_once_with(prefer_cached=True)
 
 
 async def test_find_model_migration(hass: HomeAssistant) -> None:
@@ -127,7 +137,7 @@ async def test_non_existing_manufacturer_returns_empty_model_list(
         (ModelInfo("signify", "Hue go", "LLC020"), "signify", "LLC020"),
         (ModelInfo("ikea", "TRADFRI bulb E14 WS opal 400lm"), "ikea", "LED1536G5"),
         (ModelInfo("signify", "Hue Play", "440400982841"), "signify", "LCT024"),
-        (ModelInfo("wiz", "SHRGB"), "wiz", "SHRGB"),
+        (ModelInfo("wiz", "929003500001"), "wiz", "929003500001"),
         (ModelInfo("tuya", "TS011F"), "tuya", "TS011F"),
     ],
 )

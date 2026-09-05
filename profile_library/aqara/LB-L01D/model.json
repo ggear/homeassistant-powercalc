@@ -1,0 +1,46 @@
+{
+  "aliases": [
+    "6145",
+    "LB01D",
+    "lumi.light.agl001"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2026-02-16T06:45:36Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 1100,
+    "rated_power": 10.5,
+    "connectivity": [
+      "zigbee",
+      "matter",
+      "thread"
+    ]
+  },
+  "ean": [
+    "6975833357055"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly Plug US Gen4",
+  "measure_method": "script",
+  "mains_voltage": 120,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.20.5:docker"
+  },
+  "legacy_ids": [
+    "LB01D"
+  ],
+  "name": "LED Bulb T2 (E26, RGB CCT)",
+  "product_url": "https://us.aqara.com/products/led-bulb-t2-e26",
+  "standby_power": 0.14,
+  "authors": [
+    {
+      "name": "pinkfin",
+      "github": "pinkfin",
+      "email": "hot.wire1618@fastmail.com"
+    }
+  ]
+}

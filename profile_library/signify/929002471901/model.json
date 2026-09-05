@@ -1,10 +1,24 @@
 {
+  "ean": [
+    "8719514288195"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2025-01-22T15:53:12Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": "E27",
+    "lumens": 1600,
+    "rated_power": 15,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +26,10 @@
   },
   "name": "Hue White Ambiance Bulb A67 1600lm with Bluetooth",
   "standby_power": 0.41,
-  "author_info": {
-    "name": "Macstar1601",
-    "github": "Macstar1601"
-  }
+  "authors": [
+    {
+      "name": "Macstar1601",
+      "github": "Macstar1601"
+    }
+  ]
 }

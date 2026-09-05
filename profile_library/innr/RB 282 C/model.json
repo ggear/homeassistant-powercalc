@@ -1,0 +1,40 @@
+{
+  "authors": [
+    {
+      "github": "LewisSpring",
+      "name": "LewisSpring"
+    }
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2026-08-21T13:17:00Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 880,
+    "rated_power": 8.6,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718781556105",
+    "8718781556112"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "TP-Link Kasa HS110",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 1,
+    "SLEEP_TIME": 2.0,
+    "VERSION": "v0.4.1:app"
+  },
+  "name": "Smart Bulb Colour E27 800lm",
+  "product_url": "https://innr.com/products/innr-smart-bulb-colour-e27-2025",
+  "standby_power": 0.34,
+  "voltage_range": {
+    "max": 245.17,
+    "min": 238.75
+  }
+}

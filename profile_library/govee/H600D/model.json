@@ -2,19 +2,36 @@
   "calculation_strategy": "lut",
   "created_at": "2025-12-20T22:56:04Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "bulb",
+    "lumens": 400,
+    "rated_power": 4.8,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "6974316994756"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.19.5:docker"
   },
-  "name": "Smart Bulb GU10",
+  "name": "RGBWW Smart Light Bulb GU10",
   "standby_power": 0.27,
-  "author_info": {
-    "name": "Benjamin Neff",
-    "email": "benjamin@coding4coffee.ch",
-    "github": "SuperTux88"
-  }
+  "product_url": "https://uk.govee.com/products/govee-rgbww-smart-light-bulbs",
+  "authors": [
+    {
+      "name": "Benjamin Neff",
+      "email": "benjamin@coding4coffee.ch",
+      "github": "SuperTux88"
+    }
+  ]
 }

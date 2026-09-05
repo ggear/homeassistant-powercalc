@@ -13,10 +13,11 @@ export type SessionState =
   | "resumable";
 
 export type LutMode = "brightness" | "color_temp" | "hs" | "effect";
-export type DeviceClass = "power" | "voltage";
+export type DeviceClass = "power" | "voltage" | "battery";
 export type ChargingDeviceType = "vacuum_robot" | "lawn_mower_robot";
-export type ResumePolicy = "new" | "resume" | "overwrite";
-export type PowerMeterKind = PowerMeterSpec["type"];
+export type ResumePolicy = "new" | "resume";
+/** Derived from the spec union so a new meter variant automatically widens it. */
+export type PowerMeterType = PowerMeterSpec["type"];
 
 export type OperatingPoint =
   | { type: "light"; on: boolean; brightness?: number; color_temp_mired?: number; hue?: number; saturation?: number; effect?: string }
@@ -27,6 +28,8 @@ export type OperatingPoint =
 export interface EntityDescriptor {
   entity_id: string;
   name: string;
+  domain?: string;
+  device_class?: DeviceClass | null;
   device_id?: string;
   model_id?: string;
   state?: string;
@@ -34,12 +37,17 @@ export interface EntityDescriptor {
   supported_modes?: LutMode[];
   effect_list?: string[];
   related_voltage_entity_id?: string;
+  member_entity_ids?: string[];
 }
 
 export interface EntityCatalog {
   lights: EntityDescriptor[];
   powers: EntityDescriptor[];
   voltages: EntityDescriptor[];
+}
+
+export interface MeasureDeviceCatalog {
+  devices: string[];
 }
 
 export interface MeasurementParameters {
@@ -62,12 +70,13 @@ export interface MeasurementParameters {
   measure_time_effect_min: number;
 }
 
-export type MeasureDefaults = MeasurementParameters;
+/** Name of a tuning parameter, so a lookup keyed by one cannot name a parameter that does not exist. */
+export type MeasureParameterName = keyof MeasurementParameters;
 
 export interface Capabilities {
   runtime_version: string;
-  defaults: MeasureDefaults;
-  limits?: Record<string, { min: number; max: number }>;
+  defaults: MeasurementParameters;
+  limits?: Partial<Record<MeasureParameterName, { min: number; max: number }>>;
   developer_mode?: boolean;
   fast_test_mode?: boolean;
 }
@@ -86,6 +95,8 @@ export interface FormFieldOption {
   entity_domain?: string | null;
   /** Measurement parameters that only apply while this option is selected. */
   enables?: string[];
+  description?: string;
+  guidance?: string[];
 }
 
 export interface FormField {
@@ -101,18 +112,31 @@ export interface FormField {
   default?: PrimitiveValue;
   minimum?: number | null;
   maximum?: number | null;
+  /** Whether several entities can be selected for this field at once. */
+  multiple?: boolean;
+  /** Label to use while several entities are selected. */
+  plural_label?: string;
+  /** Entity field whose number of selected entities this count follows by default. */
+  derived_from?: string | null;
+  hint?: string;
+  visible_when?: Record<string, string[]>;
+  all_entities?: boolean;
+  entity_device_classes?: DeviceClass[];
+  related_to?: string | null;
+  same_device_only?: boolean;
+  review?: boolean;
 }
 
 /** A tuning parameter as one measure type presents it. Bounds come from `Capabilities.limits`. */
 export interface MeasureParameter {
-  name: string;
+  name: MeasureParameterName;
   label: string;
   hint?: string;
   step?: string;
   /** Heading this parameter is grouped under, repeated on each member of the group. */
   group?: string;
   /** Only applies while the named parameter is greater than one. */
-  requires_multiple?: string | null;
+  requires_multiple?: MeasureParameterName | null;
 }
 
 export interface MeasureDefinition {
@@ -153,13 +177,11 @@ export interface DummyLoadCalibration {
   power_meter_fingerprint?: string;
 }
 
-export interface AppMeasurementDefaults {
-  sleep_time: number;
-  sample_count: number;
-  sleep_time_sample: number;
-  max_retries: number;
-  max_nudges: number;
-}
+/** The subset of tuning parameters the app keeps as reusable defaults across sessions. */
+export type AppMeasurementDefaults = Pick<
+  MeasurementParameters,
+  "sleep_time" | "sample_count" | "sleep_time_sample" | "max_retries" | "max_nudges"
+>;
 
 export type PowerMeterSpec =
   | { type: "dummy" }
@@ -170,6 +192,7 @@ export type PowerMeterSpec =
 export type LightControllerSpec =
   | { type: "dummy" }
   | { type: "hass"; entity_id: string; transition_time?: number }
+  | { type: "hass_multi"; entity_ids: string[]; transition_time?: number }
   | { type: "hue"; bridge_ip: string; light: string };
 
 export type MediaControllerSpec = { type: "dummy" } | { type: "hass"; entity_id: string };
@@ -180,13 +203,22 @@ export interface LightMeasurementRequest extends BaseMeasurementRequest {
   measure_type: "light";
   controller: LightControllerSpec;
   modes: LutMode[];
-  generate_model: boolean;
   gzip: boolean;
   multiple_light_count: number;
 }
 
-export interface AverageMeasurementRequest extends BaseMeasurementRequest { measure_type: "average"; duration: number; }
-export interface RecorderMeasurementRequest extends BaseMeasurementRequest { measure_type: "recorder"; export_filename: string; }
+export interface AverageMeasurementRequest extends BaseMeasurementRequest { measure_type: "average"; controller?: null; duration: number; }
+export interface RecorderMeasurementRequest extends BaseMeasurementRequest {
+  measure_type: "recorder";
+  controller?: null;
+  recorder_purpose: "playbook" | "complex_profile";
+  profile_recipe?: "generic" | "vacuum_robot" | null;
+  tracked_entity_ids?: string[];
+  vacuum_entity_id?: string | null;
+  battery_entity_id?: string | null;
+  additional_entity_ids?: string[];
+  export_filename: string;
+}
 export interface SpeakerMeasurementRequest extends BaseMeasurementRequest { measure_type: "speaker"; controller: MediaControllerSpec; disable_streaming: boolean; }
 export interface ChargingMeasurementRequest extends BaseMeasurementRequest { measure_type: "charging"; controller: ChargingControllerSpec; charging_device_type: ChargingDeviceType; }
 export interface FanMeasurementRequest extends BaseMeasurementRequest { measure_type: "fan"; controller: FanControllerSpec; }
@@ -208,6 +240,15 @@ export interface PreflightResponse {
   power_meter_diagnostic?: PowerMeterDiagnostic | null;
   battery_level_entity_id?: string | null;
   battery_level_attribute?: string | null;
+  light_load_probe?: {
+    checked_variations: number;
+    minimum_aggregate_power_w: number;
+    points: {
+      label: string;
+      mode: LutMode;
+      power_w: number;
+    }[];
+  } | null;
 }
 
 export interface SessionProgress {
@@ -221,8 +262,11 @@ export interface SessionProgress {
 export interface SessionSnapshot {
   session_id?: string;
   state: SessionState;
+  created_at?: string;
+  updated_at?: string;
   phase?: string;
   confirmation_message?: string | null;
+  confirmation_action?: string | null;
   mode?: string | null;
   progress?: SessionProgress;
   warnings?: string[];
@@ -230,6 +274,30 @@ export interface SessionSnapshot {
   summary?: Record<string, string> | null;
   request?: MeasurementRequest;
   operating_point?: OperatingPoint | null;
+  calibration_sample?: {
+    power: number;
+    resistance: number;
+    voltage: number;
+  } | null;
+  entity_states?: Record<string, string>;
+}
+
+export interface SessionSummary {
+  session_id: string;
+  state: SessionState;
+  created_at: string;
+  updated_at: string;
+  measure_type: MeasureType;
+  model_id: string;
+  product_name: string;
+  measure_device: string;
+  completed: number;
+  total: number;
+  percent: number;
+  can_resume: boolean;
+  file_count: number;
+  size: number;
+  active: boolean;
 }
 
 export interface SessionFile {
@@ -266,21 +334,42 @@ export interface PlotCollection {
   warnings: string[];
 }
 
+/** A collection with nothing plotted yet, used as the initial and the reset value. */
+export function emptyPlots(warnings: string[] = []): PlotCollection {
+  return { partial: false, plots: [], warnings };
+}
+
+/**
+ * Payload of a regular session event. Progress, phase and state all reach the app through the
+ * snapshot that rides along with the event, so only live/log fields are read from the payload.
+ */
 export interface SessionEventData {
   message?: string;
   power?: number;
-  completed?: number;
-  total?: number;
-  skipped?: number;
-  mode?: string;
-  estimated_remaining?: string;
-  state?: SessionState;
-  error?: string | null;
+  resistance?: number;
+  voltage?: number;
+  states?: Record<string, string>;
 }
+
+/** Event types the stream subscribes to. The server sends each one as its own SSE event name. */
+export const REGULAR_SESSION_EVENT_TYPES = [
+  "phase",
+  "progress",
+  "state",
+  "warning",
+  "log",
+  "checkpoint",
+  "heartbeat",
+  "sample",
+  "calibration_sample",
+  "entity_states",
+] as const;
+
+export const SESSION_EVENT_TYPES = [...REGULAR_SESSION_EVENT_TYPES, "operating_point"] as const;
 
 interface RegularSessionEvent {
   sequence: number;
-  type: "phase" | "progress" | "state" | "warning" | "log" | "checkpoint" | "heartbeat" | "sample";
+  type: (typeof REGULAR_SESSION_EVENT_TYPES)[number];
   data: SessionEventData;
   snapshot?: SessionSnapshot;
 }
@@ -297,7 +386,7 @@ export type SessionEvent = RegularSessionEvent | OperatingPointSessionEvent;
 export interface AppSettings {
   default_power_entity_id: string | null;
   default_measure_device: string | null;
-  power_meter: PowerMeterKind | null;
+  power_meter: PowerMeterType | null;
   shelly_ip: string | null;
   shelly_username?: string;
   shelly_password_configured?: boolean;
@@ -359,6 +448,7 @@ export interface ContributionDraft {
   base_sha?: string | null;
   manufacturer_name: string;
   manufacturer_directory: string;
+  manufacturer_library_url?: string | null;
   model_id: string;
   product_name: string;
   contributor: string;
@@ -450,4 +540,11 @@ export interface ApiErrorBody {
   code: string;
   message: string;
   field: string | null;
+  help_url?: string | null;
+  help_label?: string | null;
+}
+
+export interface ErrorHelp {
+  url: string;
+  label: string;
 }

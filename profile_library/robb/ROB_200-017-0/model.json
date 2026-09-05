@@ -2,20 +2,30 @@
   "calculation_strategy": "fixed",
   "created_at": "2024-05-07T20:30:00Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": true,
+    "max_load_watts": 3680,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "7439647749714"
+  ],
   "measure_description": "Manually measured average of 2 plugs",
   "measure_device": "Brennenstuhl PM 231 E",
   "measure_method": "manual",
-  "name": "Zigbee Smart Plug",
+  "mains_voltage": 230,
+  "name": "Zigbee Smart Plug 3680W",
   "only_self_usage": true,
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
   "standby_power": 0.2,
   "standby_power_on": 0.65,
-  "author_info": {
-    "name": "Tim van Werkhoven",
-    "email": "tim+github.com@vanwerkhoven.org",
-    "github": "tvwerkhoven"
-  }
+  "authors": [
+    {
+      "name": "Tim van Werkhoven",
+      "email": "tim+github.com@vanwerkhoven.org",
+      "github": "tvwerkhoven"
+    }
+  ]
 }

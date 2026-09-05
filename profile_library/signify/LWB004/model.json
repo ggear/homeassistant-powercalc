@@ -5,14 +5,29 @@
   "calculation_strategy": "lut",
   "created_at": "2021-06-21T13:40:20Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "lumens": 750,
+    "rated_power": 9,
+    "socket": [
+      "E26",
+      "E27"
+    ],
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Bulbs was measured twice at each dim setting (100 points) and mean value was used when there were differences",
   "measure_device": "Zhurui PR10",
   "measure_method": "manual",
-  "name": "Hue Lux E27 750lm",
+  "mains_voltage": 230,
+  "name": "Hue Lux Bulb 750lm",
   "standby_power": 0.29,
-  "author_info": {
-    "name": "nepozs",
-    "email": "szopen@os.pl",
-    "github": "nepozs"
-  }
+  "authors": [
+    {
+      "name": "nepozs",
+      "email": "szopen@os.pl",
+      "github": "nepozs"
+    }
+  ]
 }

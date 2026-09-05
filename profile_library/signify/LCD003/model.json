@@ -3,12 +3,25 @@
     "8719514344723",
     "9290030168"
   ],
+  "ean": [
+    "8719514344723"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-07-24T06:28:09Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "lumens": 800,
+    "rated_power": 8.5,
+    "form_factor": "downlight",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script, 2 lights",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -16,8 +29,10 @@
   },
   "name": "Hue Akari Downlight",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "niggles1973",
-    "github": "niggles1973"
-  }
+  "authors": [
+    {
+      "name": "niggles1973",
+      "github": "niggles1973"
+    }
+  ]
 }

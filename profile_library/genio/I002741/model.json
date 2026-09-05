@@ -2,19 +2,32 @@
   "calculation_strategy": "lut",
   "created_at": "2024-03-16T09:28:20Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "downlight",
+    "lumens": 850,
+    "rated_power": 9.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Xiaomi ZNCZ02LM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 15,
     "VERSION": "v1.10.5:docker"
   },
-  "name": "Wi-Fi Dimmable 9 W LED CCT Downlight",
+  "name": "Wi-Fi Dimmable RGB+CCT 9W LED Downlight",
+  "product_url": "https://www.mirabella.com.au/products/i002741",
   "standby_power": 1.2,
-  "author_info": {
-    "name": "noob4722019",
-    "email": "s.milisavic@gmail.com",
-    "github": "smilisav"
-  }
+  "authors": [
+    {
+      "name": "noob4722019",
+      "email": "s.milisavic@gmail.com",
+      "github": "smilisav"
+    }
+  ]
 }

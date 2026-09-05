@@ -1,11 +1,15 @@
 {
-  "aliases": [
-    "SYMFONISK Picture frame"
-  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2022-11-10T09:06:49Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "picture_frame",
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "0 -> 3.0",
@@ -24,11 +28,14 @@
   "measure_description": "Streamed 'Pink noise' from https://www.genelec.com/audio-test-signals, and took average measurements over 60s using the docker container",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "SYMFONISK Picture Frame",
   "standby_power": 2.4,
-  "author_info": {
-    "name": "sockmonkey0223",
-    "email": "joshua.oswald@gmail.com",
-    "github": "sockmonkey0223"
-  }
+  "authors": [
+    {
+      "name": "sockmonkey0223",
+      "email": "joshua.oswald@gmail.com",
+      "github": "sockmonkey0223"
+    }
+  ]
 }

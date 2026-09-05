@@ -1,12 +1,21 @@
 {
   "aliases": [
-    "Play:5",
-    "Five"
+    "Play:5"
   ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2024-03-30T13:51:13Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "8717755773012"
+  ],
   "linear_config": {
     "calibrate": [
       "10 -> 7.5",
@@ -25,16 +34,20 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.11.3:docker"
   },
   "name": "Play:5",
+  "product_url": "https://support.sonos.com/en-us/products/play-5-gen-2",
   "standby_power": 2.15,
-  "author_info": {
-    "name": "bragra",
-    "email": "bragragithub@gradussen.com",
-    "github": "bragra"
-  }
+  "authors": [
+    {
+      "name": "bragra",
+      "email": "bragragithub@gradussen.com",
+      "github": "bragra"
+    }
+  ]
 }

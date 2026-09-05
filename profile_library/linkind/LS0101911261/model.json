@@ -2,23 +2,42 @@
   "aliases": [
     "1011"
   ],
-  "author_info": {
-    "github": "Maxik933",
-    "name": "Maxik933"
-  },
   "calculation_strategy": "lut",
   "created_at": "2026-07-29T13:40:01Z",
   "device_type": "light",
-  "max_voltage": 234.2,
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 800,
+    "rated_power": 9.0,
+    "connectivity": [
+      "matter",
+      "wifi"
+    ]
+  },
+  "ean": [
+    "850053671883",
+    "850058571638"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2.0,
     "VERSION": "v0.2.1:app"
   },
-  "min_voltage": 231.7,
-  "name": "Matter Smart RGBTW Lampe, Wifi E27 800 Lumen",
-  "standby_power": 0.29
+  "name": "Matter RGBTW Bulb, E27 (9W, 800 lm)",
+  "standby_power": 0.29,
+  "voltage_range": {
+    "min": 231.7,
+    "max": 234.2
+  },
+  "authors": [
+    {
+      "github": "Maxik933",
+      "name": "Maxik933"
+    }
+  ]
 }

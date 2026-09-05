@@ -1,11 +1,26 @@
 {
-  "aliases": [],
+  "aliases": [
+    "7099930PH"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-01-15T15:26:20Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 210,
+    "rated_power": 10,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718291439813"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -13,9 +28,11 @@
   },
   "name": "LivingColors Iris Table Lamp Gen3",
   "standby_power": 0.37,
-  "author_info": {
-    "name": "wormiedk",
-    "email": "wormie@alberg.dk",
-    "github": "wormiedk"
-  }
+  "authors": [
+    {
+      "name": "wormiedk",
+      "email": "wormie@alberg.dk",
+      "github": "wormiedk"
+    }
+  ]
 }

@@ -1,4 +1,9 @@
 {
   "name": "Cree",
-  "aliases": []
+  "aliases": [
+    "Tuya"
+  ],
+  "website": "https://www.creelighting.com",
+  "country": "US",
+  "description": "American lighting company specializing in energy-efficient LED lamps and luminaires."
 }

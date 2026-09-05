@@ -1,19 +1,32 @@
 {
   "aliases": [
+    "TRADFRI LED driver, 30 w",
+    "ICPSHC24-30EU-IL-1/ICPSHC24-10EU-IL-2",
     "TRADFRI LED driver, 30 w (ICPSHC24-30EU-IL-1/ICPSHC24-10EU-IL-2"
   ],
   "calculation_strategy": "linear",
   "created_at": "2025-02-12T13:05:00Z",
   "device_type": "smart_dimmer",
+  "device_specs": {
+    "form_factor": "led_driver",
+    "max_load_watts": 30,
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Standby power measured with smart plug",
   "measure_device": "Nous A8T",
   "measure_device_firmware": "EspHome",
   "measure_method": "manual",
-  "name": "TRADFRI LED driver, 30 w",
+  "mains_voltage": 230,
+  "name": "TRADFRI LED Driver (30W)",
   "standby_power": 0.31,
   "standby_power_on": 0.35,
-  "author_info": {
-    "name": "Marcus Voß",
-    "github": "mvoss96"
-  }
+  "authors": [
+    {
+      "name": "Marcus Voß",
+      "github": "mvoss96"
+    }
+  ]
 }

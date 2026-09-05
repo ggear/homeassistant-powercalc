@@ -6,9 +6,22 @@
   "calculation_strategy": "lut",
   "created_at": "2023-04-03T21:42:31Z",
   "device_type": "light",
+  "ean": [
+    "8719514355057"
+  ],
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "panel",
+    "lumens": 4150,
+    "rated_power": 60,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -16,9 +29,11 @@
   },
   "name": "Hue White and Color Ambiance Surimu",
   "standby_power": 0.39,
-  "author_info": {
-    "name": "vandalon",
-    "email": "joris@vandalon.nl",
-    "github": "vandalon"
-  }
+  "authors": [
+    {
+      "name": "vandalon",
+      "email": "joris@vandalon.nl",
+      "github": "vandalon"
+    }
+  ]
 }

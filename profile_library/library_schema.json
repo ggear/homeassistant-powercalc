@@ -52,7 +52,7 @@
       "required": [
         "id",
         "device_type",
-        "update_timestamp"
+        "updated_at"
       ],
       "properties": {
         "id": {
@@ -70,7 +70,10 @@
           }
         },
         "max_power": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Maximum power consumption of the model in Watts",
           "minimum": 0
         },
@@ -88,26 +91,72 @@
             "type": "string"
           }
         },
+        "description": {
+          "type": "string",
+          "description": "A short description of the device"
+        },
         "updated_at": {
           "type": "string",
-          "format": "date-time",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
           "description": "Last update of the model"
         },
         "has_sub_profiles": {
           "type": "boolean",
           "description": "Indicates whether the profile has sub profiles"
+        },
+        "lut_quality": {
+          "type": "object",
+          "description": "Smoothness scores of the LUT files of the model. Absent for models which do not use the LUT calculation strategy",
+          "required": [
+            "score"
+          ],
+          "properties": {
+            "score": {
+              "$ref": "#/$defs/lut_quality_score",
+              "description": "Worst score over all LUT files of the model, including its sub profiles"
+            },
+            "brightness": {
+              "$ref": "#/$defs/lut_quality_score",
+              "description": "Worst score over all brightness LUT files of the model"
+            },
+            "color_temp": {
+              "$ref": "#/$defs/lut_quality_score",
+              "description": "Worst score over all color_temp LUT files of the model"
+            }
+          }
         }
       }
+    },
+    "lut_quality_score": {
+      "type": "number",
+      "description": "LUT smoothness score, where 100 is a perfectly smooth curve",
+      "minimum": 0,
+      "maximum": 100
     },
     "device_type": {
       "type": "string",
       "enum": [
+        "air_conditioner",
+        "air_purifier",
         "camera",
+        "cover",
+        "fan",
+        "generic_iot",
+        "heating",
+        "humidifier",
+        "lawn_mower_robot",
         "light",
+        "power_meter",
+        "printer",
+        "set_top_box",
+        "smart_dimmer",
         "smart_switch",
         "smart_speaker",
-        "network"
+        "television",
+        "network",
+        "ups",
+        "vacuum_robot",
+        "water_heater"
       ],
       "description": "Type of device"
     }

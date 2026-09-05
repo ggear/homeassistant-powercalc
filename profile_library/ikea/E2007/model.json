@@ -5,6 +5,15 @@
   "calculation_strategy": "linear",
   "created_at": "2025-04-18T12:32:08Z",
   "device_type": "fan",
+  "device_specs": {
+    "form_factor": "air_purifier",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "legacy_ids": [
+    "STARKVIND Air purifier table"
+  ],
   "linear_config": {
     "attribute": "percentage",
     "calibrate": [
@@ -24,10 +33,14 @@
   "measure_description": "Manually measured",
   "measure_device": "GreenWave GWPN1",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "STARKVIND air purifier table",
+  "product_url": "https://www.ikea.com/us/en/p/starkvind-table-with-air-purifier-stained-oak-veneer-white-smart-80461974/",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "Marius",
-    "github": "Mariusthvdb"
-  }
+  "authors": [
+    {
+      "name": "Marius",
+      "github": "Mariusthvdb"
+    }
+  ]
 }

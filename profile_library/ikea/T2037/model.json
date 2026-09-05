@@ -1,19 +1,35 @@
 {
+  "aliases": [
+    "STOFTMOLN ceiling/wall lamp WW37"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2023-09-19T18:51:11Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2000,
+    "rated_power": 20,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.9.4:docker"
   },
-  "name": "STOFTMOLN ceiling/wall lamp WW37",
+  "name": "STOFTMOLN LED Ceiling/Wall Lamp (37 cm)",
+  "product_url": "https://www.ikea.com/nl/nl/p/stoftmoln-led-plafond-wandlamp-smart-draadloos-dimbaar-warm-wit-wit-20510779/",
   "standby_power": 0.11,
-  "author_info": {
-    "name": "WarLL3",
-    "github": "WarLL3"
-  }
+  "authors": [
+    {
+      "name": "WarLL3",
+      "github": "WarLL3"
+    }
+  ]
 }

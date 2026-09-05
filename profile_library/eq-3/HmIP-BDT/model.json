@@ -2,23 +2,35 @@
   "calculation_strategy": "linear",
   "config_flow_discovery_remarks": "This device controls a non-smart device, hence it only tracks standby power by default. You need to configure the power draw of the controlled device yourself while or after the configuring process.",
   "created_at": "2025-02-04T18:37:40Z",
-  "description": "HomematicIP smart trailing edge dimmer for outlets. This model is configured only for standby power usage of the smart device itself. The connected device(s) power usage must be configured by the user since it is possible to connect anything to it.",
+  "description": "Homematic IP trailing-edge dimming actuator for brand switch systems. This profile only models the dimmer's self-consumption; configure the connected load separately.",
   "device_type": "smart_dimmer",
-  "measure_description": "Manually measured with dummy load attached at 7.61W (average over 300s).",
+  "device_specs": {
+    "form_factor": "wall_switch",
+    "max_load_watts": 80,
+    "power_monitoring": false,
+    "rated_power": 0.4,
+    "connectivity": [
+      "proprietary"
+    ]
+  },
+  "ean": [
+    "4047976431663"
+  ],
+  "measure_description": "Measured using Powercalc average mode for 300 seconds with a 7.61W dummy load.",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "VERSION": "v1.17.1:docker"
   },
-  "name": "HmIP-BDT",
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
+  "name": "Dimming Actuator for Brand Switches",
+  "product_url": "https://homematic-ip.com/en/product/dimming-actuator-brand-switches-trailing-edge",
   "standby_power": 0.36,
   "standby_power_on": 0.41,
-  "author_info": {
-    "name": "CV",
-    "github": "dagobert"
-  }
+  "authors": [
+    {
+      "name": "CV",
+      "github": "dagobert"
+    }
+  ]
 }

@@ -3,6 +3,16 @@
   "calculation_strategy": "linear",
   "created_at": "2022-10-05T10:14:54Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "soundbar",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "6925281968365"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 7.68",
@@ -22,7 +32,9 @@
   "measure_description": "Streamed 'Armin van Buuren - Coming Around Again' using spotify, and took average measurements using the measure.py tool on different volume levels",
   "measure_device": "Shelly Plug S",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Citation MultiBeam 700",
+  "product_url": "https://support.harmankardon.com/us/en/howto/citation-multibeam-700-software-update-release-notes-us/000037032.html",
   "sensor_config": {
     "sleep_power": {
       "delay": 1080,
@@ -30,9 +42,11 @@
     }
   },
   "standby_power": 7.58,
-  "author_info": {
-    "name": "Daniel O'Connor",
-    "email": "daniel.oconnor@gmail.com",
-    "github": "CloCkWeRX"
-  }
+  "authors": [
+    {
+      "name": "Daniel O'Connor",
+      "email": "daniel.oconnor@gmail.com",
+      "github": "CloCkWeRX"
+    }
+  ]
 }

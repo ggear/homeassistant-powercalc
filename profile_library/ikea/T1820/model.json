@@ -5,9 +5,19 @@
   "calculation_strategy": "lut",
   "created_at": "2021-12-29T19:34:57Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "spot",
+    "lumens": 600,
+    "rated_power": 9,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -15,8 +25,10 @@
   },
   "name": "LEPTITER recessed spot light",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "marthubner",
-    "github": "marthubner"
-  }
+  "authors": [
+    {
+      "name": "marthubner",
+      "github": "marthubner"
+    }
+  ]
 }

@@ -1,16 +1,32 @@
 {
+  "aliases": [
+    "929002240401"
+  ],
   "calculation_strategy": "fixed",
   "created_at": "2022-09-21T13:45:02Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718699689285"
+  ],
   "measure_description": "Manually measured. Copied from LOM002 as suggested in https://github.com/bramstroker/homeassistant-powercalc/discussions/1093",
   "measure_device": "Shelly Plug S",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Hue Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.23,
   "standby_power_on": 0.91,
-  "author_info": {
-    "name": "Marius",
-    "github": "Mariusthvdb"
-  }
+  "authors": [
+    {
+      "name": "Marius",
+      "github": "Mariusthvdb"
+    }
+  ]
 }

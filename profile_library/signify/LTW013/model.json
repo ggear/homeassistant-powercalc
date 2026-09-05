@@ -2,12 +2,25 @@
   "aliases": [
     "8718696598283"
   ],
+  "ean": [
+    "8718696598283"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-02-14T21:48:07Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "lumens": 250,
+    "rated_power": 5.5,
+    "form_factor": "spot",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 5,
@@ -15,9 +28,11 @@
   },
   "name": "Hue White Ambiance GU10",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "KrzysztofHajdamowicz",
-    "email": "uosiu@uosiu.info",
-    "github": "KrzysztofHajdamowicz"
-  }
+  "authors": [
+    {
+      "name": "KrzysztofHajdamowicz",
+      "email": "uosiu@uosiu.info",
+      "github": "KrzysztofHajdamowicz"
+    }
+  ]
 }

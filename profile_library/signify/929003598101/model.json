@@ -1,0 +1,38 @@
+{
+  "aliases": [
+    "929002966501"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2026-02-13T05:35:26Z",
+  "device_type": "light",
+  "ean": [
+    "8720169159198"
+  ],
+  "device_specs": {
+    "socket": "integrated",
+    "lumens": 2850,
+    "form_factor": "panel",
+    "rated_power": 40,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly 1PM Mini Gen4",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.20.4:docker"
+  },
+  "name": "Hue Surimu panel",
+  "standby_power": 0.15,
+  "authors": [
+    {
+      "name": "Bram",
+      "github": "bramstroker",
+      "email": "bgerritsen@emico.nl"
+    }
+  ]
+}

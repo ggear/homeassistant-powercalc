@@ -5,18 +5,30 @@
   "calculation_strategy": "lut",
   "created_at": "2026-04-06T17:34:33Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 1500,
+    "rated_power": 22,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.11:docker"
   },
-  "name": "GUNNARP LED Ceiling / Wall Lamp 40cm",
+  "name": "GUNNARP LED Ceiling/Wall Lamp (40 cm)",
   "standby_power": 0.05,
-  "author_info": {
-    "name": "Servox3",
-    "github": "Servox3"
-  }
+  "authors": [
+    {
+      "name": "Servox3",
+      "github": "Servox3"
+    }
+  ]
 }

@@ -5,19 +5,34 @@
   "calculation_strategy": "lut",
   "created_at": "2023-04-03T21:42:31Z",
   "device_type": "light",
+  "ean": [
+    "8719514382640"
+  ],
+  "device_specs": {
+    "socket": "integrated",
+    "lumens": 3750,
+    "form_factor": "panel",
+    "rated_power": 39.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.3.13:docker"
   },
-  "name": "Hue White Ambiance Aurelle square panel",
+  "name": "Hue White Ambiance Aurelle Square Panel",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "vandalon",
-    "email": "joris@vandalon.nl",
-    "github": "vandalon"
-  }
+  "authors": [
+    {
+      "name": "vandalon",
+      "email": "joris@vandalon.nl",
+      "github": "vandalon"
+    }
+  ]
 }

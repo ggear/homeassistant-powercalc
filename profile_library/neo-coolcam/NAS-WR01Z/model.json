@@ -2,20 +2,27 @@
   "calculation_strategy": "fixed",
   "created_at": "2022-10-04T20:16:59Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": true,
+    "connectivity": [
+      "zwave"
+    ],
+    "rated_power": 0.13
+  },
   "measure_description": "Manually measured",
   "measure_device": "Zhurui PR10",
   "measure_method": "manual",
-  "name": "Smart Power Plug",
+  "mains_voltage": 230,
+  "name": "Z-Wave Smart Plug",
   "only_self_usage": true,
-  "sensor_config": {
-    "energy_sensor_naming": "{} Device Energy",
-    "power_sensor_naming": "{} Device Power"
-  },
   "standby_power": 0.31,
   "standby_power_on": 0.58,
-  "author_info": {
-    "name": "Bram Gerritsen",
-    "email": "bgerritsen@gmail.com",
-    "github": "bramstroker"
-  }
+  "authors": [
+    {
+      "name": "Bram Gerritsen",
+      "email": "bgerritsen@gmail.com",
+      "github": "bramstroker"
+    }
+  ]
 }

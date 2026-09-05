@@ -1,0 +1,51 @@
+{
+  "aliases": [
+    "HomePod (gen 2)"
+  ],
+  "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
+  "calculation_strategy": "linear",
+  "created_at": "2024-03-17T20:29:31Z",
+  "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "thread",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "194253467878"
+  ],
+  "linear_config": {
+    "calibrate": [
+      "10 -> 7.06",
+      "20 -> 7.14",
+      "30 -> 8.27",
+      "40 -> 11.74",
+      "50 -> 13.35",
+      "60 -> 15.29",
+      "70 -> 16.34",
+      "80 -> 18.84",
+      "90 -> 20.09",
+      "100 -> 27.08",
+      "0 -> 1.01"
+    ]
+  },
+  "legacy_ids": [
+    "MQJ83"
+  ],
+  "measure_description": "Manually changed the volume in 10% steps, streamed pink noise, and used the measure utility to average each level for 60 seconds.",
+  "measure_device": "Shelly Plus Plug",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "name": "HomePod (Gen 2)",
+  "product_url": "https://www.apple.com/nl/homepod-2nd-generation/specs/",
+  "standby_power": 1.01,
+  "authors": [
+    {
+      "name": "laplacacm",
+      "github": "laplacacm"
+    }
+  ]
+}

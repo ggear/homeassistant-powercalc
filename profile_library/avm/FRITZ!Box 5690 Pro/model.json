@@ -2,17 +2,33 @@
   "calculation_strategy": "fixed",
   "created_at": "2025-12-14T07:22:00Z",
   "device_type": "network",
+  "device_specs": {
+    "form_factor": "router",
+    "rated_power": 38,
+    "connectivity": [
+      "zigbee",
+      "wifi",
+      "ethernet"
+    ]
+  },
   "discovery_by": "device",
+  "ean": [
+    "4023125030437"
+  ],
   "fixed_config": {
     "power": 14.5
   },
   "measure_description": "Manually measured.",
   "measure_device": "Nous A1Z",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "FRITZ!Box 5690 Pro",
-  "author_info": {
-    "name": "Robert M. Albrecht",
-    "email": "powercalc@romal.org",
-    "github": "rmalbrecht"
-  }
+  "product_url": "https://fritz.com/en/products/fritz-box-5690-pro-20003043",
+  "authors": [
+    {
+      "name": "Robert M. Albrecht",
+      "email": "powercalc@romal.org",
+      "github": "rmalbrecht"
+    }
+  ]
 }

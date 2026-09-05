@@ -1,0 +1,56 @@
+{
+  "aliases": [
+    "Home"
+  ],
+  "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
+  "calculation_strategy": "linear",
+  "created_at": "2025-02-10T17:04:27Z",
+  "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "811571018420"
+  ],
+  "linear_config": {
+    "calibrate": [
+      "10 -> 2.56",
+      "20 -> 2.56",
+      "30 -> 2.59",
+      "40 -> 2.69",
+      "50 -> 2.71",
+      "60 -> 3.06",
+      "70 -> 3.37",
+      "80 -> 3.57",
+      "90 -> 3.59",
+      "100 -> 3.69",
+      "0 -> 2.56"
+    ]
+  },
+  "legacy_ids": [
+    "Home"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Nous A8T",
+  "measure_device_firmware": "EspHome",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.17.6:docker"
+  },
+  "name": "Home",
+  "standby_power": 2.0,
+  "authors": [
+    {
+      "name": "Daniel O'Connor",
+      "email": "daniel.oconnor@gmail.com",
+      "github": "CloCkWeRX"
+    }
+  ]
+}

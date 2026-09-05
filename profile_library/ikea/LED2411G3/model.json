@@ -6,19 +6,33 @@
   "calculation_strategy": "lut",
   "created_at": "2026-01-20T16:05:00Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "globe",
+    "socket": "E27",
+    "lumens": 470,
+    "rated_power": 3.4,
+    "connectivity": [
+      "matter",
+      "thread"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.2:docker"
   },
   "name": "KAJPLATS E27 WS G60 clear 470lm",
+  "product_url": "https://www.ikea.com/gb/en/p/kajplats-led-bulb-e27-470-lumen-smart-white-spectrum-clear-globe-60611489/",
   "standby_power": 0.07,
-  "author_info": {
-    "name": "Linus Nordin",
-    "email": "linus.nordin@gmail.com",
-    "github": "gribber"
-  }
+  "authors": [
+    {
+      "name": "Linus Nordin",
+      "email": "linus.nordin@gmail.com",
+      "github": "gribber"
+    }
+  ]
 }

@@ -2,14 +2,34 @@
   "calculation_strategy": "lut",
   "created_at": "2021-08-17T10:46:54Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": [
+      "E26",
+      "E27",
+      "B22"
+    ],
+    "lumens": 800,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "745883668373"
+  ],
   "measure_description": "Was not able to measure the standby power, the value is assumed",
   "measure_device": "RRPM02 (Model); 4897037690801 (Barcode); Reduction Revolution Plug-in Power Meter",
   "measure_method": "manual",
-  "name": "WeMo smart LED bulb",
+  "mains_voltage": 230,
+  "name": "Wemo Smart LED Bulb",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "OzGav",
-    "email": "gavnosp@hotmail.com",
-    "github": "OzGav"
-  }
+  "standby_power_estimated": true,
+  "authors": [
+    {
+      "name": "OzGav",
+      "email": "gavnosp@hotmail.com",
+      "github": "OzGav"
+    }
+  ]
 }

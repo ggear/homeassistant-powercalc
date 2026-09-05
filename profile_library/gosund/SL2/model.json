@@ -1,0 +1,35 @@
+{
+  "calculation_strategy": "lut",
+  "created_at": "2026-01-03T10:49:39Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "strip",
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "6972391282317"
+  ],
+  "legacy_ids": [
+    "sl2"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Nous A1T",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.20.1:docker"
+  },
+  "name": "Smart Wi-Fi RGB LED Light Strip (5 m)",
+  "standby_power": 0.1,
+  "authors": [
+    {
+      "name": "Jarod2801",
+      "github": "Jarod2801"
+    }
+  ]
+}

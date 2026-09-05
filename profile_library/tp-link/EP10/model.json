@@ -2,16 +2,30 @@
   "calculation_strategy": "fixed",
   "created_at": "2025-01-20T10:00:00Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "840030702648"
+  ],
   "measure_description": "Manually measured.",
   "measure_device": "TP-Link Kasa KP125M",
   "measure_method": "manual",
+  "mains_voltage": 120,
   "name": "Kasa Smart WiFi Plug Mini",
   "only_self_usage": false,
   "standby_power": 0.58,
   "standby_power_on": 1.09,
-  "author_info": {
-    "name": "Thiago Oliveira",
-    "email": "infratl@gmail.com",
-    "github": "chilicheech"
-  }
+  "product_url": "https://www.tp-link.com/us/home-networking/smart-plug/ep10/v1/",
+  "authors": [
+    {
+      "name": "Thiago Oliveira",
+      "email": "infratl@gmail.com",
+      "github": "chilicheech"
+    }
+  ]
 }

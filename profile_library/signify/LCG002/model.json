@@ -21,19 +21,42 @@
     "5062348P7",
     "5062448P7",
     "9290019531",
-    "929001953101"
+    "929001953101",
+    "5060730P7",
+    "5060731P7",
+    "5060830P7",
+    "5060831P7",
+    "5061030P7",
+    "5061031P7"
   ],
   "calculation_strategy": "lut",
   "created_at": "2021-09-14T11:40:23Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "spot",
+    "lumens": 350,
+    "rated_power": 5.7,
+    "connectivity": [
+      "zigbee",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "8718699628659",
+    "8718699629250"
+  ],
   "measure_description": "Measure Script for Tasmota",
   "measure_device": "Gosund SP111",
   "measure_device_firmware": "Tasmota 9.5.0",
   "measure_method": "script",
-  "name": "Hue White and Color Ambiance GU10 BT",
+  "mains_voltage": 230,
+  "name": "Hue White and Color Ambiance GU10 Bluetooth",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "Stefan Gries",
-    "github": "stefangries"
-  }
+  "authors": [
+    {
+      "name": "Stefan Gries",
+      "github": "stefangries"
+    }
+  ]
 }

@@ -2,19 +2,36 @@
   "calculation_strategy": "lut",
   "created_at": "2025-02-11T20:22:23Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 750,
+    "rated_power": 12.0,
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "850030064714"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "master"
   },
-  "name": "String lights",
+  "name": "RGBIC Warm White Smart Outdoor String Lights (48ft)",
+  "product_url": "https://us.govee.com/products/refurbished-govee-rgbic-warm-white-wi-fi-bluetooth-smart-outdoor-string-lights",
   "standby_power": 1.8,
-  "author_info": {
-    "name": "Chris Hallgren",
-    "email": "challgren@gmail.com",
-    "github": "challgren"
-  }
+  "authors": [
+    {
+      "name": "Chris Hallgren",
+      "email": "challgren@gmail.com",
+      "github": "challgren"
+    }
+  ]
 }

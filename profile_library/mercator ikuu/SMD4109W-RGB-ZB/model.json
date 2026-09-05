@@ -1,20 +1,39 @@
 {
+  "aliases": [
+    "TS0505B"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2024-10-25T08:44:03Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "downlight",
+    "lumens": 740,
+    "rated_power": 9.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "9312699205484"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus 2PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.14.10:docker"
   },
-  "name": "RGB + CCT Zigbee 9 W LED Downlight (92 mm)",
+  "name": "Walter RGB+CCT Zigbee 9W LED Downlight (92 mm)",
+  "product_url": "https://mercator.com.au/products/walter-9w-90mm-ikuu-smart-zigbee-rgb-and-cct-led-downlight",
   "standby_power": 0.43,
-  "author_info": {
-    "name": "hemiceni",
-    "email": "ivansiegmann@live.com",
-    "github": "hemiceni"
-  }
+  "authors": [
+    {
+      "name": "hemiceni",
+      "email": "ivansiegmann@live.com",
+      "github": "hemiceni"
+    }
+  ]
 }

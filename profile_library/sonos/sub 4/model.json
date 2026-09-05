@@ -3,6 +3,17 @@
   "calculation_strategy": "linear",
   "created_at": "2025-08-30T17:13:53Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "8720862503700",
+    "8720862503717"
+  ],
+  "device_specs": {
+    "form_factor": "subwoofer",
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "10 -> 4.4",
@@ -21,15 +32,19 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.19:docker"
   },
   "name": "Sub 4",
+  "product_url": "https://www.sonos.com/en-us/shop/sub-4",
   "standby_power": 1.9,
-  "author_info": {
-    "name": "Josh Barnard",
-    "github": "barndawgie"
-  }
+  "authors": [
+    {
+      "name": "Josh Barnard",
+      "github": "barndawgie"
+    }
+  ]
 }

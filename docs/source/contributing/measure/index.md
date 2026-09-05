@@ -17,7 +17,7 @@ Use this guide when you want to create a new power profile for the library or wh
 | Fan | Fans with percentage control | Linear calibration and optional `model.json` |
 | Charging device | Vacuum robots and lawn mower robots while charging | Linear calibration and optional `model.json` |
 | Average | Any device where you only need an average power value | Average power reading |
-| Recorder | Capturing power patterns for the [Playbook strategy](../../strategies/playbook.md) | Time series CSV |
+| Recorder | Playbook patterns or source data for a complex multi-entity profile | Power-only CSV or power plus entity-state JSON Lines |
 
 The light mode is the most common contribution path. Other modes are useful when a device has a predictable relation between an entity attribute and power consumption.
 
@@ -33,7 +33,9 @@ There are two ways to run a measurement. Both share the same measurement core an
 1. [Light profiles](lights.md) - create LUT profiles for lights, the most common contribution path.
 2. [Other measure modes](modes.md) - measure speakers, fans, charging devices, average readings, or recorder sessions.
 3. [Output and pull requests](output.md) - inspect the generated files and submit them to the library.
-4. [Troubleshooting](troubleshooting.md) - fix common measurement problems.
+4. [Measuring low-power devices](low-power-measurements.md) - handle sub-watt loads with multiple devices, a dummy
+   load, or a more precise meter.
+5. [Troubleshooting](troubleshooting.md) - fix common measurement problems.
 
 Developers can read [Architecture](architecture.md) to understand how the CLI and app share the same measurement pipeline.
 
@@ -47,13 +49,16 @@ Before spending time on a long measurement session, check that the device can be
 
 - Use the real manufacturer and exact model where possible.
 - Avoid profiles for generic white-label devices when the same identifier may refer to different hardware.
-- Add the full product name as an alias when the model directory uses only the model ID.
+- Use the marketed product name for `name`, without repeating the manufacturer. For example, use
+  `Hue White Ambiance GU10` for Signify rather than `Signify Hue White Ambiance GU10`.
+- Use `aliases` only for additional model identifiers used to discover the same hardware.
 
 When the device is not suitable for the public library, you can still use the generated files as a custom profile in your own Home Assistant installation.
 
 ## Safety and measurement quality
 
-- Use a power meter that can measure low loads accurately. For small lights, sub-watt accuracy matters.
+- Use a power meter that can measure low loads accurately. For small lights, sub-watt accuracy matters; see
+  [Measuring low-power devices](low-power-measurements.md).
 - Let devices and power meters settle before trusting readings.
 - Pause Home Assistant automations that might change the measured device during a run.
 - Keep the measured device as the only changing load behind the power meter, unless you deliberately use a dummy load.

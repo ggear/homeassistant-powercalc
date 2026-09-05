@@ -1,0 +1,6 @@
+{
+  "name": "WLAN + ECO",
+  "fixed_config": {
+    "power": 0.15
+  }
+}

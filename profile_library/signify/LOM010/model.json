@@ -1,16 +1,29 @@
 {
+  "aliases": [
+    "9290022407"
+  ],
   "calculation_strategy": "fixed",
   "created_at": "2025-04-14T10:00:00Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Manually measured.",
   "measure_device": "Intertek PM01-US",
   "measure_method": "manual",
+  "mains_voltage": 120,
   "name": "Hue Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.2,
   "standby_power_on": 0.5,
-  "author_info": {
-    "name": "keatre",
-    "github": "keatre"
-  }
+  "authors": [
+    {
+      "name": "keatre",
+      "github": "keatre"
+    }
+  ]
 }

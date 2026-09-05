@@ -10,7 +10,8 @@ from pytest_homeassistant_custom_component.common import (
     mock_device_registry,
 )
 
-from custom_components.powercalc.common import SourceEntity
+from custom_components.powercalc import device_binding
+from custom_components.powercalc.common import SourceEntity, create_source_entity, get_main_device_entry
 from custom_components.powercalc.const import (
     CONF_CREATE_ENERGY_SENSOR,
     CONF_CREATE_UTILITY_METERS,
@@ -22,12 +23,21 @@ from custom_components.powercalc.const import (
     DUMMY_ENTITY_ID,
     SensorType,
 )
-from custom_components.powercalc.device_binding import attach_configured_device_entry, is_composite_device_id
+from custom_components.powercalc.device_binding import (
+    get_config_entry_ids,
+    get_first_device_for_config_entry,
+    get_non_composite_devices,
+    get_related_device_ids,
+    is_composite_device_id,
+    resolve_source_device,
+)
 from tests.common import (
     create_mock_config_entry,
     mock_device,
+    mock_device_with_entities,
     mock_devices,
     mock_entities_in_registry,
+    requires_child_devices,
     run_powercalc_setup,
 )
 
@@ -47,16 +57,114 @@ def test_device_is_not_composite_when_detection_is_unavailable(
 ) -> None:
     """A device is not composite on HA versions without the detection API."""
     device_entry = mock_device(hass, "regular-device", manufacturer=None, model=None)
+    monkeypatch.setattr(device_binding, "_HAS_CHILD_DEVICES", False)
     monkeypatch.setattr(DeviceRegistry, "async_is_composite_device_id", None, raising=False)
 
     assert not is_composite_device_id(hass, device_entry.id)
 
 
-def test_attach_configured_device_entry_keeps_source_entity_when_device_is_missing(hass: HomeAssistant) -> None:
+def test_get_non_composite_devices_enumerates_registered_devices(hass: HomeAssistant) -> None:
+    device_entry = mock_device(hass, "regular-device", manufacturer=None, model=None)
+
+    assert get_non_composite_devices(hass) == [device_entry]
+
+
+def test_get_related_device_ids_for_unknown_device(hass: HomeAssistant) -> None:
+    mock_device_registry(hass)
+
+    assert get_related_device_ids(hass, "missing-device") == {"missing-device"}
+
+
+def test_get_first_device_for_config_entry(hass: HomeAssistant) -> None:
+    device_entry = mock_device(hass, "regular-device", manufacturer=None, model=None)
+
+    config_entry_id = next(iter(get_config_entry_ids(device_entry)))
+
+    assert get_first_device_for_config_entry(hass, config_entry_id) == device_entry
+
+
+@requires_child_devices
+def test_get_main_device_entry_excludes_child_devices(
+    hass: HomeAssistant,
+    device_registry: DeviceRegistry,
+) -> None:
+    """Child devices are not returned to code which requires a full device entry."""
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+    parent = device_registry.async_get_or_create(
+        config_entry_id=config_entry.entry_id,
+        identifiers={("test", "parent")},
+        name="Parent",
+    )
+    child = device_registry.async_get_or_create_child(
+        config_entry_id=config_entry.entry_id,
+        identifiers={("test", "child")},
+        name="Child",
+        parent_device_id=parent.id,
+    )
+
+    assert get_main_device_entry(device_registry, parent.id) == parent
+    assert get_main_device_entry(device_registry, child.id) is None
+
+
+@requires_child_devices
+async def test_entities_are_bound_to_child_source_device(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    device_registry: DeviceRegistry,
+) -> None:
+    """Child association is retained without reading main-device-only fields."""
+    source_config_entry = MockConfigEntry(domain="test")
+    source_config_entry.add_to_hass(hass)
+    parent = device_registry.async_get_or_create(
+        config_entry_id=source_config_entry.entry_id,
+        identifiers={("test", "parent")},
+        name="Parent",
+    )
+    child = device_registry.async_get_or_create_child(
+        config_entry_id=source_config_entry.entry_id,
+        identifiers={("test", "child")},
+        name="Child",
+        parent_device_id=parent.id,
+    )
+    entity_registry.async_get_or_create(
+        "switch",
+        "test",
+        "child-source",
+        suggested_object_id="child_source",
+        device_id=child.id,
+    )
+
+    source_entity = create_source_entity("switch.child_source", hass)
+    assert source_entity.device_entry == child
+    assert get_related_device_ids(hass, child.id) == {child.id}
+
+    configured_source = resolve_source_device(
+        hass,
+        {CONF_DEVICE: child.id},
+        SourceEntity(object_id="configured", entity_id=DUMMY_ENTITY_ID, domain="sensor"),
+    )
+    assert configured_source.device_entry == child
+
+    await create_mock_config_entry(
+        hass,
+        {
+            CONF_SENSOR_TYPE: SensorType.VIRTUAL_POWER,
+            CONF_ENTITY_ID: "switch.child_source",
+            CONF_FIXED: {CONF_POWER: 50},
+        },
+    )
+
+    power_entity_entry = entity_registry.async_get("sensor.child_source_power")
+    assert power_entity_entry
+    assert power_entity_entry.device_id == child.id
+
+
+def test_resolve_source_device_keeps_source_entity_when_device_is_missing(hass: HomeAssistant) -> None:
     mock_device_registry(hass)
     source_entity = SourceEntity(object_id="powercalc_dummy", entity_id=DUMMY_ENTITY_ID, domain="sensor")
 
-    result = attach_configured_device_entry(hass, {CONF_DEVICE: "missing-device-id"}, source_entity)
+    result = resolve_source_device(hass, {CONF_DEVICE: "missing-device-id"}, source_entity)
 
     assert result == source_entity
 
@@ -116,7 +224,7 @@ async def test_entities_are_bound_to_source_device(
     assert utility_entity_entry.device_id == device_entry.id
 
 
-async def test_entities_are_bound_to_source_device2(
+async def test_entities_are_bound_to_source_device_when_using_power_sensor_id(
     hass: HomeAssistant,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -153,6 +261,20 @@ async def test_entities_are_bound_to_source_device2(
     assert len(caplog.records) == 0
 
 
+async def test_yaml_sensor_is_bound_to_source_device(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    """YAML entities are bound with a registry update, which must not trigger the HA device attach warning."""
+    caplog.set_level(logging.WARNING)
+
+    entity_registry = mock_device_with_entities(hass, "light.test")
+    await run_powercalc_setup(hass, {CONF_ENTITY_ID: "light.test"})
+
+    power_sensor = entity_registry.async_get("sensor.test_power")
+    assert power_sensor
+    assert power_sensor.device_id == "model-device"
+
+    assert "attempts to attach a device to an entity without a config entry" not in caplog.text
+
+
 async def test_entities_are_bound_to_disabled_source_device(
     hass: HomeAssistant,
 ) -> None:
@@ -184,10 +306,11 @@ async def test_entities_are_bound_to_disabled_source_device(
     assert energy_entity_entry.device_id == device_id
 
 
-async def test_entities_are_bound_to_source_device3(
+async def test_entities_are_bound_to_configured_device_without_source_entity(
     hass: HomeAssistant,
     entity_registry: er.EntityRegistry,
 ) -> None:
+    """A device based profile has no source entity, so the sensors bind to the configured device."""
     device_id = "abc"
     mock_device(hass, device_id, "test", "test")
 
@@ -204,7 +327,7 @@ async def test_entities_are_bound_to_source_device3(
     )
     await run_powercalc_setup(hass)
 
-    power_entity_entry = entity_registry.async_get("sensor.test_device_power")
+    power_entity_entry = entity_registry.async_get("sensor.test_power")
     assert power_entity_entry
     assert power_entity_entry.device_id == device_id
 

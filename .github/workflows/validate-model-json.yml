@@ -4,9 +4,17 @@ on:
   pull_request:
     paths:
       - '**/model.json'
+      - '**/manufacturer.json'
       - 'profile_library/model_schema.json'
+      - 'profile_library/manufacturer_schema.json'
       - '.github/scripts/profile_library/validate_model_json.py'
       - '.github/workflows/validate-model-json.yml'
+
+concurrency:
+  # Supersede in-flight runs for the same pull request; every other event gets a
+  # unique group so pushes, schedules and dispatches never cancel or queue each other.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -15,6 +23,7 @@ jobs:
   validate_model_json:
     name: Validate model.json
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout trusted validation code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -28,9 +37,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: '0.12.1'
+          version: '0.12.7'
           enable-cache: true
           cache-dependency-glob: |
             base/pyproject.toml
@@ -56,12 +65,13 @@ jobs:
             echo
             echo "The model.json validation workflow failed before it could write a detailed report."
           } > validation-result/model_json_validation_report.md
-      - name: Validate model.json against schema
+      - name: Validate model.json and manufacturer.json against their schemas
         working-directory: pr
         run: >-
           uv run --locked --project ../base --only-group library --no-build
           python ../base/.github/scripts/profile_library/validate_model_json.py
-          --schema ../base/profile_library/model_schema.json
+          --model-schema profile_library/model_schema.json
+          --manufacturer-schema profile_library/manufacturer_schema.json
           --changed-files changed_files.json
           --report ../validation-result/model_json_validation_report.md
           --status ../validation-result/model_json_validation_status.txt

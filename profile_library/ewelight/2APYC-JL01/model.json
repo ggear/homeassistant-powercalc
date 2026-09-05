@@ -2,18 +2,30 @@
   "calculation_strategy": "lut",
   "created_at": "2024-02-24T21:34:35Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "bulb",
+    "lumens": 400,
+    "rated_power": 5.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 2.5 gen1 (SHSW-25)",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.10.6:docker"
   },
-  "name": "Smart light JL01",
+  "name": "RGBCW 5W GU10 Smart Bulb",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "Nicolas Liaudat",
-    "github": "nliaudat"
-  }
+  "authors": [
+    {
+      "name": "Nicolas Liaudat",
+      "github": "nliaudat"
+    }
+  ]
 }

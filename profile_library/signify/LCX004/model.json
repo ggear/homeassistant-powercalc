@@ -1,13 +1,27 @@
 {
   "aliases": [
-    "9290029949"
+    "9290029949",
+    "929002994901"
   ],
   "calculation_strategy": "lut",
   "created_at": "2023-02-04T15:26:14Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "strip",
+    "lumens": 1800,
+    "rated_power": 20,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8719514339965"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,9 +29,11 @@
   },
   "name": "Hue Gradient Lightstrip",
   "standby_power": 0.14,
-  "author_info": {
-    "name": "AJ Banck",
-    "email": "ajbanck@planet.nl",
-    "github": "ajbanck"
-  }
+  "authors": [
+    {
+      "name": "AJ Banck",
+      "email": "ajbanck@planet.nl",
+      "github": "ajbanck"
+    }
+  ]
 }

@@ -2,9 +2,22 @@
   "calculation_strategy": "lut",
   "created_at": "2025-05-30T11:16:31Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "candle",
+    "lumens": 550,
+    "rated_power": 4.8,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718781553326"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Nous A1",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +25,10 @@
   },
   "name": "Smart Candle Comfort E14",
   "standby_power": 0.35,
-  "author_info": {
-    "name": "Jarod2801",
-    "github": "Jarod2801"
-  }
+  "authors": [
+    {
+      "name": "Jarod2801",
+      "github": "Jarod2801"
+    }
+  ]
 }

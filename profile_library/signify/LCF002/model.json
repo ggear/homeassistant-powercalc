@@ -4,17 +4,32 @@
     "8718696167991",
     "LCF001"
   ],
+  "ean": [
+    "8718696167991"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2021-08-29T21:30:03Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 590,
+    "rated_power": 8.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measure Script for Tasmota",
   "measure_device": "Gosund SP111",
   "measure_device_firmware": "Tasmota 9.5.0",
   "measure_method": "script",
+  "mains_voltage": 230,
   "name": "Hue Calla Outdoor Pedestal",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "Stefan Gries",
-    "github": "stefangries"
-  }
+  "authors": [
+    {
+      "name": "Stefan Gries",
+      "github": "stefangries"
+    }
+  ]
 }

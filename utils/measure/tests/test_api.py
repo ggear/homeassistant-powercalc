@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from measure.const import MeasureType
 from measure.contribution.github import GitHubUser
+from measure.controller.light.const import LutMode
 from measure.dummy_load import DummyLoadCalibration, power_meter_fingerprint
 from measure.execution import LightOperatingPoint
 from measure.ha_app.api import _power_meter_spec, create_app
@@ -27,6 +28,8 @@ from measure.ha_app.contribution import (
     SharedContributionService,
 )
 from measure.ha_app.coordinator import MeasurementCoordinator, SessionExecutionContext, SessionMeasurementService
+from measure.ha_app.library_catalog import MeasureDeviceCatalog
+from measure.ha_app.light_probe import LightLoadProbeError, LightLoadProbePoint, LightLoadProbeResult
 from measure.ha_app.session import SessionControl, SessionEvent, SessionEventType, SessionSnapshot, SessionState
 from measure.ha_app.storage import SessionStorage
 from measure.home_assistant import HomeAssistantEntityData, HomeAssistantManager
@@ -37,7 +40,7 @@ from measure.request import MeasurementRequest
 from measure.runner.runner import RunnerResult
 from measure.tuning import MeasurementParameters
 from measure.version import measure_version
-from pydantic import SecretStr
+from pydantic import SecretStr, TypeAdapter
 import pytest
 
 
@@ -340,6 +343,12 @@ def client(tmp_path: Path, *, trusted_ingress_only: bool = False, developer_mode
         app.state.context.build_power_meter,
         duration=0,
     )
+    app.state.context.light_load_probe = MagicMock()
+    app.state.context.light_load_probe.evaluate.return_value = LightLoadProbeResult(
+        checked_variations=1,
+        minimum_aggregate_power_w=1.25,
+        points=(LightLoadProbePoint(label="Brightness 1", mode=LutMode.BRIGHTNESS, power_w=1.25),),
+    )
     app.state.context.coordinator = MeasurementCoordinator(SessionStorage(tmp_path), CompletingService)
     return TestClient(app)
 
@@ -350,6 +359,35 @@ def test_app_metadata_uses_the_runtime_measure_version(tmp_path: Path) -> None:
     assert test_client.app.version == measure_version()
     assert test_client.get("/openapi.json").json()["info"]["version"] == measure_version()
     assert test_client.get("/api/capabilities").json()["runtime_version"] == measure_version()
+
+
+def test_measure_device_catalog_uses_published_values_and_http_caching(tmp_path: Path) -> None:
+    test_client = client(tmp_path)
+    test_client.app.state.context.measure_device_catalog = MeasureDeviceCatalog(
+        loader=lambda: {
+            "manufacturers": [
+                {"models": [{"measure_device": "Shelly Plug S"}, {"measure_device": "N/A"}]},
+            ],
+        },
+    )
+
+    response = test_client.get("/api/library/measure-devices")
+
+    assert response.status_code == 200
+    assert response.json() == {"devices": ["Shelly Plug S"]}
+    assert response.headers["cache-control"] == "public, max-age=600"
+
+
+def test_measure_device_catalog_failure_returns_service_unavailable(tmp_path: Path) -> None:
+    test_client = client(tmp_path)
+    test_client.app.state.context.measure_device_catalog = MeasureDeviceCatalog(
+        loader=lambda: (_ for _ in ()).throw(OSError("offline")),
+    )
+
+    response = test_client.get("/api/library/measure-devices")
+
+    assert response.status_code == 503
+    assert response.json()["message"] == "Could not load measurement devices from the Powercalc library"
 
 
 def test_index_is_not_cached(tmp_path: Path) -> None:
@@ -376,6 +414,7 @@ def test_capabilities_and_entity_filters(tmp_path: Path) -> None:
     capabilities = test_client.get("/api/capabilities")
     powers = test_client.get("/api/entities?device_class=power")
     lights = test_client.get("/api/entities?domain=light")
+    all_entities = test_client.get("/api/entities?all=true")
 
     assert capabilities.status_code == 200
     defaults = MeasurementParameters()
@@ -407,6 +446,11 @@ def test_capabilities_and_entity_filters(tmp_path: Path) -> None:
     assert capabilities.json()["developer_mode"] is False
     assert client(tmp_path, developer_mode=True).get("/api/capabilities").json()["developer_mode"] is True
     assert [item["entity_id"] for item in powers.json()] == ["sensor.test_power"]
+    assert all_entities.status_code == 200
+    temperature = next(item for item in all_entities.json() if item["entity_id"] == "sensor.temperature")
+    assert temperature["domain"] == "sensor"
+    assert temperature["device_class"] is None
+    assert test_client.get("/api/entities?all=true&domain=vacuum").status_code == 400
     assert powers.json()[0]["device_id"] == "meter-device"
     assert powers.json()[0]["model_id"] == "PM-001"
     assert powers.json()[0]["related_voltage_entity_id"] == "sensor.test_voltage"
@@ -645,10 +689,19 @@ def test_measure_definitions_and_average_request(tmp_path: Path) -> None:
     charging = next(item for item in definitions.json() if item["measure_type"] == MeasureType.CHARGING)
     fields = {field["name"]: field for field in charging["fields"]}
     assert "entity_domain" not in fields["charging_entity_id"]
-    assert fields["charging_device_type"]["options"] == [
-        {"value": "vacuum_robot", "label": "Vacuum robot", "entity_domain": "vacuum", "enables": []},
-        {"value": "lawn_mower_robot", "label": "Lawn mower robot", "entity_domain": "lawn_mower", "enables": []},
+    assert [
+        (option["value"], option["label"], option["entity_domain"])
+        for option in fields["charging_device_type"]["options"]
+    ] == [
+        ("vacuum_robot", "Vacuum robot", "vacuum"),
+        ("lawn_mower_robot", "Lawn mower robot", "lawn_mower"),
     ]
+    recorder = next(item for item in definitions.json() if item["measure_type"] == MeasureType.RECORDER)
+    recorder_fields = {field["name"]: field for field in recorder["fields"]}
+    assert recorder_fields["recorder_purpose"]["options"][0]["value"] == "playbook"
+    assert recorder_fields["profile_recipe"]["visible_when"] == {"recorder_purpose": ["complex_profile"]}
+    assert recorder_fields["tracked_entity_ids"]["all_entities"] is True
+    assert recorder_fields["battery_entity_id"]["same_device_only"] is True
 
     payload = {
         "measure_type": MeasureType.AVERAGE,
@@ -668,10 +721,51 @@ def test_preflight_exposes_quality_warnings_and_start_reuses_diagnostics(tmp_pat
     assert response.status_code == 200
     assert response.json()["power_meter_diagnostic"]["precision_status"] == "good"
     assert response.json()["power_meter_diagnostic"]["update_interval_status"] == "poor"
+    assert response.json()["light_load_probe"] == {
+        "checked_variations": 1,
+        "minimum_aggregate_power_w": 1.25,
+        "points": [{"label": "Brightness 1", "mode": "brightness", "power_w": 1.25}],
+    }
     assert "did not report often enough" in response.json()["warnings"][0]
     assert home_assistant.state_calls == 2
     assert test_client.post("/api/sessions", json=payload()).status_code == 201
     assert home_assistant.state_calls == 2
+
+
+def test_preflight_maps_low_load_probe_failure_to_actionable_error(tmp_path: Path) -> None:
+    test_client = client(tmp_path)
+    test_client.app.state.context.light_load_probe.evaluate.side_effect = LightLoadProbeError(
+        "The power meter repeatedly returned 0 W while checking the selected light",
+        help_url="https://docs.powercalc.nl/contributing/measure/low-power-measurements/",
+        help_label="Low-power measurement guide",
+    )
+
+    response = test_client.post("/api/preflight", json=payload())
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "preflight_failed",
+        "message": "The power meter repeatedly returned 0 W while checking the selected light",
+        "field": None,
+        "help_url": "https://docs.powercalc.nl/contributing/measure/low-power-measurements/",
+        "help_label": "Low-power measurement guide",
+    }
+
+
+def test_preflight_does_not_attribute_probe_adapter_failures_to_low_power(tmp_path: Path) -> None:
+    test_client = client(tmp_path)
+    test_client.app.state.context.light_load_probe.evaluate.side_effect = LightLoadProbeError(
+        "Could not complete the active light check: connection refused",
+    )
+
+    response = test_client.post("/api/preflight", json=payload())
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "preflight_failed",
+        "message": "Could not complete the active light check: connection refused",
+        "field": None,
+    }
 
 
 def test_preflight_rejects_unavailable_entity(tmp_path: Path) -> None:
@@ -752,9 +846,10 @@ def test_session_lifecycle_and_file_download(tmp_path: Path) -> None:
     response = test_client.post("/api/sessions", json=payload())
 
     assert response.status_code == 201
+    session_id = response.json()["session_id"]
     current = {}
     for _ in range(50):
-        current_response = test_client.get("/api/session/current")
+        current_response = test_client.get(f"/api/sessions/{session_id}")
         assert current_response.status_code == 200
         current = current_response.json()
         if current["state"] == "completed":
@@ -762,9 +857,14 @@ def test_session_lifecycle_and_file_download(tmp_path: Path) -> None:
         time.sleep(0.02)
     assert current["progress"]["estimated_remaining_seconds"] == 0
     assert current["operating_point"] == {"type": "light", "on": True, "brightness": 128}
-    files = test_client.get("/api/session/current/files")
+    retained = test_client.get("/api/sessions")
+    assert retained.status_code == 200
+    assert retained.json()[0]["session_id"] == session_id
+    assert retained.json()[0]["file_count"] == 1
+    assert retained.json()[0]["size"] > 0
+    files = test_client.get(f"/api/sessions/{session_id}/files")
     assert files.json()[0]["name"] == "LCT010/brightness.csv"
-    plots = test_client.get("/api/session/current/plots")
+    plots = test_client.get(f"/api/sessions/{session_id}/plots")
     assert plots.status_code == 200
     assert plots.json()["partial"] is False
     assert plots.json()["warnings"] == []
@@ -772,9 +872,9 @@ def test_session_lifecycle_and_file_download(tmp_path: Path) -> None:
     assert plots.json()["plots"][0]["series"][0]["points"] == [
         {"x": 1.0, "y": 1.0, "color": None},
     ]
-    download = test_client.get("/api/session/current/files/LCT010/brightness.csv")
+    download = test_client.get(f"/api/sessions/{session_id}/files/LCT010/brightness.csv")
     assert download.status_code == 200
-    diagnostics = test_client.get("/api/session/current/diagnostics")
+    diagnostics = test_client.get(f"/api/sessions/{session_id}/diagnostics")
     assert diagnostics.status_code == 200
     assert diagnostics.headers["content-disposition"].startswith('attachment; filename="powercalc-measure-diagnostics-')
     report = diagnostics.json()
@@ -786,6 +886,10 @@ def test_session_lifecycle_and_file_download(tmp_path: Path) -> None:
     assert report["events"][-1]["data"]["state"] == "completed"
     assert report["files"][0]["name"] == "LCT010/brightness.csv"
     assert "test-token" not in diagnostics.text
+
+    assert test_client.delete(f"/api/sessions/{session_id}").status_code == 204
+    assert test_client.get(f"/api/sessions/{session_id}").status_code == 404
+    assert test_client.get("/api/sessions").json() == []
 
 
 def test_diagnostics_retains_only_the_latest_thousand_events(tmp_path: Path) -> None:
@@ -807,7 +911,7 @@ def test_diagnostics_retains_only_the_latest_thousand_events(tmp_path: Path) -> 
     storage = test_client.app.state.context.storage
 
     with patch.object(storage, "load_events", return_value=events) as load_events:
-        response = test_client.get("/api/session/current/diagnostics")
+        response = test_client.get(f"/api/sessions/{coordinator.current.id}/diagnostics")
 
     assert response.status_code == 200
     load_events.assert_called_once_with(coordinator.current.id, limit=1001)
@@ -827,11 +931,13 @@ def test_session_summary_is_exposed(tmp_path: Path) -> None:
         "power_meter": {"type": "hass", "entity_id": "sensor.test_power"},
         "duration": 30,
     }
-    assert test_client.post("/api/sessions", json=run_payload).status_code == 201
+    started = test_client.post("/api/sessions", json=run_payload)
+    assert started.status_code == 201
+    session_id = started.json()["session_id"]
 
     current = {}
     for _ in range(50):
-        current = test_client.get("/api/session/current").json()
+        current = test_client.get(f"/api/sessions/{session_id}").json()
         if current["state"] == "completed":
             break
         time.sleep(0.02)
@@ -853,19 +959,22 @@ def test_openapi_contract_contains_the_supported_app_endpoints(tmp_path: Path) -
 
     paths = app.openapi()["paths"]
 
-    assert set(paths["/api/sessions"]) == {"post"}
-    assert set(paths["/api/session/current"]) == {"get", "delete"}
-    assert set(paths["/api/session/current/resume"]) == {"post"}
-    assert set(paths["/api/session/current/diagnostics"]) == {"get"}
-    assert set(paths["/api/session/current/plots"]) == {"get"}
-    assert set(paths["/api/session/current/files/{name}"]) == {"get"}
+    assert set(paths["/api/sessions"]) == {"get", "post"}
+    assert set(paths["/api/library/measure-devices"]) == {"get"}
+    assert set(paths["/api/sessions/{session_id}"]) == {"get", "delete"}
+    assert set(paths["/api/sessions/{session_id}/cancel"]) == {"post"}
+    assert set(paths["/api/sessions/{session_id}/confirm"]) == {"post"}
+    assert set(paths["/api/sessions/{session_id}/resume"]) == {"post"}
+    assert set(paths["/api/sessions/{session_id}/diagnostics"]) == {"get"}
+    assert set(paths["/api/sessions/{session_id}/plots"]) == {"get"}
+    assert set(paths["/api/sessions/{session_id}/files/{name}"]) == {"get"}
+    assert set(paths["/api/sessions/{session_id}/contribution"]) == {"get", "post"}
+    assert set(paths["/api/sessions/{session_id}/contribution/preview"]) == {"post"}
     assert set(paths["/api/dummy-load/calibration"]) == {"get"}
     assert set(paths["/api/contribution/auth"]) == {"get", "put", "delete"}
     assert set(paths["/api/contribution/auth/device"]) == {"post"}
     assert set(paths["/api/contribution/auth/device/{flow_id}"]) == {"post"}
     assert set(paths["/api/contribution/status"]) == {"get"}
-    assert set(paths["/api/session/current/contribution"]) == {"get", "post"}
-    assert set(paths["/api/session/current/contribution/preview"]) == {"post"}
 
 
 def test_contribution_device_flow_reports_configuration_and_uses_injected_service(tmp_path: Path) -> None:
@@ -900,6 +1009,33 @@ def test_contribution_device_flow_reports_configuration_and_uses_injected_servic
     assert unknown.json()["code"] == "flow_not_found"
     completed = test_client.post(f"/api/contribution/auth/device/{flow_id}")
     assert completed.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "integrations, expected",
+    [
+        ({"light.one": "hue", "light.two": "hue"}, "hue"),
+        ({"light.one": "hue", "light.two": "zha"}, None),
+        ({"light.one": "hue", "light.two": None}, None),
+    ],
+)
+def test_contribution_integration_requires_every_light_to_share_the_integration(
+    tmp_path: Path,
+    integrations: dict[str, str | None],
+    expected: str | None,
+) -> None:
+    request_payload = payload()
+    request_payload["controller"] = {
+        "type": "hass_multi",
+        "entity_ids": ["light.one", "light.two"],
+    }
+    request = TypeAdapter(MeasurementRequest).validate_python(request_payload)
+    coordinator = ContributionApiCoordinator(
+        SessionStorage(tmp_path),
+        resolve_integration=integrations.get,
+    )
+
+    assert coordinator._integration(request) == expected  # noqa: SLF001
 
 
 def test_contribution_pat_rejects_reported_insufficient_scope(tmp_path: Path) -> None:
@@ -988,7 +1124,9 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
         resolve_integration=context.entity_integration,
     )
 
-    assert test_client.post("/api/sessions", json=payload()).status_code == 201
+    started = test_client.post("/api/sessions", json=payload())
+    assert started.status_code == 201
+    session_id = started.json()["session_id"]
     assert context.coordinator._worker is not None  # noqa: SLF001
     context.coordinator._worker.join(timeout=5)  # noqa: SLF001
 
@@ -1000,7 +1138,7 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
     if settings_path.exists():
         assert "github_pat_test" not in settings_path.read_text(encoding="utf-8")
 
-    draft = test_client.get("/api/session/current/contribution")
+    draft = test_client.get(f"/api/sessions/{session_id}/contribution")
     assert draft.status_code == 200
     assert draft.json()["eligible"] is False
     assert draft.json()["repository"] == "test-owner/powercalc-sandbox"
@@ -1009,7 +1147,7 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
     assert "- Integration: hue" in draft.json()["pr_body"]
 
     preview = test_client.post(
-        "/api/session/current/contribution/preview",
+        f"/api/sessions/{session_id}/contribution/preview",
         json={
             "manufacturer_name": "Signify",
             "manufacturer_directory": "signify",
@@ -1028,7 +1166,7 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
     assert service.submit_calls == 0
 
     unconfirmed = test_client.post(
-        "/api/session/current/contribution",
+        f"/api/sessions/{session_id}/contribution",
         json={
             "manufacturer_name": "Signify",
             "manufacturer_directory": "signify",
@@ -1043,7 +1181,7 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
     assert service.submit_calls == 0
 
     submitted = test_client.post(
-        "/api/session/current/contribution",
+        f"/api/sessions/{session_id}/contribution",
         json={
             "manufacturer_name": "Signify",
             "manufacturer_directory": "signify",
@@ -1063,11 +1201,11 @@ def test_contribution_preview_submit_and_artifact_lock(tmp_path: Path, monkeypat
     assert status.status_code == 200
     assert status.json()["state"] == "submitted"
     assert status.json()["submission_url"] == "https://github.com/example/pull/1"
-    assert status.json()["session_id"] == test_client.get("/api/session/current").json()["session_id"]
+    assert status.json()["session_id"] == session_id
 
-    files = test_client.get("/api/session/current/files").json()
+    files = test_client.get(f"/api/sessions/{session_id}/files").json()
     assert [item["name"] for item in files] == ["LCT010/brightness.csv"]
-    diagnostics = test_client.get("/api/session/current/diagnostics")
+    diagnostics = test_client.get(f"/api/sessions/{session_id}/diagnostics")
     assert "github_pat_test" not in diagnostics.text
 
 
@@ -1092,7 +1230,7 @@ def test_contribution_preview_rejects_unsupported_generated_session(tmp_path: Pa
     (artifact_root / "model.json").write_text("{}", encoding="utf-8")
 
     response = test_client.post(
-        "/api/session/current/contribution/preview",
+        f"/api/sessions/{context.coordinator.current.id}/contribution/preview",
         json={
             "manufacturer_name": "Acme",
             "manufacturer_directory": "acme",
@@ -1114,7 +1252,7 @@ def test_plot_endpoint_rejects_active_session(tmp_path: Path) -> None:
     now = "2026-07-12T12:00:00Z"
     coordinator._snapshot = SessionSnapshot(id="active", state=SessionState.RUNNING, created_at=now, updated_at=now)  # noqa: SLF001
 
-    response = test_client.get("/api/session/current/plots")
+    response = test_client.get("/api/sessions/active/plots")
 
     assert response.status_code == 409
 
@@ -1129,7 +1267,7 @@ def test_plot_endpoint_marks_terminal_incomplete_session_as_partial(tmp_path: Pa
     assert coordinator.current.state is SessionState.COMPLETED
     coordinator._snapshot = replace(coordinator.current, state=SessionState.CANCELLED)  # noqa: SLF001
 
-    response = test_client.get("/api/session/current/plots")
+    response = test_client.get(f"/api/sessions/{coordinator.current.id}/plots")
 
     assert response.status_code == 200
     assert response.json()["partial"] is True

@@ -1,0 +1,57 @@
+{
+  "aliases": [
+    "Home Hub Max"
+  ],
+  "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
+  "calculation_strategy": "linear",
+  "created_at": "2025-01-08T16:05:27Z",
+  "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "smart_display",
+    "connectivity": [
+      "wifi",
+      "bluetooth",
+      "thread"
+    ]
+  },
+  "ean": [
+    "842776109989"
+  ],
+  "linear_config": {
+    "calibrate": [
+      "10 -> 3.2",
+      "20 -> 4.0",
+      "30 -> 4.0",
+      "40 -> 4.0",
+      "50 -> 4.4",
+      "60 -> 5.4",
+      "70 -> 5.8",
+      "80 -> 7.0",
+      "90 -> 8.2",
+      "100 -> 10.2",
+      "0 -> 5.0"
+    ]
+  },
+  "legacy_ids": [
+    "Home Hub Max"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Innr SP 242",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.16.7:docker"
+  },
+  "name": "Nest Hub Max",
+  "product_url": "https://store.google.com/product/google_nest_hub_max",
+  "standby_power": 2.0,
+  "authors": [
+    {
+      "name": "Greg Hesp",
+      "email": "greg.hesp@gmail.com",
+      "github": "greghesp"
+    }
+  ]
+}

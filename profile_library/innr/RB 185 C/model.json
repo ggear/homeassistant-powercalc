@@ -2,18 +2,33 @@
   "calculation_strategy": "lut",
   "created_at": "2023-02-04T11:22:13Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 806,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718781551377"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Nous A1T",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.3.1:docker"
   },
-  "name": "RGBW Bulb Colour E27",
+  "name": "Smart Bulb Colour E27",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "Florian Mulatz",
-    "github": "florianmulatz"
-  }
+  "authors": [
+    {
+      "name": "Florian Mulatz",
+      "github": "florianmulatz"
+    }
+  ]
 }

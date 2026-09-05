@@ -1,20 +1,38 @@
 {
+  "aliases": [
+    "SHRGB1C"
+  ],
   "calculation_strategy": "lut",
   "created_at": "2022-07-22T08:24:09Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 800,
+    "rated_power": 8.8,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "046677556136"
+  ],
   "measure_description": "Measured 5 bulbs with utils/measure script with no dummy load",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 5,
     "VERSION": "master"
   },
-  "name": "Smart Wi-Fi RGB + Tunable White LED Light Bulb (A19, 800 lm, 8.8 W)",
+  "name": "A19 E26 RGB + Tunable White Bulb (8.8W, 800 lm)",
   "standby_power": 0.31,
-  "author_info": {
-    "name": "dsolva",
-    "email": "diego_10sv@hotmail.com",
-    "github": "dsolva"
-  }
+  "authors": [
+    {
+      "name": "dsolva",
+      "email": "diego_10sv@hotmail.com",
+      "github": "dsolva"
+    }
+  ]
 }

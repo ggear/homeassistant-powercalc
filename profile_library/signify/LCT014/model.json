@@ -2,9 +2,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-05-25T11:29:34Z",
   "device_type": "light",
+  "device_specs": {
+    "rated_power": 9.5,
+    "lumens": 800,
+    "form_factor": "bulb",
+    "socket": "E27",
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Smart Wi-Fi Plug Mini",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -12,9 +22,11 @@
   },
   "name": "Hue White and Color Ambiance A19 800lm",
   "standby_power": 0.34,
-  "author_info": {
-    "name": "mariwing",
-    "email": "mariwing@gmail.com",
-    "github": "mariwing"
-  }
+  "authors": [
+    {
+      "name": "mariwing",
+      "email": "mariwing@gmail.com",
+      "github": "mariwing"
+    }
+  ]
 }

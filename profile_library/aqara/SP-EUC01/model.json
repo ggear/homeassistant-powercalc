@@ -1,0 +1,37 @@
+{
+  "aliases": [
+    "Aqara Smart Plug EU",
+    "lumi.plug.maeu01"
+  ],
+  "calculation_strategy": "fixed",
+  "created_at": "2023-12-17T16:08:15Z",
+  "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": true,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "6970504210646"
+  ],
+  "measure_description": "Manually measured. Pictures in the Pull Request comments.",
+  "measure_device": "Zhurui PR10",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "legacy_ids": [
+    "lumi.plug.maeu01"
+  ],
+  "name": "Smart Plug EU",
+  "only_self_usage": true,
+  "product_url": "https://www.aqara.com/eu/product/smart-plug-eu/",
+  "standby_power": 0.17,
+  "standby_power_on": 0.46,
+  "authors": [
+    {
+      "name": "BenRoe",
+      "github": "BenRoe"
+    }
+  ]
+}

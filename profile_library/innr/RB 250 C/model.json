@@ -2,9 +2,22 @@
   "calculation_strategy": "lut",
   "created_at": "2022-07-11T18:57:12Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E14",
+    "form_factor": "candle",
+    "lumens": 470,
+    "rated_power": 6,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8718781552077"
+  ],
   "measure_description": "Measured 3 bulbs simultaneously with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,9 +25,11 @@
   },
   "name": "Candle Colour Bulb E14 470lm",
   "standby_power": 0.4,
-  "author_info": {
-    "name": "ahartmanns",
-    "email": "a.hartmanns@utwente.nl",
-    "github": "ahartmanns"
-  }
+  "authors": [
+    {
+      "name": "ahartmanns",
+      "email": "a.hartmanns@utwente.nl",
+      "github": "ahartmanns"
+    }
+  ]
 }

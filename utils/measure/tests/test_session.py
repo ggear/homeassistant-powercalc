@@ -52,6 +52,17 @@ def test_sample_emits_rounded_power_reading() -> None:
     assert events[0].data == {"power": 4.21}
 
 
+def test_calibration_sample_emits_rounded_electrical_readings() -> None:
+    control = SessionControl()
+    events = []
+    control.subscribe(events.append)
+
+    control.calibration_sample(60.126, 881.234, 230.257)
+
+    assert events[0].type == SessionEventType.CALIBRATION_SAMPLE
+    assert events[0].data == {"power": 60.13, "resistance": 881.23, "voltage": 230.26}
+
+
 def test_operating_point_emits_typed_device_state() -> None:
     control = SessionControl()
     events = []
@@ -62,6 +73,17 @@ def test_operating_point_emits_typed_device_state() -> None:
 
     assert events[0].type == SessionEventType.OPERATING_POINT
     assert events[0].data == point
+
+
+def test_entity_states_emits_latest_recorder_states() -> None:
+    control = SessionControl()
+    events = []
+    control.subscribe(events.append)
+
+    control.entity_states({"vacuum.robot": "cleaning", "sensor.robot_battery": "42"})
+
+    assert events[0].type == SessionEventType.ENTITY_STATES
+    assert events[0].data == {"states": {"vacuum.robot": "cleaning", "sensor.robot_battery": "42"}}
 
 
 def test_confirmation_emits_checkpoint_and_continues() -> None:

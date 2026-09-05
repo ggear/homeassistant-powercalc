@@ -1,0 +1,40 @@
+{
+  "aliases": [
+    "ET-3760 Series"
+  ],
+  "calculation_strategy": "fixed",
+  "created_at": "2024-09-23T13:40:20Z",
+  "device_type": "printer",
+  "device_specs": {
+    "rated_power": 12,
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "010343939950"
+  ],
+  "fixed_config": {
+    "states_power": {
+      "idle": 6,
+      "printing": 14
+    }
+  },
+  "measure_description": "Printer was measured while idle and while printing",
+  "measure_device": "Shelly Plus Plug",
+  "measure_method": "manual",
+  "mains_voltage": 120,
+  "name": "EcoTank All-in-One Cartridge-Free Supertank Printer",
+  "product_url": "https://epson.com/en/For-Work/Printers/Inkjet/EcoTank-ET-3760-All-in-One-Cartridge-Free-Supertank-Printer/p/C11CG20203",
+  "authors": [
+    {
+      "name": "Brian Egge",
+      "email": "brianegge@gmail.com",
+      "github": "brianegge"
+    }
+  ],
+  "legacy_ids": [
+    "ET-3760 Series"
+  ]
+}

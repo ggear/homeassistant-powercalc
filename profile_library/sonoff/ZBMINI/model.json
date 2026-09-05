@@ -3,18 +3,31 @@
     "Zigbee two way smart switch (ZBMINI)",
     "01MINIZB"
   ],
+  "ean": [
+    "6920075776133"
+  ],
   "calculation_strategy": "fixed",
   "created_at": "2023-03-12T09:13:10Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "in_wall",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured manually",
   "measure_device": "PeakTech P 4250 (1 mV/10 mA) with VOLTCRAFT VC270",
   "measure_method": "manual",
+  "mains_voltage": 230,
   "name": "Zigbee Two-Way Smart Switch",
   "only_self_usage": false,
   "standby_power": 0.33,
   "standby_power_on": 0.49,
-  "author_info": {
-    "name": "TyzzyT",
-    "github": "TyzzyT"
-  }
+  "authors": [
+    {
+      "name": "TyzzyT",
+      "github": "TyzzyT"
+    }
+  ]
 }

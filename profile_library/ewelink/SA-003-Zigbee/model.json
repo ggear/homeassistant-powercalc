@@ -2,16 +2,26 @@
   "calculation_strategy": "fixed",
   "created_at": "2024-12-01T20:44:00Z",
   "device_type": "smart_switch",
-  "measure_description": "measure script recorder over 2 minutes",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "measure_description": "Averaged with the measurement recorder over 2 minutes.",
   "measure_device": "Shelly PM Mini Gen3",
-  "measure_method": "manual",
+  "measure_method": "script",
+  "mains_voltage": 230,
   "name": "Zigbee Smart Plug",
   "only_self_usage": false,
   "standby_power": 0.378,
   "standby_power_on": 1.191,
-  "author_info": {
-    "name": "RubenKelevra",
-    "email": "cyrond@gmail.com",
-    "github": "RubenKelevra"
-  }
+  "authors": [
+    {
+      "name": "RubenKelevra",
+      "email": "cyrond@gmail.com",
+      "github": "RubenKelevra"
+    }
+  ]
 }

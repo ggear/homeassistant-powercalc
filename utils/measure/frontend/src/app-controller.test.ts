@@ -1,6 +1,7 @@
+import { ApiError } from "./api-client";
 import { MeasureAppController } from "./app-controller";
 import type { EventConnection, MeasureAppApi, MeasureAppState } from "./app-controller";
-import type { PowerMeterDiagnostic, SessionEvent } from "./types";
+import type { PowerMeterDiagnostic, SessionEvent, SessionSummary } from "./types";
 
 const measurementDefaults = { sleep_time: 1, sample_count: 2, sleep_time_sample: 1, max_retries: 5, max_nudges: 0 };
 const settings = {
@@ -20,12 +21,35 @@ const capabilities = {
   },
 };
 
+function sessionSummary(overrides: Partial<SessionSummary> = {}): SessionSummary {
+  return {
+    session_id: "session-1",
+    state: "completed",
+    created_at: "2026-08-13T10:00:00Z",
+    updated_at: "2026-08-13T10:05:00Z",
+    measure_type: "light",
+    model_id: "LCT010",
+    product_name: "Hue lamp",
+    measure_device: "Desk lamp",
+    completed: 1,
+    total: 1,
+    percent: 100,
+    can_resume: false,
+    file_count: 1,
+    size: 10,
+    active: false,
+    ...overrides,
+  };
+}
+
 function state(): MeasureAppState {
   return {
     view: "loading", errorMessage: "", busy: false, connectedToEvents: false,
+    sessions: [],
     files: [], plotCollection: { partial: false, plots: [], warnings: [] },
     logs: [], samples: [], lights: [], powers: [], voltages: [], definitions: [],
     dummyLoadCalibration: null, dummyLoadCalibrationError: "",
+    measureDevices: [], measureDevicesLoading: false, measureDevicesError: "",
     contributionBusy: false, contributionAuthBusy: false, contributionError: "", contributionAuthError: "",
     deviceEntities: {}, deviceEntityErrors: {}, testingPowerMeter: false,
     shellyDiscoveryDevices: [], discoveringShellys: false, shellyDiscoveryError: "",
@@ -36,6 +60,7 @@ function api(overrides: Partial<MeasureAppApi> = {}): MeasureAppApi {
   return {
     getCapabilities: async () => capabilities,
     getMeasureDefinitions: async () => [],
+    getMeasureDevices: async () => ({ devices: [] }),
     getSettings: async () => settings,
     getContributionAuth: async () => ({ connected: false }),
     getContributionStatus: async () => ({ state: "idle" as const }),
@@ -63,13 +88,16 @@ function api(overrides: Partial<MeasureAppApi> = {}): MeasureAppApi {
       messages: [],
     }),
     getShellyDevices: async () => ({ available: true, message: null, devices: [] }),
+    getAllEntities: async () => [],
     getEntityCatalog: async () => ({ lights: [], powers: [], voltages: [] }),
     getEntitiesByDomain: async () => [],
     getEntitiesByDeviceClass: async () => [],
     getDummyLoadCalibration: async () => null,
     preflight: async () => ({ valid: true, warnings: [] }),
     start: async () => ({ state: "running" }),
-    getCurrent: async () => ({ state: "idle" }),
+    getSessions: async () => [],
+    getSession: async () => ({ state: "idle" }),
+    deleteSession: async () => undefined,
     cancel: async () => ({ state: "cancelled" }),
     confirm: async () => ({ state: "running" }),
     resume: async () => ({ state: "running" }),
@@ -95,7 +123,7 @@ function api(overrides: Partial<MeasureAppApi> = {}): MeasureAppApi {
       branch_name: "",
       warnings: [],
     }),
-    previewContribution: async (request) => ({
+    previewContribution: async (_sessionId, request) => ({
       eligible: true,
       repository: "bramstroker/homeassistant-powercalc",
       base_branch: "master",
@@ -120,6 +148,35 @@ function api(overrides: Partial<MeasureAppApi> = {}): MeasureAppApi {
 }
 
 describe("measure app controller", () => {
+  it("preserves structured help from API errors", async () => {
+    const appState = state();
+    const help = {
+      url: "https://docs.powercalc.nl/contributing/measure/low-power-measurements/",
+      label: "Low-power measurement guide",
+    };
+    const controller = new MeasureAppController(appState, () => api({
+      preflight: async () => { throw new ApiError("The meter repeatedly returned 0 W.", 422, "preflight_failed", null, help); },
+    }), () => connection(), () => undefined);
+
+    await controller.preflight({
+      measure_type: "average",
+      duration: 1,
+      model_id: "",
+      product_name: "",
+      measure_device: "",
+      generate_model: false,
+      parameters: capabilities.defaults,
+      resume_policy: "new",
+      power_meter: { type: "dummy" },
+    });
+
+    expect(appState.errorMessage).toBe("The meter repeatedly returned 0 W.");
+    expect(appState.errorHelp).toEqual(help);
+
+    controller.backToSetup();
+    expect(appState.errorHelp).toBeUndefined();
+  });
+
   it("loads the matching dummy-load calibration during boot", async () => {
     const appState = state();
     const calibration = {
@@ -145,7 +202,7 @@ describe("measure app controller", () => {
 
     await controller.boot();
 
-    expect(appState.view).toBe("setup");
+    expect(appState.view).toBe("sessions");
     expect(appState.dummyLoadCalibration).toBeNull();
     expect(appState.dummyLoadCalibrationError).toContain("Calibration API unavailable");
   });
@@ -167,7 +224,7 @@ describe("measure app controller", () => {
       }],
     };
     const controller = new MeasureAppController(appState, () => api({
-      getCurrent: async () => ({ state: "cancelled" }),
+      getSession: async () => ({ state: "cancelled", session_id: "session-1" }),
       getFiles: async () => [{ name: "brightness.csv", size: 10, media_type: "text/csv" }],
       getPlots: async () => plots,
       getDummyLoadCalibration: async () => {
@@ -179,6 +236,7 @@ describe("measure app controller", () => {
     }), () => connection(), () => undefined);
 
     await controller.boot();
+    await controller.openSession("session-1");
 
     expect(appState.view).toBe("result");
     expect(appState.files).toHaveLength(1);
@@ -189,7 +247,7 @@ describe("measure app controller", () => {
   it("loads contribution auth and draft data for a completed session", async () => {
     const appState = state();
     const controller = new MeasureAppController(appState, () => api({
-      getCurrent: async () => ({ state: "completed" }),
+      getSession: async () => ({ state: "completed", session_id: "session-1" }),
       getContributionAuth: async () => ({ connected: true, identity: { login: "octocat" }, method: "device" }),
       getContributionDraft: async () => ({
         eligible: true,
@@ -214,6 +272,7 @@ describe("measure app controller", () => {
     }), () => connection(), () => undefined);
 
     await controller.boot();
+    await controller.openSession("session-1");
 
     expect(appState.view).toBe("result");
     expect(appState.contributionAuth?.identity?.login).toBe("octocat");
@@ -224,7 +283,7 @@ describe("measure app controller", () => {
   it("restores a persisted submitted contribution for the current session", async () => {
     const appState = state();
     const controller = new MeasureAppController(appState, () => api({
-      getCurrent: async () => ({ state: "completed", session_id: "session-1" }),
+      getSession: async () => ({ state: "completed", session_id: "session-1" }),
       getContributionStatus: async () => ({
         state: "submitted" as const,
         session_id: "session-1",
@@ -234,6 +293,7 @@ describe("measure app controller", () => {
     }), () => connection(), () => undefined);
 
     await controller.boot();
+    await controller.openSession("session-1");
 
     expect(appState.contributionResult?.pull_request_url).toBe("https://github.com/pull/9");
     expect(appState.contributionResult?.status).toBe("success");
@@ -242,7 +302,7 @@ describe("measure app controller", () => {
   it("ignores persisted contribution status from another session", async () => {
     const appState = state();
     const controller = new MeasureAppController(appState, () => api({
-      getCurrent: async () => ({ state: "completed", session_id: "session-2" }),
+      getSession: async () => ({ state: "completed", session_id: "session-2" }),
       getContributionStatus: async () => ({
         state: "failed" as const,
         session_id: "session-1",
@@ -251,6 +311,7 @@ describe("measure app controller", () => {
     }), () => connection(), () => undefined);
 
     await controller.boot();
+    await controller.openSession("session-2");
 
     expect(appState.contributionResult).toBeUndefined();
     expect(appState.contributionError).toBe("");
@@ -265,7 +326,7 @@ describe("measure app controller", () => {
         devicePolls += 1;
         return { status: "authorized", auth: { connected: true, identity: { login: "octocat" }, method: "device" } };
       },
-      previewContribution: async (request) => ({
+      previewContribution: async (_sessionId, request) => ({
         eligible: true,
         repository: "bramstroker/homeassistant-powercalc",
         base_branch: "master",
@@ -286,6 +347,7 @@ describe("measure app controller", () => {
         warnings: [],
       }),
     }), () => connection(), () => undefined);
+    appState.snapshot = { state: "completed", session_id: "session-1" };
 
     await controller.startContributionDeviceAuth();
     expect(appState.contributionDeviceFlow?.flow_id).toBe("flow-1");
@@ -311,6 +373,33 @@ describe("measure app controller", () => {
     expect(appState.contributionAuth?.connected).toBe(false);
     controller.dispose();
     vi.useRealTimers();
+  });
+
+  it("preserves contribution field errors for inline feedback", async () => {
+    const appState = state();
+    const controller = new MeasureAppController(appState, () => api({
+      previewContribution: async () => {
+        throw new ApiError(
+          "Product name must not start with the manufacturer",
+          422,
+          "invalid_metadata",
+          "product_name",
+        );
+      },
+    }), () => connection(), () => undefined);
+    appState.snapshot = { state: "completed", session_id: "session-1" };
+
+    await controller.previewContribution({
+      manufacturer_name: "Signify",
+      manufacturer_directory: "signify",
+      model_id: "LCT010",
+      product_name: "Signify Hue lamp",
+      contributor: "octocat",
+      notes: "",
+    });
+
+    expect(appState.contributionError).toBe("Product name must not start with the manufacturer");
+    expect(appState.contributionErrorField).toBe("product_name");
   });
 
   it("backs off automatic device polling and stops when the code expires", async () => {
@@ -407,7 +496,7 @@ describe("measure app controller", () => {
     const controller = new MeasureAppController(appState, () => appApi, () => connection(), () => undefined);
 
     await controller.boot();
-    expect(appState.view).toBe("setup");
+    expect(appState.view).toBe("sessions");
     expect(catalogCalls).toBe(1);
     expect(appState.lights[0]?.entity_id).toBe("light.desk");
     expect(appState.powers[0]?.entity_id).toBe("sensor.plug_power");
@@ -421,11 +510,74 @@ describe("measure app controller", () => {
     expect(requestedDomains).toEqual(["fan"]);
   });
 
+  it("loads the complete entity catalog for a recorder definition that requests it", async () => {
+    let allCalls = 0;
+    const appState = state();
+    const appApi = api({
+      getMeasureDefinitions: async () => [{
+        measure_type: "recorder", icon: "⏺", model_id_example: "", product_name_example: "", parameters: [],
+        label: "Recorder", description: "Record entity states.", supports_profile: false, supports_resume: false,
+        fields: [{ name: "tracked_entity_ids", role: "attribute", label: "Tracked entities", control: "entity", required: true, multiple: true, all_entities: true, options: [] }],
+      }],
+      getAllEntities: async () => {
+        allCalls += 1;
+        return [{ entity_id: "climate.room", name: "Room", domain: "climate" }];
+      },
+    });
+    const controller = new MeasureAppController(appState, () => appApi, () => connection(), () => undefined);
+
+    await controller.boot();
+    controller.selectMeasureType("recorder");
+
+    await vi.waitFor(() => expect(appState.deviceEntities["*"]?.[0]?.entity_id).toBe("climate.room"));
+    expect(allCalls).toBe(1);
+  });
+
+  it("loads the all-entity catalog a duplicated session's own purpose makes visible", async () => {
+    let allCalls = 0;
+    const appState = state();
+    const appApi = api({
+      getMeasureDefinitions: async () => [{
+        measure_type: "recorder", icon: "⏺", model_id_example: "", product_name_example: "", parameters: [],
+        label: "Recorder", description: "Record entity states.", supports_profile: false, supports_resume: false,
+        fields: [
+          {
+            name: "recorder_purpose", role: "attribute", label: "Purpose", control: "select", required: true,
+            default: "playbook",
+            options: [{ value: "playbook", label: "Playbook" }, { value: "complex_profile", label: "Complex profile" }],
+          },
+          {
+            name: "tracked_entity_ids", role: "attribute", label: "Tracked entities", control: "entity", required: true,
+            multiple: true, all_entities: true, options: [], visible_when: { recorder_purpose: ["complex_profile"] },
+          },
+        ],
+      }],
+      getSession: async () => ({
+        state: "completed",
+        session_id: "session-1",
+        request: { measure_type: "recorder", recorder_purpose: "complex_profile", tracked_entity_ids: ["climate.room"] },
+      }) as never,
+      getAllEntities: async () => {
+        allCalls += 1;
+        return [{ entity_id: "climate.room", name: "Room", domain: "climate" }];
+      },
+    });
+    const controller = new MeasureAppController(appState, () => appApi, () => connection(), () => undefined);
+
+    await controller.boot();
+    await controller.duplicateSession("session-1");
+
+    // The type's own default purpose hides the field; only the stored request reveals it.
+    expect(allCalls).toBe(1);
+    expect(appState.deviceEntities["*"]?.[0]?.entity_id).toBe("climate.room");
+  });
+
   it("retains entity discovery errors and updates session state from the event port", async () => {
     let onEvent: ((event: SessionEvent) => void) | undefined;
     const appState = state();
     const appApi = api({
-      getCurrent: async () => ({ state: "running" }),
+      getSessions: async () => [sessionSummary({ state: "running", active: true, percent: 50 })],
+      getSession: async () => ({ state: "running", session_id: "session-1" }),
       getMeasureDefinitions: async () => [{
         measure_type: "fan",
     icon: "🌀",
@@ -439,7 +591,7 @@ describe("measure app controller", () => {
         return [];
       },
     });
-    const controller = new MeasureAppController(appState, () => appApi, (callbacks) => {
+    const controller = new MeasureAppController(appState, () => appApi, (_sessionId, callbacks) => {
       onEvent = callbacks.onEvent;
       return connection();
     }, () => undefined);
@@ -480,7 +632,7 @@ describe("measure app controller", () => {
 
     expect(appState.capabilities?.defaults.sleep_time).toBe(4);
     expect(appState.capabilities?.defaults.sample_count).toBe(3);
-    expect(appState.view).toBe("setup");
+    expect(appState.view).toBe("sessions");
   });
 
   it("reloads the matching dummy-load calibration after changing the power meter", async () => {
@@ -588,6 +740,37 @@ describe("measure app controller", () => {
     controller.openSettings();
 
     expect(appState.settingsSection).toBeUndefined();
+  });
+
+  it("loads canonical measurement-device names without blocking settings", async () => {
+    const appState = state();
+    appState.view = "setup";
+    const controller = new MeasureAppController(appState, () => api({
+      getMeasureDevices: async () => ({ devices: ["Shelly Plug S", "TP-Link Kasa KP115"] }),
+    }), () => connection(), () => undefined);
+
+    controller.openSettings();
+
+    expect(appState.view).toBe("settings");
+    expect(appState.measureDevicesLoading).toBe(true);
+    await vi.waitFor(() => expect(appState.measureDevicesLoading).toBe(false));
+    expect(appState.measureDevices).toEqual(["Shelly Plug S", "TP-Link Kasa KP115"]);
+    expect(appState.measureDevicesError).toBe("");
+  });
+
+  it("keeps settings usable when measurement-device suggestions fail", async () => {
+    const appState = state();
+    appState.view = "setup";
+    const controller = new MeasureAppController(appState, () => api({
+      getMeasureDevices: async () => { throw new Error("Library unavailable"); },
+    }), () => connection(), () => undefined);
+
+    controller.openSettings();
+
+    await vi.waitFor(() => expect(appState.measureDevicesLoading).toBe(false));
+    expect(appState.view).toBe("settings");
+    expect(appState.measureDevices).toEqual([]);
+    expect(appState.measureDevicesError).toBe("Library unavailable");
   });
 
   it("discovers Shellys when opening Shelly settings and exposes unavailable discovery", async () => {

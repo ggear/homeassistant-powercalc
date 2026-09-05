@@ -1,11 +1,18 @@
 {
-  "aliases": [
-    "Beosound Emerge"
-  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2026-01-29T11:53:36Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "speaker",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "5705260085426"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 5.0",
@@ -25,15 +32,19 @@
   "measure_description": "Measured with utils/measure script (full 100% volume) using standard settings (1 sample, 5s sleep).",
   "measure_device": "Shelly Plug S Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 5,
     "VERSION": "master"
   },
-  "name": "Beosound Emerge",
+  "name": "Bookshelf Speaker",
+  "product_url": "https://www.bang-olufsen.com/en/gb/speakers/beosound-emerge",
   "standby_power": 5.0,
-  "author_info": {
-    "name": "Steffen Brandsborg",
-    "github": "sbrandsborg"
-  }
+  "authors": [
+    {
+      "name": "Steffen Brandsborg",
+      "github": "sbrandsborg"
+    }
+  ]
 }

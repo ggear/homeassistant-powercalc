@@ -2,11 +2,17 @@
 
 Here you can find information about how to setup specific device types for the library.
 
+## :material-air-conditioner: [Air conditioner](air-conditioner.md)
+
+## :material-air-purifier: [Air purifier](air-purifier.md)
+
 ## :material-camera: [Camera](camera.md)
 
 ## :material-blinds-horizontal: [Cover](cover.md)
 
 ## :material-access-point: [Generic IoT](generic-iot.md)
+
+## :material-air-humidifier: [Humidifier](humidifier.md)
 
 ## :material-lightbulb: [Light](light.md)
 
@@ -15,6 +21,10 @@ Here you can find information about how to setup specific device types for the l
 Smart power meter. Powercalc profiles can be used to define the self usage of the IoT device itself.
 
 ## :material-printer: [Printer](printer.md)
+
+## :material-set-top-box: [Set-top box](set-top-box.md)
+
+Set-top boxes and streaming media players represented by a Home Assistant `media_player` entity.
 
 ## :material-arrow-up-down-bold: [Smart dimmer](smart-dimmer.md)
 
@@ -29,3 +39,5 @@ Used for smart plugs / smart switches which can toggle a connected device on or 
 ## :material-ip-network: [Network](network.md)
 
 ## :material-robot-vacuum: Vacuum robot
+
+## :material-water-boiler: [Water heater](water-heater.md)

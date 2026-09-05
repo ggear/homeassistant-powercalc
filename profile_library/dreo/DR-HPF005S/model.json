@@ -2,6 +2,13 @@
   "calculation_strategy": "linear",
   "created_at": "2026-02-16T15:09:15Z",
   "device_type": "fan",
+  "device_specs": {
+    "form_factor": "pedestal",
+    "connectivity": [
+      "wifi"
+    ],
+    "rated_power": 36
+  },
   "linear_config": {
     "calibrate": [
       "5 -> 2.13",
@@ -29,16 +36,20 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug US Gen4",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.5:docker"
   },
   "name": "TurboPoly Fan 715S",
+  "product_url": "https://www.dreo.com/products/turbopoly-fan-715s",
   "standby_power": 0.98,
-  "author_info": {
-    "name": "pinkfin",
-    "github": "pinkfin",
-    "email": "hot.wire1618@fastmail.com"
-  }
+  "authors": [
+    {
+      "name": "pinkfin",
+      "github": "pinkfin",
+      "email": "hot.wire1618@fastmail.com"
+    }
+  ]
 }

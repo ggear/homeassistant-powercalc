@@ -1,13 +1,23 @@
 {
-  "aliases": [
-    "929004297401"
-  ],
   "calculation_strategy": "lut",
   "created_at": "2025-11-04T00:15:59Z",
   "device_type": "light",
+  "ean": [
+    "8721103104656"
+  ],
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 2000,
+    "rated_power": 16.6,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 2,
@@ -15,9 +25,11 @@
   },
   "name": "Hue Devote Slim ceiling light (29cm)",
   "standby_power": 0.18,
-  "author_info": {
-    "name": "Tom Frenzel",
-    "email": "admin@tom-frenzel.de",
-    "github": "tomfrenzel"
-  }
+  "authors": [
+    {
+      "name": "Tom Frenzel",
+      "email": "admin@tom-frenzel.de",
+      "github": "tomfrenzel"
+    }
+  ]
 }

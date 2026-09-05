@@ -2,9 +2,26 @@
   "calculation_strategy": "lut",
   "created_at": "2022-09-27T16:10:29Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "bulb",
+    "socket": [
+      "E26",
+      "E27",
+      "B22"
+    ],
+    "lumens": 806,
+    "rated_power": 9.5,
+    "connectivity": [
+      "zwave"
+    ]
+  },
+  "ean": [
+    "3858890733464"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Fibaro FGWP102",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 2,
@@ -12,8 +29,10 @@
   },
   "name": "RGBW Bulb V2",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "jake404",
-    "github": "jake404"
-  }
+  "authors": [
+    {
+      "name": "jake404",
+      "github": "jake404"
+    }
+  ]
 }

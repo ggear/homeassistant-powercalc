@@ -24,6 +24,7 @@ cli = [
     "aiohue>=4.8.1,<5",
     "inquirer>=3.1",
     "pycryptodome>=3.20",
+    "pyserial>=3.5",
     "python-decouple>=3.4",
     "python-kasa>=0.7",
     "tuyapower>=0.2",
@@ -36,7 +37,7 @@ ocr = [
 ]
 dev = [
     "httpx2>=0.1",
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "ruff>=0.2",
     "pytest>=8.3.3",
     "pytest-cov>=6.0"

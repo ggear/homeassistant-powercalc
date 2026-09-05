@@ -10,11 +10,9 @@ from homeassistant.components.light import (
     ColorMode,
 )
 from homeassistant.components.utility_meter.sensor import SensorDeviceClass
-from homeassistant.components.vacuum import (
-    ATTR_BATTERY_LEVEL,
-    VacuumActivity,
-)
+from homeassistant.components.vacuum import VacuumActivity
 from homeassistant.const import (
+    ATTR_BATTERY_LEVEL,
     ATTR_ENTITY_ID,
     CONF_ATTRIBUTE,
     CONF_ENTITIES,
@@ -666,7 +664,7 @@ async def test_sub_profile_default_select(hass: HomeAssistant) -> None:
     )
 
     await set_states(hass, [("switch.test", STATE_ON)])
-    assert_entity_state(hass, "sensor.test_device_power", "0.80")
+    assert_entity_state(hass, "sensor.test_power", "0.80")
 
 
 async def test_switch_sub_profile_service(hass: HomeAssistant) -> None:

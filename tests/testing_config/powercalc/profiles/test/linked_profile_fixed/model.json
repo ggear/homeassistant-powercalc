@@ -6,7 +6,7 @@
   "created_at": "2025-07-15T04:34:00",
   "device_type": "smart_switch",
   "discovery_by": "entity",
-  "linked_profile": "shelly/shelly plus plug s",
+  "linked_profile": "shelly/SNPL-00112EU",
   "measure_description": "Measured with an Aeotec ZWA023 and seems to align with (more precise) measurements from Shelly Plus Plug S.",
   "measure_device": "Aeotec ZWA023",
   "measure_method": "script",

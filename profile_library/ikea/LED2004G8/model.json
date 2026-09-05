@@ -6,9 +6,19 @@
   "calculation_strategy": "lut",
   "created_at": "2022-11-10T19:43:50Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 806,
+    "rated_power": 8,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -16,8 +26,10 @@
   },
   "name": "TRADFRI LED bulb E27 806 lumen, dimmable, white spectrum, clear",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "marthubner",
-    "github": "marthubner"
-  }
+  "authors": [
+    {
+      "name": "marthubner",
+      "github": "marthubner"
+    }
+  ]
 }

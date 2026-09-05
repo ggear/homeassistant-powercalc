@@ -1,0 +1,31 @@
+{
+  "discovery_by": "manual",
+  "name": "8-Port Gigabit Unmanaged Switch with 10G/Multi-Gig Uplinks",
+  "measure_device": "Athom ESPHome Wifi plug",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "device_type": "network",
+  "device_specs": {
+    "form_factor": "switch",
+    "rated_power": 13.2,
+    "connectivity": [
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "0606449128871",
+    "0606449128888"
+  ],
+  "created_at": "2026-08-07T12:34:00Z",
+  "calculation_strategy": "fixed",
+  "fixed_config": {
+    "power": 8.0
+  },
+  "product_url": "https://www.netgear.com/support/product/gs110mx",
+  "authors": [
+    {
+      "name": "theveninjeremy",
+      "github": "theveninjeremy"
+    }
+  ]
+}

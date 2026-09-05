@@ -2,18 +2,33 @@
   "calculation_strategy": "lut",
   "created_at": "2024-02-19T18:30:18Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E26",
+    "form_factor": "bulb",
+    "lumens": 800,
+    "rated_power": 9.0,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "840696100994"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Third Reality 3RSP02028BZ",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.10.4:docker"
   },
-  "name": "White 5000K A19/E26 Bulb E11-G13 Zigbee",
+  "name": "Element Classic Soft White A19 Bulb",
   "standby_power": 0.3,
-  "author_info": {
-    "name": "DracoC77",
-    "github": "DracoC77"
-  }
+  "authors": [
+    {
+      "name": "DracoC77",
+      "github": "DracoC77"
+    }
+  ]
 }

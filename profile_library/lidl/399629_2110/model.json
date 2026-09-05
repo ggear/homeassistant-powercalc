@@ -2,9 +2,18 @@
   "calculation_strategy": "lut",
   "created_at": "2026-03-14T15:06:04Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "panel",
+    "rated_power": 38,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +21,10 @@
   },
   "name": "Livarno Lux Ceiling Panel RGB+CCT",
   "standby_power": 0.2,
-  "author_info": {
-    "name": "rammstone83",
-    "github": "rammstone83"
-  }
+  "authors": [
+    {
+      "name": "rammstone83",
+      "github": "rammstone83"
+    }
+  ]
 }

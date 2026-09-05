@@ -92,9 +92,11 @@ Notes:
 
 ## Multiple identical lights
 
-When standby power is too low for your meter, measuring multiple identical lights in parallel can make the total load measurable. The wizard asks whether you are measuring multiple lights and how many lights are connected.
+When standby power is too low for your meter, measuring multiple identical lights in parallel can make the total load measurable. In the Home Assistant app, enable **Measure multiple lights**, then use **Add another light** to select two or three individual light entities directly. The app sends each operating point to all selected entities and divides the measured power by **Number of lights**.
 
-Only use this when every connected light is the same model and receives the same commands. See [Standby power shows 0 W](troubleshooting.md#standby-power-shows-0-w) for details.
+For larger sets, prefer a native Zigbee or Hue group: it sends one command over the lighting network. A Home Assistant light group also works, but Home Assistant may fan the command out to every member. The app automatically counts the entities you select directly. When selecting a group as one entity, enter its total number of physical lights manually.
+
+Only use this when every connected light is the same model and receives the same commands. The app rejects different known model IDs and warns when Home Assistant does not provide enough model metadata to verify this. See [Measuring low-power devices](low-power-measurements.md) for details.
 
 ## Effect measurements
 
@@ -119,7 +121,7 @@ A dummy load is a stable resistive load connected in parallel with the measured 
 
 Use a dummy load only when you understand the wiring and safety implications. The power meter must support voltage readings so the tool can subtract the dummy load contribution correctly.
 
-Do not use an LED bulb as a dummy load. Use a stable resistive load, such as a small incandescent bulb, when this method is needed. See [Standby power shows 0 W](troubleshooting.md#standby-power-shows-0-w) for more detail about using a dummy load for low standby readings.
+Do not use an LED bulb as a dummy load. Use a stable resistive load, such as a suitable incandescent bulb, when this method is needed. See [Measuring low-power devices](low-power-measurements.md) for selection, calibration, and safety guidance.
 
 In the Home Assistant app, enable the resistive dummy load during measurement setup. The app calibrates a warmed-up load for at least 20 periods of 30 seconds and continues when its resistance is not yet stable. A stored calibration can be reused only after confirming that the same warmed-up load is connected; choose **Recalibrate** after changing the load, meter, or wiring. Keep the load connected throughout the measurement. The app subtracts its calculated consumption from live and saved power readings.
 

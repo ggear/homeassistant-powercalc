@@ -5,19 +5,37 @@
   "calculation_strategy": "lut",
   "created_at": "2022-04-22T08:02:02Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": [
+      "E26",
+      "E27"
+    ],
+    "lumens": 800,
+    "form_factor": "bulb",
+    "rated_power": 10.0,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "0608887786309"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "TP-Link Kasa KP115",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 1,
     "SLEEP_TIME": 10,
     "VERSION": "v0.19.7"
   },
-  "name": "Smart LED Bulb II Color",
+  "name": "LED Bulb (Color, 2nd Generation)",
   "standby_power": 1.07,
-  "author_info": {
-    "name": "Aetha",
-    "email": "aetha@snuzzle.me",
-    "github": "aetha"
-  }
+  "authors": [
+    {
+      "name": "Aetha",
+      "email": "aetha@snuzzle.me",
+      "github": "aetha"
+    }
+  ]
 }

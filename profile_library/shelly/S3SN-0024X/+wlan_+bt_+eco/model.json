@@ -1,0 +1,6 @@
+{
+  "name": "WLAN + Bluetooth + ECO",
+  "fixed_config": {
+    "power": 0.3
+  }
+}

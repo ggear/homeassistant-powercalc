@@ -1,0 +1,39 @@
+{
+  "aliases": [
+    "ECO-DIM.07 Zigbee Basic"
+  ],
+  "calculation_strategy": "linear",
+  "created_at": "2025-06-09T00:00:00Z",
+  "device_type": "smart_dimmer",
+  "device_specs": {
+    "form_factor": "wall_switch",
+    "max_load_watts": 200,
+    "power_monitoring": false,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "8719322372147"
+  ],
+  "discovery_by": "device",
+  "measure_description": "Manually measured with light connected as bypass.",
+  "measure_device": "Brennenstuhl EM 231-A",
+  "measure_method": "manual",
+  "mains_voltage": 230,
+  "legacy_ids": [
+    "ECO-DIM.07 Zigbee Basic"
+  ],
+  "name": "LED Dimmer Zigbee Basic (0-200W)",
+  "product_url": "https://www.ecodim.nl/de/eco-dim07-zigbee.html",
+  "only_self_usage": false,
+  "standby_power": 0.3,
+  "standby_power_on": 0.3,
+  "authors": [
+    {
+      "name": "Jasper",
+      "email": "jaspervanvliet1996@gmail.com",
+      "github": "SustainableBlueDuck"
+    }
+  ]
+}

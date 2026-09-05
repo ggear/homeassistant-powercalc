@@ -7,7 +7,15 @@ The library follows a multi-level tree structure:
 - **Second level**: Model ID
 - **Optional**: Sub-profiles for specific device behaviors
 
-Each **manufacturer directory** must include a `manufacturer.json` file. This file should contain the manufacturer's name and optionally a list of aliases.
+Each **manufacturer directory** must include a `manufacturer.json` file:
+
+| Field         | Type             | Required | Description                                                                          |
+|---------------|------------------|----------|--------------------------------------------------------------------------------------|
+| `name`        | string           | Yes | The full vendor/brand name                                                                |
+| `aliases`     | array of strings | No | Other names the same brand ships under, used for discovery                                 |
+| `website`     | string           | No | Home page of the brand, linked from its page on the library website                        |
+| `country`     | string           | No | Country the brand is based in, as an ISO 3166-1 alpha-2 code such as `NL`                  |
+| `description` | string           | No | A sentence or two about the brand, shown on its page on the library website                |
 
 Each **device profile** resides in its own subdirectory:
 `{manufacturer}/{modelid}` (e.g., `signify/LCT010`)
@@ -30,7 +38,7 @@ Below is a comprehensive table of all fields that can be used in a `model.json` 
 | `measure_method`                  | string           | Yes | How the device was measured (manual, script)                                                                                            |
 | `measure_device`                  | string           | Yes | Device which was used to measure (e.g., `Shelly PM Gen 3`)                                                                              |
 | `created_at`                      | string           | Yes | Creation date of the profile (ISO 8601 format, e.g., `2023-06-19T08:02:31`)                                                             |
-| `author`                          | string           | Yes | Author of the profile                                                                                                                   |
+| `authors`                         | array of objects | No | Contributors to the profile; each object has required `name` and `github`, plus optional `email`                                      |
 | `aliases`                         | array of strings | No | Alternative model id's for this model, used for discovery purposes                                                                      |
 | `compatible_integrations`         | array of strings | No | List of compatible integration platforms (e.g., "hue", "lifx"). Only entities from these integrations will be discovered                     |
 | `calculation_enabled_condition`   | string           | No | Template which can be evaluated to determine if calculation is enabled                                                                  |
@@ -38,22 +46,92 @@ Below is a comprehensive table of all fields that can be used in a `model.json` 
 | `config_flow_discovery_remarks`   | string           | No | Remarks to show in the GUI config flow on first step of discovery                                                                       |
 | `config_flow_sub_profile_remarks` | string           | No | Remarks to show in the GUI config flow on sub profile selection step                                                                    |
 | `description`                     | string           | No | A short description of the device                                                                                                       |
+| `device_specs`                    | object           | No | Manufacturer specifications such as rated power and connectivity, plus type-specific attributes. See [Device specs](#device-specs)       |
 | `discovery_by`                    | string           | No | Whether to discover the profile by config entry, device, or entity                                                                       |
+| `ean`                             | array of strings | No | Barcode numbers on the packaging (EAN-8, UPC-12, EAN-13 or GTIN-14). A model often ships under several, one per region                  |
 | `fields`                          | array of objects | No | Custom fields for the profile, more about it explained in [Variables](variables.md)                                                     |
 | `fixed_config`                    | object           | No | Configuration for [fixed](../strategies/fixed.md) calculation strategy                                                                  |
 | `is_dumb_bulb`                    | boolean          | No | Indicates if the profile is for a dumb light bulb without smart capabilities                                                            |
 | `linear_config`                   | object           | No | Configuration for [linear](../strategies/linear.md) calculation strategy                                                                |
 | `linked_profile`                  | string           | No | Use data from another model                                                                                                             |
+| `mains_voltage`                   | number           | No | Nominal mains voltage the measurements were taken on, e.g. `230` or `120`                                                                |
 | `measure_description`             | string           | No | Additional information about how the device was measured                                                                                |
 | `measure_device_firmware`         | string           | No | Firmware version of the device used to measure                                                                                          |
 | `measure_settings`                | object           | No | Settings used for measure script, for future reference                                                                                  |
 | `min_version`                     | boolean          | No | Minimum required Powercalc version for the profile                                                                                      |
-| `only_self_usage`                 | boolean          | No | Indicates if profile only provides power usage for the device itself                                                                    |
+| `multi_switch_config`             | object           | No | Configuration for [multi switch](../strategies/multi-switch.md) calculation strategy                                                    |
+| `only_self_usage`                 | boolean          | No | Set for devices with a built-in power meter, which already measure the connected appliance themselves. The profile then only provides the self usage of the device, and its sensors are named `{} Device Power` / `{} Device Energy` |
 | `playbook_config`                 | object           | No | Configuration for [playbook](../strategies/playbook.md) calculation strategy                                                            |
-| `sensor_config`                   | object           | No | Sensor configuration options. See [Sensor configuration](../configuration/sensor-configuration.md)                                      |
+| `product_url`                     | string           | No | Manufacturer product page for this model                                                                                                |
+| `sensor_config`                   | object           | No | Sensor configuration options. See [Sensor configuration](../configuration/sensor-configuration.md). Naming options (`power_sensor_naming`, `energy_sensor_naming` and their `_friendly_` variants) are not allowed, naming is a user preference |
 | `standby_power`                   | number           | No | Power draw when the device is turned off                                                                                                |
+| `standby_power_estimated`         | boolean          | No | Set when `standby_power` holds an assumed value you could not measure, so the library website does not present a guess as a measurement |
 | `standby_power_on`                | number           | No | Power draw when the device is turned on                                                                                                 |
 | `sub_profile_select`              | object           | No | Configuration to automatically select a sub profile, see [sub profiles](sub-profiles.md)                                                |
+
+#### Device specs
+
+`device_specs` holds what the box or manufacturer datasheet says about the device, as opposed to what the measurements say.
+Some keys apply to every device type; selected device types have additional type-specific keys.
+
+```json
+"device_specs": {
+  "socket": ["E26", "E27"],
+  "form_factor": "bulb",
+  "lumens": 806,
+  "rated_power": 9.5,
+  "connectivity": ["zigbee"]
+}
+```
+
+Generic device specifications:
+
+| Key            | Type             | Description                                                                                                                       |
+|----------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `rated_power`  | number           | Power draw claimed by the manufacturer, in watts. The library website shows it next to the measured maximum                      |
+| `connectivity` | array of strings | Protocols the device talks: `zigbee`, `wifi`, `zwave`, `matter`, `thread`, `bluetooth`, `ethernet`, `usb`, `rf433`, `infrared`, `proprietary` |
+
+Additional light specifications:
+
+| Key           | Type            | Description                                                                                                    |
+|---------------|-----------------|----------------------------------------------------------------------------------------------------------------|
+| `socket`      | string or array | Lamp base(s): `E27`, `E26`, `E14`, `E12`, `B22`, `GU10`, `GU5.3`, `GU24`, `GX53`, `G9`, `G4`, or `integrated` when the light source cannot be replaced |
+| `form_factor` | string | `bulb`, `spot`, `candle`, `globe`, `filament`, `strip`, `panel`, `downlight`, `tube`, `fixture` or `other`      |
+| `lumens`      | number | Nominal luminous flux at full brightness                                                                        |
+
+Additional smart switch and smart dimmer specifications:
+
+| Key                | Type    | Description                                                                                         |
+|--------------------|---------|-----------------------------------------------------------------------------------------------------|
+| `form_factor`      | string  | `plug`, `wall_switch`, `in_wall`, `inline`, `din_rail`, `power_strip`, `led_driver` or `other`     |
+| `max_load_watts`   | number  | Maximum connected load supported by the device, in watts; this is not the device's own power draw |
+| `power_monitoring` | boolean | Whether the device can monitor the connected load's power consumption                              |
+
+For a smart switch or dimmer, `only_self_usage: true` implies `power_monitoring: true`: the profile
+models only the device's own consumption because the connected load is already measured by the device.
+The reverse is not required; a monitoring-capable device can still have a profile that models more than
+its own consumption.
+
+Additional network device specifications:
+
+| Key           | Type   | Description                                                                                               |
+|---------------|--------|-----------------------------------------------------------------------------------------------------------|
+| `form_factor` | string | `router`, `modem`, `access_point`, `repeater`, `switch`, `gateway`, `bridge` or `other`                  |
+
+Additional fan specifications:
+
+| Key           | Type   | Description                                                                                                                |
+|---------------|--------|----------------------------------------------------------------------------------------------------------------------------|
+| `form_factor` | string | `table`, `tower`, `pedestal`, `ceiling`, `floor`, `air_purifier`, `purifier_fan`, `white_noise_machine` or `other`        |
+
+Additional smart speaker specifications:
+
+| Key           | Type   | Description                                                                                               |
+|---------------|--------|-----------------------------------------------------------------------------------------------------------|
+| `form_factor` | string | `speaker`, `smart_display`, `soundbar`, `soundbase`, `subwoofer`, `amplifier`, `streamer`, `clock`, `speaker_lamp`, `picture_frame` or `other` |
+
+Leave a key out rather than guessing. These are manufacturer claims, and the website presents
+them as such.
 
 #### Calculation Strategy Specific Fields
 

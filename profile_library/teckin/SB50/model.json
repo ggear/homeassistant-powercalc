@@ -2,9 +2,22 @@
   "calculation_strategy": "lut",
   "created_at": "2022-11-10T19:42:22Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "lumens": 800,
+    "form_factor": "bulb",
+    "rated_power": 7.5,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "0709016745751"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +25,10 @@
   },
   "name": "Smart Wi-Fi RGB LED Light Bulb",
   "standby_power": 0.81,
-  "author_info": {
-    "name": "gary-oneill82",
-    "github": "gary-oneill82"
-  }
+  "authors": [
+    {
+      "name": "gary-oneill82",
+      "github": "gary-oneill82"
+    }
+  ]
 }

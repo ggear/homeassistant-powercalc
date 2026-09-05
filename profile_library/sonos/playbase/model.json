@@ -1,11 +1,24 @@
 {
   "aliases": [
-    "Playbase"
+    "S11"
   ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2023-04-07T17:05:01Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "soundbase",
+    "connectivity": [
+      "wifi",
+      "ethernet",
+      "infrared"
+    ]
+  },
+  "ean": [
+    "0878269001447",
+    "878269001379",
+    "878269001386"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 3.70",
@@ -24,10 +37,14 @@
   "measure_description": "Streamed 'Pink noise' from https://www.genelec.com/audio-test-signals and measured using HAOS; manual mute/zero volume measurement.",
   "measure_device": "ZOOZ Z-WAVE PLUS S2 POWER STRIP ZEN20 VER. 3.0",
   "measure_method": "script",
+  "mains_voltage": 120,
   "name": "Playbase",
+  "product_url": "https://support.sonos.com/en-us/article/set-up-your-sonos-playbase",
   "standby_power": 2.9,
-  "author_info": {
-    "name": "alvinchen1",
-    "github": "alvinchen1"
-  }
+  "authors": [
+    {
+      "name": "alvinchen1",
+      "github": "alvinchen1"
+    }
+  ]
 }

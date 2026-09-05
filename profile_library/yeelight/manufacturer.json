@@ -1,6 +1,10 @@
 {
   "name": "Yeelight",
   "aliases": [
+    "Xiaomi",
     "Yeelight Technology"
-  ]
+  ],
+  "website": "https://www.yeelight.com",
+  "country": "CN",
+  "description": "Chinese smart lighting manufacturer that grew up in the Xiaomi ecosystem."
 }

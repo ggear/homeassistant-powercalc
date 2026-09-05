@@ -2,9 +2,19 @@
   "calculation_strategy": "lut",
   "created_at": "2023-02-08T01:57:00Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "fixture",
+    "lumens": 3000,
+    "rated_power": 30,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plug E",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -12,8 +22,10 @@
   },
   "name": "Livarno Lux LED-Außenstrahler (3000 lm) RGBCT",
   "standby_power": 0.58,
-  "author_info": {
-    "name": "Stefan Gries",
-    "github": "stefangries"
-  }
+  "authors": [
+    {
+      "name": "Stefan Gries",
+      "github": "stefangries"
+    }
+  ]
 }

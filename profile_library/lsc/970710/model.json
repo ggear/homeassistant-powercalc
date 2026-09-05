@@ -5,18 +5,33 @@
   "calculation_strategy": "lut",
   "created_at": "2025-04-28T16:19:32Z",
   "device_type": "light",
+  "device_specs": {
+    "socket": "GU10",
+    "form_factor": "spot",
+    "lumens": 380,
+    "rated_power": 4.9,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "8712879149910"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly Plus Plug S",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.11:docker"
   },
-  "name": "Smart RGB-CCT GU10 LED Reflector Lamp",
+  "name": "RGB-CCT Reflector Bulb, GU10 (4.9W, 380 lm)",
   "standby_power": 1.13,
-  "author_info": {
-    "name": "Jort",
-    "github": "JortvanSchijndel"
-  }
+  "authors": [
+    {
+      "name": "Jort",
+      "github": "JortvanSchijndel"
+    }
+  ]
 }

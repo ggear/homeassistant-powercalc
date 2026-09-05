@@ -2,18 +2,33 @@
   "calculation_strategy": "lut",
   "created_at": "2025-04-11T07:30:00Z",
   "device_type": "light",
+  "device_specs": {
+    "form_factor": "fixture",
+    "socket": "integrated",
+    "lumens": 400,
+    "rated_power": 9,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "6934177708268"
+  ],
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.17.9:docker"
   },
-  "name": "Xiaomi Mi Bedside Lamp 2",
+  "name": "Mi Bedside Lamp 2",
   "standby_power": 0.86,
-  "author_info": {
-    "name": "Pasquale Cuorpo",
-    "github": "maverick1982"
-  }
+  "authors": [
+    {
+      "name": "Pasquale Cuorpo",
+      "github": "maverick1982"
+    }
+  ]
 }

@@ -4,6 +4,16 @@
   "config_flow_discovery_remarks": "**Warning**, please verify this device is a single speaker and not part of a stereo or Home theater configuration. This powercalc profile is specifically for a single speaker, so when you accept it anyway power estimation will be way off. When this is the case for you please ignore this discovery by clicking the three dots and ignore.",
   "created_at": "2023-04-03T20:55:15Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "subwoofer",
+    "connectivity": [
+      "wifi",
+      "ethernet"
+    ]
+  },
+  "ean": [
+    "180501002571"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 10.5",
@@ -22,11 +32,14 @@
   "measure_description": "Streamed Underworld - Dark & Long for this test",
   "measure_device": "Shelly Plug S",
   "measure_method": "manual",
-  "name": "Sub (Gen1)",
+  "mains_voltage": 230,
+  "name": "Sub (Gen 1)",
   "standby_power": 5.23,
-  "author_info": {
-    "name": "vandalon",
-    "email": "joris@vandalon.nl",
-    "github": "vandalon"
-  }
+  "authors": [
+    {
+      "name": "vandalon",
+      "email": "joris@vandalon.nl",
+      "github": "vandalon"
+    }
+  ]
 }

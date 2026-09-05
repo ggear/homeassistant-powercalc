@@ -1,0 +1,41 @@
+{
+  "aliases": [
+    "Classic A60 RGBW"
+  ],
+  "calculation_strategy": "lut",
+  "created_at": "2023-09-05T19:14:04Z",
+  "device_type": "light",
+  "device_specs": {
+    "socket": "E27",
+    "form_factor": "bulb",
+    "lumens": 810,
+    "rated_power": 10,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
+  "ean": [
+    "4052899926097"
+  ],
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly Plus Plug S",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 2,
+    "SLEEP_TIME": 3,
+    "VERSION": "v1.9.2:docker"
+  },
+  "legacy_ids": [
+    "Classic A60 RGBW"
+  ],
+  "name": "LIGHTIFY Classic A60 RGBW",
+  "standby_power": 0.6,
+  "authors": [
+    {
+      "name": "PalminX",
+      "email": "bkuemmer@gmx.net",
+      "github": "PalminX"
+    }
+  ]
+}

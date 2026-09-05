@@ -2,16 +2,30 @@
   "calculation_strategy": "fixed",
   "created_at": "2025-01-17T10:00:00Z",
   "device_type": "smart_switch",
+  "device_specs": {
+    "form_factor": "plug",
+    "power_monitoring": false,
+    "connectivity": [
+      "wifi"
+    ]
+  },
+  "ean": [
+    "845973084141"
+  ],
   "measure_description": "Manually measured.",
   "measure_device": "TP-Link Kasa KP125M",
   "measure_method": "manual",
-  "name": "Kasa Smart WiFi Plug Lite",
+  "mains_voltage": 120,
+  "name": "Kasa Smart Wi-Fi Plug Lite",
   "only_self_usage": false,
   "standby_power": 0.5,
   "standby_power_on": 1.07,
-  "author_info": {
-    "name": "Thiago Oliveira",
-    "email": "infratl@gmail.com",
-    "github": "chilicheech"
-  }
+  "product_url": "https://www.tp-link.com/us/home-networking/smart-plug/hs103/",
+  "authors": [
+    {
+      "name": "Thiago Oliveira",
+      "email": "infratl@gmail.com",
+      "github": "chilicheech"
+    }
+  ]
 }

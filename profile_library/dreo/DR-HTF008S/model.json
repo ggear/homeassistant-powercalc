@@ -1,0 +1,58 @@
+{
+  "calculation_strategy": "linear",
+  "created_at": "2026-08-13T15:43:19Z",
+  "device_type": "fan",
+  "device_specs": {
+    "form_factor": "tower",
+    "connectivity": [
+      "wifi"
+    ],
+    "rated_power": 45
+  },
+  "linear_config": {
+    "calibrate": [
+      "5 -> 16.90",
+      "10 -> 16.86",
+      "15 -> 16.75",
+      "20 -> 16.65",
+      "25 -> 18.84",
+      "30 -> 18.87",
+      "35 -> 18.78",
+      "40 -> 18.82",
+      "45 -> 21.28",
+      "50 -> 21.19",
+      "55 -> 21.10",
+      "60 -> 21.16",
+      "65 -> 25.28",
+      "70 -> 25.28",
+      "75 -> 25.06",
+      "80 -> 25.09",
+      "85 -> 36.02",
+      "90 -> 36.03",
+      "95 -> 35.80",
+      "100 -> 35.90"
+    ]
+  },
+  "measure_description": "Measured with utils/measure script",
+  "measure_device": "Shelly Plus 1PM",
+  "measure_method": "script",
+  "mains_voltage": 230,
+  "measure_settings": {
+    "SAMPLE_COUNT": 1,
+    "SLEEP_TIME": 2.0,
+    "VERSION": "v0.3.0:app"
+  },
+  "name": "Cruiser Pro T3S Smart Tower Fan",
+  "product_url": "https://www.dreo.com/products/cruiser-pro-t3s-tower-fan",
+  "standby_power": 1.57,
+  "voltage_range": {
+    "min": 234.4,
+    "max": 236.7
+  },
+  "authors": [
+    {
+      "github": "wagnerpizza",
+      "name": "wagnerpizza"
+    }
+  ]
+}

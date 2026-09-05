@@ -5,9 +5,22 @@
   "calculation_strategy": "lut",
   "created_at": "2025-12-11T09:34:01Z",
   "device_type": "light",
+  "ean": [
+    "8718696176566"
+  ],
+  "device_specs": {
+    "socket": "integrated",
+    "form_factor": "fixture",
+    "lumens": 3700,
+    "rated_power": 52.5,
+    "connectivity": [
+      "zigbee"
+    ]
+  },
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly 1PM Gen4",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
@@ -15,9 +28,11 @@
   },
   "name": "Hue Xamento",
   "standby_power": 0.05,
-  "author_info": {
-    "name": "Thorsten1982",
-    "email": "ThorstenNiemann.TN@googlemail.com",
-    "github": "Thorsten1982"
-  }
+  "authors": [
+    {
+      "name": "Thorsten1982",
+      "email": "ThorstenNiemann.TN@googlemail.com",
+      "github": "Thorsten1982"
+    }
+  ]
 }

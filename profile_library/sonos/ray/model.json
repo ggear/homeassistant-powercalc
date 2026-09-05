@@ -1,8 +1,23 @@
 {
+  "aliases": [
+    "S36"
+  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "created_at": "2026-04-17T09:30:48Z",
   "device_type": "smart_speaker",
+  "ean": [
+    "8717755778505",
+    "8717755778512"
+  ],
+  "device_specs": {
+    "form_factor": "soundbar",
+    "connectivity": [
+      "wifi",
+      "ethernet",
+      "infrared"
+    ]
+  },
   "linear_config": {
     "calibrate": [
       "10 -> 2.95",
@@ -21,15 +36,19 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Shelly PM Mini Gen3",
   "measure_method": "script",
+  "mains_voltage": 230,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.20.12:docker"
   },
   "name": "Ray",
+  "product_url": "https://www.sonos.com/en-us/shop/ray",
   "standby_power": 2.92,
-  "author_info": {
-    "name": "Tim",
-    "github": "EinRainerZufall"
-  }
+  "authors": [
+    {
+      "name": "Tim",
+      "github": "EinRainerZufall"
+    }
+  ]
 }

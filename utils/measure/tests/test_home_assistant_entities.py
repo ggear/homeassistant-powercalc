@@ -133,6 +133,86 @@ def test_catalog_loads_entity_data_once_per_instance() -> None:
     assert fresh[0].state == "2.0"
 
 
+def test_catalog_all_includes_arbitrary_domains_and_unavailable_entities() -> None:
+    data = _entity_data()
+    data.entities["climate"] = SimpleNamespace(
+        entities={"room": _entity("climate.room", "unavailable", friendly_name="Room thermostat")},
+    )
+    home_assistant = MagicMock(spec=HomeAssistantManager)
+    home_assistant.get_entity_data.return_value = data
+
+    entities = HomeAssistantEntityCatalog(home_assistant).load_snapshot().all()
+    thermostat = next(entity for entity in entities if entity.entity_id == "climate.room")
+
+    assert thermostat.domain == "climate"
+    assert thermostat.state == "unavailable"
+
+
+def test_catalog_omits_attribute_detail_for_unmeasurable_domains() -> None:
+    """Every Home Assistant entity reaches the "any entity" pickers, so the rows stay small."""
+
+    data = _entity_data()
+    data.entities["climate"] = SimpleNamespace(
+        entities={
+            "room": _entity(
+                "climate.room",
+                "heat",
+                friendly_name="Room thermostat",
+                temperature=21,
+                hvac_modes=["heat", "cool"],
+            ),
+        },
+    )
+    home_assistant = MagicMock(spec=HomeAssistantManager)
+    home_assistant.get_entity_data.return_value = data
+
+    entities = HomeAssistantEntityCatalog(home_assistant).load_snapshot().all()
+    thermostat = next(entity for entity in entities if entity.entity_id == "climate.room")
+    light = next(entity for entity in entities if entity.domain == "light")
+
+    assert thermostat.name == "Room thermostat"
+    assert thermostat.state == "heat"
+    assert thermostat.attribute_names == []
+    # A measurable domain still carries the detail preflight and the selectors read.
+    assert light.attribute_names
+
+
+def test_catalog_handles_light_with_null_effect_list() -> None:
+    data = _entity_data()
+    data.entities["light"].entities["desk"].state.attributes["effect_list"] = None
+    home_assistant = MagicMock(spec=HomeAssistantManager)
+    home_assistant.get_entity_data.return_value = data
+
+    lights = HomeAssistantEntityCatalog(home_assistant).load_snapshot().select(domain=EntityDomain.LIGHT)
+
+    assert lights[0].effect_list is None
+
+
+def test_catalog_exposes_group_members_and_infers_their_shared_model() -> None:
+    data = _entity_data()
+    data.entities["light"].entities["second"] = _entity(
+        "light.second",
+        "on",
+        supported_color_modes=["brightness"],
+    )
+    group = _entity(
+        "light.group",
+        "on",
+        supported_color_modes=["brightness"],
+    )
+    group.state.attributes["entity_id"] = ["light.desk", "light.second"]
+    data.entities["light"].entities["group"] = group
+    data.entity_registry.append(SimpleNamespace(entity_id="light.second", device_id="light-device", platform="hue"))
+    home_assistant = MagicMock(spec=HomeAssistantManager)
+    home_assistant.get_entity_data.return_value = data
+
+    lights = HomeAssistantEntityCatalog(home_assistant).load_snapshot().select(domain=EntityDomain.LIGHT)
+    group = next(light for light in lights if light.entity_id == "light.group")
+
+    assert group.member_entity_ids == ["light.desk", "light.second"]
+    assert group.model_id == "LWA017"
+
+
 def test_snapshot_requires_exactly_one_entity_filter() -> None:
     home_assistant = MagicMock(spec=HomeAssistantManager)
     home_assistant.get_entity_data.return_value = _entity_data()

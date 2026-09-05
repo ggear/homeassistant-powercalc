@@ -1,12 +1,21 @@
 {
-  "aliases": [
-    "Beam"
-  ],
   "calculation_enabled_condition": "{{ is_state('[[entity]]', 'playing') }}",
   "calculation_strategy": "linear",
   "config_flow_discovery_remarks": "**Warning**, please verify this device is a single speaker and not part of a stereo or Home theater configuration. This powercalc profile is specifically for a single speaker, so when you accept it anyway power estimation will be way off. When this is the case for you please ignore this discovery by clicking the three dots and ignore.",
   "created_at": "2024-06-07T12:11:13Z",
   "device_type": "smart_speaker",
+  "device_specs": {
+    "form_factor": "soundbar",
+    "connectivity": [
+      "wifi",
+      "ethernet",
+      "infrared"
+    ]
+  },
+  "ean": [
+    "8717755773913",
+    "8717755778130"
+  ],
   "linear_config": {
     "calibrate": [
       "0 -> 7.30",
@@ -25,10 +34,14 @@
   "measure_description": "Streamed 'Pink noise' from https://www.genelec.com/audio-test-signals and measured using HAOS; manual mute/zero volume measurement.",
   "measure_device": "ZOOZ Z-WAVE PLUS S2 POWER STRIP ZEN20 VER. 3.0",
   "measure_method": "script",
-  "name": "Beam",
+  "mains_voltage": 120,
+  "name": "Beam (Gen 2)",
+  "product_url": "https://www.sonos.com/en-us/shop/beam",
   "standby_power": 6.0,
-  "author_info": {
-    "name": "alvinchen1",
-    "github": "alvinchen1"
-  }
+  "authors": [
+    {
+      "name": "alvinchen1",
+      "github": "alvinchen1"
+    }
+  ]
 }

@@ -4,17 +4,32 @@
   "measure_description": "Measured with utils/measure script",
   "measure_device": "Sonoff S31",
   "measure_method": "script",
+  "mains_voltage": 120,
   "measure_settings": {
     "SAMPLE_COUNT": 2,
     "SLEEP_TIME": 3,
     "VERSION": "v1.19.1:docker"
   },
-  "name": "Neon Rope Light",
+  "name": "Neon Rope Light (2m)",
   "standby_power": 2.67,
   "device_type": "light",
-  "author_info": {
-    "name": "Minne",
-    "email": "fendersfolly@icloud.com",
-    "github": "miniminne"
-  }
+  "device_specs": {
+    "form_factor": "strip",
+    "socket": "integrated",
+    "connectivity": [
+      "wifi",
+      "bluetooth"
+    ]
+  },
+  "ean": [
+    "6974316994220"
+  ],
+  "product_url": "https://ca.govee.com/products/refurbished-govee-neon-led-strip-light",
+  "authors": [
+    {
+      "name": "Minne",
+      "email": "fendersfolly@icloud.com",
+      "github": "miniminne"
+    }
+  ]
 }
