@@ -162,6 +162,76 @@ def test_run(export_path: str) -> None:
     assert points[-1] == {"type": "light", "on": True, "brightness": 255}
 
 
+@pytest.mark.parametrize("completed_brightnesses", [[1], [1, 128]])
+def test_resume_reports_progress_against_the_full_plan(
+    tmp_path: Path,
+    completed_brightnesses: list[int],
+) -> None:
+    parameters = replace(_zero_sleep_parameters(), bri_bri_steps=127)
+    measure_util = MagicMock(MeasureUtil)
+    measure_util.take_measurement.return_value = MeasurementResult(power=1, voltages=[])
+    interaction = MagicMock(spec=RunInteraction)
+    runner = LightRunner(
+        measure_util,
+        parameters,
+        DummyLightController(),
+        interaction,
+        resume=True,
+    )
+    request = LightMeasurementRequest(
+        model_id="measurement",
+        product_name="Measurement",
+        measure_device="Test meter",
+        power_meter=DummyPowerMeterSpec(),
+        controller=DummyLightControllerSpec(),
+        modes={LutMode.BRIGHTNESS},
+        parameters=parameters,
+        gzip=False,
+    )
+    csv_path = tmp_path / "brightness.csv"
+    with csv_path.open("w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["bri", "watt"])
+        writer.writerows([brightness, 1.0] for brightness in completed_brightnesses)
+
+    runner.run(request, str(tmp_path))
+
+    initial_progress = interaction.progress.call_args_list[0].kwargs
+    assert initial_progress["completed"] == len(completed_brightnesses)
+    assert initial_progress["total"] == 3
+    final_progress = interaction.progress.call_args_list[-1].kwargs
+    assert final_progress["completed"] == 3
+    assert final_progress["total"] == 3
+    with csv_path.open(newline="") as csv_file:
+        rows = list(csv.reader(csv_file))
+    assert [int(row[0]) for row in rows[1:]] == [1, 128, 255]
+
+
+def test_initial_wait_happens_after_selecting_first_measurement_point(tmp_path: Path) -> None:
+    events: list[tuple[str, object]] = []
+    variation = Variation(1)
+    run = _brightness_run(tmp_path, [variation])
+    run.runner.config = replace(run.runner.config, sleep_time=2, sleep_initial=10)
+    light_controller = MagicMock(spec=DummyLightController)
+    light_controller.change_light_state.side_effect = lambda *args, **kwargs: events.append(("change", (args, kwargs)))
+    run.runner.light_controller = light_controller
+    run.runner.interaction.wait.side_effect = lambda seconds: events.append(("wait", seconds))
+    run.measure_util.take_measurement.return_value = MeasurementResult(power=1, voltages=[])
+
+    run.execute()
+
+    assert events[:7] == [
+        ("change", ((LutMode.BRIGHTNESS,), {"on": True, "bri": 255})),
+        ("wait", 2),
+        ("change", ((LutMode.BRIGHTNESS,), {"on": True, "bri": 255})),
+        ("wait", 2),
+        ("change", ((LutMode.BRIGHTNESS,), {"on": True, "bri": 1})),
+        ("wait", 2),
+        ("wait", 10),
+    ]
+    run.runner.interaction.phase.assert_called_once_with("Stabilizing light before the first reading (10 s)")
+
+
 def test_zero_reading_retries_current_variation_and_reports_skipped_progress(tmp_path: Path) -> None:
     variations = [Variation(1), Variation(2)]
     run = _brightness_run(tmp_path, variations)
@@ -253,11 +323,11 @@ def test_controller_close_failure_does_not_mask_measurement_result(caplog: pytes
     assert "Could not close the light controller during measurement cleanup: close unavailable" in caplog.text
 
 
-def _flaky_light_controller(failures_after_startup: int) -> MagicMock:
-    """A light controller that drops its connection once the measurement loop starts.
+def _flaky_light_controller(failures_after_startup: int, *, start_failing_at: int = 2) -> MagicMock:
+    """A light controller that drops its connection after ``start_failing_at`` calls.
 
     The first two calls belong to set_light_to_maximum_brightness, which runs before
-    any variation is measured.
+    any variation is measured; ``start_failing_at=0`` targets that initial turn-on.
     """
 
     light_controller = MagicMock(spec=DummyLightController)
@@ -265,7 +335,7 @@ def _flaky_light_controller(failures_after_startup: int) -> MagicMock:
 
     def change_light_state(*_: object, **__: object) -> None:
         index = next(calls)
-        if index >= 2 and index - 2 < failures_after_startup:
+        if index >= start_failing_at and index - start_failing_at < failures_after_startup:
             raise HassApiConnectionError("Failed to change light state: Connection broken")
 
     light_controller.change_light_state.side_effect = change_light_state
@@ -300,6 +370,37 @@ def test_change_light_state_gives_up_after_five_failed_retries(tmp_path: Path) -
     variations = [Variation(1)]
     run = _brightness_run(tmp_path, variations)
     run.runner.light_controller = _flaky_light_controller(failures_after_startup=5)
+
+    with pytest.raises(RunnerError, match="Failed to change light state after 5 retries"):
+        run.execute()
+
+
+def test_initial_maximum_brightness_is_retried_after_a_dropped_connection(tmp_path: Path) -> None:
+    """A dropped connection during the initial turn-on must not abort the session.
+
+    The retry only covered the per-variation loop, so a single broken frame during
+    set_light_to_maximum_brightness still killed the run before any measurement was
+    written.
+    """
+
+    variations = [Variation(1), Variation(2)]
+    run = _brightness_run(tmp_path, variations)
+    run.runner.light_controller = _flaky_light_controller(failures_after_startup=1, start_failing_at=0)
+    run.measure_util.take_measurement.side_effect = [
+        MeasurementResult(power=1, voltages=[]),
+        MeasurementResult(power=2, voltages=[]),
+    ]
+
+    run.execute()
+
+    with open(run.measurement_info.csv_file, newline="") as csv_file:
+        rows = list(csv.reader(csv_file))
+    assert rows == [["bri", "watt"], ["1", "1.0"], ["2", "2.0"]]
+
+
+def test_initial_maximum_brightness_gives_up_after_five_failed_retries(tmp_path: Path) -> None:
+    run = _brightness_run(tmp_path, [Variation(1)])
+    run.runner.light_controller = _flaky_light_controller(failures_after_startup=5, start_failing_at=0)
 
     with pytest.raises(RunnerError, match="Failed to change light state after 5 retries"):
         run.execute()

@@ -24,7 +24,7 @@ No port, host networking, Home Assistant configuration mapping, or API credentia
 | Fan | `fan` | Linear percentage calibration and optional `model.json` |
 | Charging device | `vacuum` or `lawn_mower` | Battery-level charging calibration and optional `model.json` |
 | Average | No controlled device required | Average power over a configured duration |
-| Recorder | Optional tracked entities from any domain; guided vacuum and battery selection | Playbook CSV or power plus entity-state JSON Lines until stopped |
+| Recorder | Optional tracked entities from any domain; guided vacuum and battery selection | Playbook CSV, or entity-state JSON Lines with automatic experimental fixed-profile analysis |
 
 The app supports these power-meter types:
 
@@ -110,8 +110,11 @@ When both the Powercalc integration and the Measure app are running, Powercalc c
 installations that do not use the Measure app.
 
 The sensor reports the current session state, such as `idle`, `running`, `completed`, or `failed`. Its attributes
-include the Measure app version and, when available, the session ID and error message. The sensor becomes unavailable
-when the app stops sending status updates, for example when the app is stopped.
+include the Measure app version and, when available, the session ID, controlled entity, and error message.
+The `controlled_entity` attribute contains the Home Assistant entity ID controlled by the session, or a comma-separated
+list for measurements controlling multiple lights. It remains available after the session finishes and is omitted for
+measurements without a controlled Home Assistant entity. The sensor becomes unavailable when the app stops sending
+status updates, for example when the app is stopped.
 
 You can use the sensor in an automation to be notified when a long-running measurement completes. Replace the notify
 action with the one for your device:
