@@ -4,7 +4,7 @@
 
     The Powercalc Measure app is the recommended way to run measurements on Home Assistant OS (`amd64` and `aarch64`). It is new and under active development, so feedback is welcome. Home Assistant Container and Core installations should use the [CLI](setup.md) instead.
 
-The app provides an ingress UI for configuring, validating, running, and reviewing Powercalc measurements. It uses Home Assistant entities to control devices and can read power from a Home Assistant sensor or directly from a Shelly or Kasa plug. Home Assistant supplies authentication and Core API access, so you do not create or paste a long-lived access token.
+The app provides an ingress UI for configuring, validating, running, and reviewing Powercalc measurements. It uses Home Assistant entities to control devices and can read power from a Home Assistant sensor or directly from a Shelly, Kasa, or Tapo plug. Home Assistant supplies authentication and Core API access, so you do not create or paste a long-lived access token.
 
 ## Availability and installation
 
@@ -24,13 +24,13 @@ No port, host networking, Home Assistant configuration mapping, or API credentia
 | Fan | `fan` | Linear percentage calibration and optional `model.json` |
 | Charging device | `vacuum` or `lawn_mower` | Battery-level charging calibration and optional `model.json` |
 | Average | No controlled device required | Average power over a configured duration |
-| Recorder | Optional tracked entities from any domain; guided vacuum and battery selection | Playbook CSV, or entity-state JSON Lines with automatic experimental fixed-profile analysis |
+| Recorder | Optional tracked entities from any domain; guided vacuum and battery selection with automatic device-entity capture | Playbook CSV, or entity-state JSON Lines with experimental fixed and vacuum composite analysis |
 
 The app supports these power-meter types:
 
 - a Home Assistant power sensor reporting `W`, with automatic association of an optional voltage sensor reporting `V`;
 - a directly polled Shelly plug, selected through network discovery or entered by IP address;
-- a directly polled Kasa plug with energy monitoring, such as a KP115 or HS110, entered by IP address;
+- a directly polled Kasa or Tapo plug with energy monitoring, entered by IP address. Newer devices require the TP-Link account used to set them up;
 - a synthetic test meter for development and UI testing only.
 
 Direct Hue, Tuya, Tasmota and myStrom controllers or meters, OCR, and manual power entry remain CLI-only.
@@ -46,7 +46,7 @@ Use **Test connection** to sample the configured meter before starting a long ru
 - how often the source reports a new reading;
 - whether the update interval is suitable for reliable measurements.
 
-An update interval of two seconds or faster is recommended. Intervals above five seconds, no observed updates, or insufficient precision are reported as poor measurement quality. Directly polled Shelly and Kasa meters are checked for connectivity and a valid reading; Home Assistant reporting cadence does not apply to them.
+An update interval of two seconds or faster is recommended. Intervals above five seconds, no observed updates, or insufficient precision are reported as poor measurement quality. Directly polled Shelly, Kasa, and Tapo meters are checked for connectivity and a valid reading; Home Assistant reporting cadence does not apply to them.
 
 ## GitHub contribution setup
 
@@ -74,7 +74,7 @@ A resistive dummy load can raise a low device load into a range that the power m
 
     Connect the dummy load in parallel with the measured device only when you understand the electrical and thermal safety implications. Use a stable resistive load, such as a suitable incandescent bulb. Do not use an LED bulb or another electronically controlled load. Keep the dummy load connected and powered for the entire calibration and measurement.
 
-Dummy-load correction requires voltage readings. The selected Home Assistant power sensor must have an associated voltage sensor reporting `V`, or the directly polled Shelly or Kasa meter must provide voltage. The synthetic test meter cannot be used for dummy-load measurements.
+Dummy-load correction requires voltage readings. The selected Home Assistant power sensor must have an associated voltage sensor reporting `V`, or the directly polled Shelly, Kasa, or Tapo meter must provide voltage. The synthetic test meter cannot be used for dummy-load measurements.
 
 Before the first measurement, the app calibrates the resistance of the warmed-up dummy load:
 
@@ -94,14 +94,65 @@ During the actual run, live and saved power readings show the target device cons
 3. Select a measurement type and the Home Assistant entity when that measurement controls a device.
 4. Enter the profile details and measurement-specific options. Light measurements also let you choose the modes advertised by the selected entity. Enable a resistive dummy load only when the device load would otherwise be too low for the meter.
 5. Run the setup check and review its estimates, warnings, meter diagnostics, and advanced timing settings. For a
-   light measurement without a dummy load, this briefly tests representative low-load white and color settings and
-   leaves the selected lights off. A successful result is reused when the unchanged measurement is started shortly
-   afterwards. See [Measuring low-power devices](low-power-measurements.md) when a point repeatedly reads `0` W.
+   light measurement without a dummy load, this tests representative low-load white and color settings, then checks
+   standby and leaves the selected lights off. Unavailable standby is a warning, not a blocker. A successful result
+   is reused when the unchanged measurement is started shortly afterwards; use **Recheck setup** after changing the
+   physical setup. See [Measuring low-power devices](low-power-measurements.md) when a point repeatedly reads `0` W.
 6. Start the session. Complete the dummy-load calibration or reuse confirmation when enabled. Average, recorder, speaker, and charging measurements also pause for an explicit confirmation when the physical device must be prepared or the actual sampling period is about to begin.
 7. Follow live progress, current operating values, recent power samples, and session logs. You can close or reload the browser; the app owns the job and restores its persisted status when you return.
 8. Review plots and download generated CSV, model, or recording files from the result view. For generated profiles, either prepare a GitHub pull request in the app or use the permanent manual-contribution option.
 
+If standby could not be measured, the light session still retains its completed lookup tables. In **Prepare profile**,
+enter a separately measured standby value in watts per light or apply the offered estimate. Mark estimates with
+**Estimated**, then validate the profile. This also recovers older completed sessions with zero or missing standby
+without repeating the measurement. See [Standby recovery and estimate selection](low-power-measurements.md#recover-a-completed-light-profile-with-unavailable-standby).
+
 The PowerCalc logo and the **All sessions** action in the top bar return to the session dashboard. Only one measurement runs at a time; while one is active, its dashboard entry provides the monitor action and starting or resuming another session is disabled.
+
+### Recording a vacuum and dock
+
+Choose **Recorder**, **Complex profile**, and the vacuum recipe. Select the vacuum and its battery percentage
+sensor. The app preselects the other enabled entities with live states on the same Home Assistant device. You can
+remove entities or add dock entities belonging to another device. Camera and image entities are not selected
+automatically. Changing the selected vacuum resets these defaults; reopening a saved configuration preserves your
+selections.
+
+Measure the entire dock at the wall outlet. Record idle, cleaning, charging through completion, mop washing,
+auto-emptying, and drying where supported. Prefer repeated cycles so a future analyser can check a profile against
+independent runs rather than nearby samples from the same cycle.
+
+The selected entity list is fixed for the run. `record.jsonl` includes entity roles, integration, translation keys,
+device classes, units, and device associations when available. Its device inventory also lists disabled entities
+without recording their states or enabling them. Enable any useful missing entities in Home Assistant before
+starting a new recording.
+
+Vacuum recordings keep bounded scalar attributes, omitting nested payloads, long strings, URL values, and common
+network, location, and credential attributes. The metadata describes this filtering policy. Recordings still contain
+entity IDs and other device data: review them before sharing. If an optional entity disappears, its state is recorded
+as `unavailable`, with a warning, while power readings continue. Missing required vacuum or battery entities cause
+that sample to be skipped.
+
+Automatic analysis is experimental. The generic recipe still fits one state or scalar attribute with a fixed
+`states_power` model. The vacuum recipe can generate a small `stop_at_first` composite profile: measured dock
+activities use fixed power, and charging uses a battery-level calibration curve.
+
+Repeat every observed activity in at least two independent episodes, with at least five samples per episode.
+Record washing, drying, auto-emptying, charging, sleep/standby, and operation away from the dock where supported.
+Capture continuous charging over at least 20 battery percentage points. A single run is useful source data but
+does not provide independent evidence for automatic profile generation.
+
+The analyser uses recognised runtime status sensors or active activity flags, not settings such as an
+**auto drying enabled** switch. Related entities need unambiguous same-device registry metadata to produce portable
+profile placeholders. For older recordings, matching `battery_level` attributes can supply charging data.
+Unrecognised modes or unreliable overlaps cause a request for more data; the analyser does not infer an additive
+charging-plus-drying model or insert an unmeasured zero-power fallback.
+
+Validation holds out whole episodes rather than nearby samples from the same episode. The analyser's Python API
+also accepts several compatible recording paths and prefers a whole held-out recording when it contains every
+observed activity. The app currently analyses its session's single recording. Inspect `analyser.json` for per-activity
+coverage, typical and transition errors, and measured versus predicted energy. Energy is integrated only across
+adjacent covered validation samples, without bridging gaps or activity boundaries. Generated profiles still need
+contributor testing before submission.
 
 ## Measure session status sensor
 
@@ -174,7 +225,7 @@ Watch the sensor in Home Assistant Developer Tools while changing the load. The 
 
 ### Dummy-load calibration is unavailable or unstable
 
-Confirm that the configured meter provides voltage readings. Home Assistant voltage sensors must report `V`; a Shelly or Kasa plug must expose voltage through its device API. The synthetic test meter does not support calibration.
+Confirm that the configured meter provides voltage readings. Home Assistant voltage sensors must report `V`; a Shelly, Kasa, or Tapo plug must expose voltage through its device API. The synthetic test meter does not support calibration.
 
 If resistance does not stabilize, allow the load to warm up longer and ensure no other load behind the meter is changing. Recalibrate after correcting the setup. Do not continue with a stored calibration when the physical load, meter, or wiring has changed.
 

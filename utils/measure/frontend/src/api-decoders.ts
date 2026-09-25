@@ -27,6 +27,8 @@ import type {
   SessionSnapshot,
   SessionSummary,
   ShellyDiscoveryResponse,
+  StandbyEstimate,
+  StandbyMeasurementResult,
 } from "./types";
 
 export type Decoder<T> = (value: unknown) => T;
@@ -173,9 +175,12 @@ const isEntityDescriptor: Guard<EntityDescriptor> = objectOf({
   entity_id: isString,
   name: isString,
   domain: optional(isString),
-  device_class: optionalNullable(oneOf("power", "voltage", "battery")),
+  device_class: optionalNullable(isString),
   device_id: optionalNullable(isString),
   integration: optionalNullable(isString),
+  translation_key: optionalNullable(isString),
+  disabled_by: optionalNullable(isString),
+  has_live_state: optional(isBoolean),
   manufacturer: optionalNullable(isString),
   model_id: optionalNullable(isString),
   product_name: optionalNullable(isString),
@@ -251,6 +256,7 @@ const isAppSettings: Guard<AppSettings> = objectOf({
   shelly_username: optional(isString),
   shelly_password_configured: optional(isBoolean),
   kasa_ip: nullable(isString),
+  tapo_credentials_configured: optional(isBoolean),
   fast_test_mode: isBoolean,
   measurement_defaults: isAppMeasurementDefaults,
 });
@@ -277,6 +283,7 @@ const isContributionFile = objectOf({
 });
 const isPrimitiveRecord = recordOf(isPrimitive);
 const isContributionPreview: Guard<ContributionPreview> = objectOf({
+  standby_power: optionalNullable(isNumber), standby_power_estimated: optional(isBoolean),
   eligible: isBoolean,
   reason: optionalNullable(isString),
   repository: isString,
@@ -339,6 +346,7 @@ const isPreflight: Guard<PreflightResponse> = objectOf({
   battery_level_attribute: optionalNullable(isString),
   light_load_probe: optionalNullable(objectOf({
     checked_variations: isNumber, minimum_aggregate_power_w: isNumber,
+    standby: optional(objectOf({ status: oneOf("measured", "unavailable", "skipped"), power_w: nullable(isNumber) })),
     points: arrayOf(objectOf({ label: isString, mode: oneOf("brightness", "color_temp", "hs", "effect"), power_w: isNumber })),
   })),
 });
@@ -417,6 +425,7 @@ export const decodeShellyDiscovery: Decoder<ShellyDiscoveryResponse> = decoder("
   available: isBoolean, message: nullable(isString),
 }));
 export const decodeEntityCatalog: Decoder<EntityCatalog> = decoder("entity catalog", objectOf({
+  home_assistant_ready: isBoolean,
   lights: arrayOf(isEntityDescriptor), powers: arrayOf(isEntityDescriptor), voltages: arrayOf(isEntityDescriptor),
 }));
 export const decodeEntities = decoder("entity list", arrayOf(isEntityDescriptor));
@@ -429,6 +438,12 @@ export const decodeSessionSummaries = decoder("session list", arrayOf(isSessionS
 export const decodeSessionFiles: Decoder<SessionFile[]> = decoder("session files", arrayOf(objectOf({ name: isString, size: isNumber, media_type: isString })));
 export const decodePlots = decoder("plots", isPlotCollection);
 export const decodeContributionPreview = decoder("contribution preview", isContributionPreview);
+export const decodeStandbyEstimate: Decoder<StandbyEstimate> = decoder("standby estimate", objectOf({
+  power_w: isNumber, basis: oneOf("manufacturer", "connectivity", "fallback"), profile_count: isNumber,
+}));
+export const decodeStandbyMeasurement: Decoder<StandbyMeasurementResult> = decoder("standby measurement", objectOf({
+  status: oneOf("measured", "unavailable", "skipped"), power_w: nullable(isNumber),
+}));
 export const decodeContributionResult = decoder("contribution result", isContributionResult);
 
 export function decodeApiError(value: unknown): Partial<ApiErrorBody> & { detail?: unknown } {

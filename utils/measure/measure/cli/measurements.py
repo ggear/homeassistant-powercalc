@@ -21,7 +21,7 @@ from measure.controller.charging.const import ChargingControllerType
 from measure.controller.fan.const import FanControllerType
 from measure.controller.light.const import LightControllerType
 from measure.controller.media.const import MediaControllerType
-from measure.home_assistant_entities import HomeAssistantEntityCatalog
+from measure.home_assistant.entities import HomeAssistantEntityCatalog
 from measure.powermeter.const import PowerMeterType
 
 type CliQuestionBuilder = Callable[[CliEnvironment, HomeAssistantEntityCatalog | None], list[Question]]
@@ -90,10 +90,7 @@ def measurement_questions(
     environment: CliEnvironment,
     entity_catalog: HomeAssistantEntityCatalog | None = None,
 ) -> list[Question]:
-    try:
-        questions = CLI_QUESTION_BUILDERS[measure_type](environment, entity_catalog)
-    except KeyError as error:
-        raise ValueError(f"No CLI question builder registered for {measure_type}") from error
+    questions = CLI_QUESTION_BUILDERS[measure_type](environment, entity_catalog)
     if environment.selected_power_meter == PowerMeterType.HASS:
         questions.extend(hass_power_meter_questions(_require_entity_catalog(entity_catalog)))
     return questions

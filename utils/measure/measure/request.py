@@ -14,7 +14,7 @@ from measure.controller.light.spec import LightControllerSpec
 from measure.controller.media.spec import MediaControllerSpec
 from measure.controller.spec import BaseControllerSpec
 from measure.powermeter.spec import DummyPowerMeterSpec, ManualPowerMeterSpec, PowerMeterSpec
-from measure.runner.const import COMPLEX_PROFILE_EXPORT_FILENAME, DEFAULT_EXPORT_FILENAME
+from measure.recording.files import COMPLEX_PROFILE_EXPORT_FILENAME, DEFAULT_EXPORT_FILENAME
 from measure.tuning import MeasurementParameters
 
 
@@ -155,10 +155,10 @@ class BaseMeasurementRequest(BaseModel):
         return self
 
     @property
-    def controlled_entity_ids(self) -> tuple[str, ...]:
+    def controlled_entity_ids(self) -> list[str]:
         """Home Assistant entities driven during the measurement, empty when the controller drives none."""
         entity_ids = getattr(self.controller, "entity_ids", None) or [getattr(self.controller, "entity_id", None)]
-        return tuple(str(entity_id) for entity_id in entity_ids if entity_id)
+        return [str(entity_id) for entity_id in entity_ids if entity_id]
 
     @property
     def model_name(self) -> str:
@@ -303,18 +303,31 @@ class RecorderMeasurementRequest(BaseMeasurementRequest):
             raise ValueError("battery_entity_id must be a sensor entity")
 
     @property
-    def recorded_entity_ids(self) -> tuple[str, ...]:
+    def recorded_entity_ids(self) -> list[str]:
         """Entities recorded in deterministic capture order."""
 
         if self.recorder_purpose == RecorderPurpose.PLAYBOOK:
-            return ()
+            return []
         if self.profile_recipe == RecorderProfileRecipe.GENERIC:
-            return self.tracked_entity_ids
-        return tuple(
+            return list(self.tracked_entity_ids)
+        return [
             entity_id
             for entity_id in (self.vacuum_entity_id, self.battery_entity_id, *self.additional_entity_ids)
             if entity_id is not None
-        )
+        ]
+
+    @property
+    def required_entity_ids(self) -> list[str]:
+        """Recorded entities a sample cannot be written without.
+
+        A vacuum recipe only needs the vacuum and its battery; the additional entities the
+        frontend preselects from the device are best effort and may disappear mid-session.
+        """
+
+        entity_ids = self.recorded_entity_ids
+        if self.profile_recipe == RecorderProfileRecipe.VACUUM_ROBOT:
+            return entity_ids[:2]
+        return entity_ids
 
 
 class SpeakerMeasurementRequest(BaseMeasurementRequest):

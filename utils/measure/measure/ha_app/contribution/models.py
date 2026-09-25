@@ -31,7 +31,7 @@ def supports_automatic_contribution(request: MeasurementRequest) -> bool:
     )
 
 
-def contribution_entity_ids(request: MeasurementRequest) -> tuple[str, ...]:
+def contribution_entity_ids(request: MeasurementRequest) -> list[str]:
     """Return the entities which identify the contributed device.
 
     Recorder analysis intentionally models the first recorded entity. Other recorded
@@ -41,7 +41,7 @@ def contribution_entity_ids(request: MeasurementRequest) -> tuple[str, ...]:
 
     if isinstance(request, RecorderMeasurementRequest):
         return request.recorded_entity_ids[:1]
-    return tuple(request.controlled_entity_ids)
+    return request.controlled_entity_ids
 
 
 class ContributionAuthMethod(StrEnum):
@@ -128,7 +128,12 @@ class DeviceFlowStartResponse(DeviceFlowStart):
     flow_id: str
 
 
-DeviceFlowPollStatus = Literal["pending", "slow_down", "authorized", "expired", "denied"]
+class DeviceFlowPollStatus(StrEnum):
+    PENDING = "pending"
+    SLOW_DOWN = "slow_down"
+    AUTHORIZED = "authorized"
+    EXPIRED = "expired"
+    DENIED = "denied"
 
 
 class DeviceFlowPollResponse(BaseModel):
@@ -160,6 +165,8 @@ class ContributionPreviewRequest(BaseModel):
     product_url: str | None = Field(default=None, max_length=2_000)
     mains_voltage: Literal[120, 230] | None = None
     device_specs: dict[str, Any] | None = None
+    standby_power: float | None = Field(default=None, ge=0.05, allow_inf_nan=False, strict=True)
+    standby_power_estimated: bool | None = None
     measure_device: str | None = Field(default=None, max_length=200)
     measure_device_firmware: str | None = Field(default=None, max_length=200)
     measure_description: str | None = Field(default=None, max_length=2_000)
@@ -193,6 +200,8 @@ class ContributionPreviewResponse(BaseModel):
     voltage_range: dict[str, float] | None = None
     device_specs: dict[str, Any] | None = None
     device_type: str = ""
+    standby_power: float | None = None
+    standby_power_estimated: bool = False
     measure_device: str = ""
     measure_device_firmware: str = ""
     measure_description: str = ""
