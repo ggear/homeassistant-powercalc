@@ -23,11 +23,12 @@ from measure.ha_app.api_models import (
     PreflightResponse,
 )
 from measure.ha_app.context import AppContext, get_app_context
+from measure.ha_app.entity_suggestions import add_recording_suggestions
 from measure.ha_app.library_catalog import (
     LibraryCatalogError,
 )
 from measure.ha_app.preferences import AppPreferences, AppSettingsResponse, AppSettingsUpdate
-from measure.ha_app.preparation import apply_fast_test_mode, run_preflight
+from measure.ha_app.preparation import apply_developer_settings, run_preflight
 from measure.ha_app.registry import measurement_definitions
 from measure.ha_app.shelly_credentials import ShellyCredentials
 from measure.ha_app.shelly_discovery import ShellyDiscoveryResponse, ShellyDiscoveryService
@@ -143,6 +144,8 @@ async def update_settings(payload: AppSettingsUpdate, request: Request) -> AppSe
     context = get_app_context(request)
     if payload.fast_test_mode and not context.developer_mode:
         raise HTTPException(status_code=400, detail="Fast test mode requires developer mode")
+    if payload.allow_zero_power and not context.developer_mode:
+        raise HTTPException(status_code=400, detail="Accepting 0 W readings requires developer mode")
     return await run_in_threadpool(_save_settings, context, payload)
 
 
@@ -154,6 +157,14 @@ async def test_power_meter(payload: AppSettingsUpdate, request: Request) -> Powe
 @router.get("/power-meters/shelly")
 async def discover_shelly_power_meters(request: Request) -> ShellyDiscoveryResponse:
     return await ShellyDiscoveryService(get_app_context(request).home_assistant).discover()
+
+
+@router.post("/dummy-load/calibration/match")
+def matching_dummy_load_calibration(payload: PowerMeterSpec, request: Request) -> DummyLoadCalibration | None:
+    calibration = get_app_context(request).storage.load_dummy_load_calibration()
+    if calibration is not None and calibration.power_meter_fingerprint == power_meter_fingerprint(payload):
+        return calibration
+    return None
 
 
 @router.get("/dummy-load/calibration")
@@ -195,13 +206,15 @@ async def entities(
     snapshot = await run_in_threadpool(
         HomeAssistantEntityCatalog(get_app_context(request).home_assistant).load_snapshot,
     )
-    return snapshot.get_all() if all_entities else snapshot.select(domain=domain, device_class=device_class)
+    if all_entities:
+        return add_recording_suggestions(snapshot)
+    return snapshot.select(domain=domain, device_class=device_class)
 
 
 @router.post("/preflight", responses={409: ERROR_RESPONSE, 422: ERROR_RESPONSE})
 async def preflight(payload: MeasurementRequestPayload, request: Request, refresh: bool = False) -> PreflightResponse:
     context = get_app_context(request)
-    prepared = await run_in_threadpool(apply_fast_test_mode, context, payload)
+    prepared = await run_in_threadpool(apply_developer_settings, context, payload)
     assessment = await run_in_threadpool(run_preflight, context, prepared, refresh=refresh)
     result = assessment.checks
     return PreflightResponse(

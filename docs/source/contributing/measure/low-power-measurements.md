@@ -61,16 +61,22 @@ Use a stable resistive load, such as a suitable incandescent lamp. Do not use an
 controlled load: its consumption is not stable enough for reliable subtraction. The meter must also provide voltage
 readings so Powercalc can account for voltage-dependent changes in the dummy load.
 
+The app supports dummy-load correction for light, speaker, fan, charging, average, and recorder measurements
+with a real power meter. A Home Assistant power sensor needs an associated voltage sensor reporting `V`; directly
+polled Shelly, Kasa, and Tapo meters must expose voltage through their API. The synthetic test meter cannot be used.
+
 In the Home Assistant app:
 
 1. Connect only the dummy load and allow it to warm up.
 2. Enable **Use resistive dummy load** during measurement setup.
-3. Calibrate it until Powercalc reports a stable resistance.
+3. Confirm calibration and wait until Powercalc reports a stable resistance. Calibration measures at least 20 periods of 30 seconds (at least 10 minutes); let it continue if resistance is still rising or falling.
 4. Connect the target device in parallel without disconnecting the dummy load.
 5. Keep the same meter, load, and wiring in place for the complete measurement.
 
 Reuse a stored calibration only after confirming that the same warmed-up load is connected. Recalibrate after changing
-the load, meter, wiring, or whenever its stability is uncertain.
+the load, meter, wiring, or whenever its stability is uncertain. Choose **Recalibrate** to replace a stored calibration.
+A calibration interrupted before resistance stabilizes is not saved. During the measurement, live and saved power
+readings show the target device consumption after subtracting the calculated dummy-load contribution.
 
 ## Use a meter with better low-load resolution
 
@@ -103,13 +109,26 @@ when several lights were measured together. Keep **Estimated** checked for estim
 estimate with a measured value. This also works for older completed sessions whose standby is missing or zero; no
 new LUT run is required.
 
-**Measure standby** retries only the standby reading using the completed session's original setup. Confirm the
-device and meter are still connected correctly. Lights, speakers, and fans use their existing turn-off routines;
-for charging and recorded devices, put the device into standby yourself before confirming. Lights may briefly
-pulse on and off to refresh stale readings. Any resistive dummy load must remain connected and warmed up, as its
-session calibration is reused. A successful reading fills the field and clears **Estimated**; an unavailable
-reading or error leaves your entry unchanged. Dummy meters and controllers are allowed for testing, with a
-simulation notice; their results must not be submitted as real measurements.
+**Measure standby** retries only the standby reading. For light sessions, its setup dialog starts with the original
+device settings and lets you change the controlled light entities, bulb count, standby settling time, and sampling settings.
+The retry defaults to 10 seconds of settling and five samples with two seconds between readings. The dialog shows
+progress, elapsed time, and the result; choose **Measure again** to revisit the setup or **Done** to close it.
+Home Assistant meters also allow changing the power and voltage sensors. These changes apply only to the retry;
+the completed session's configuration and LUT measurements are preserved.
+
+You can remove the dummy load, reuse the original or a compatible saved calibration, or calibrate a new resistive
+load. For a new calibration, preheat the dummy load until stable and disconnect the measured bulbs so only the dummy
+load is connected to the meter. Choose **Calibrate dummy load**, then reconnect the bulbs in parallel after calibration
+completes. Calibration continues if you close the dialog, disconnect, or reload the page. Reopen the same session’s standby dialog to check progress or cancel calibration. Stopping the app cancels an unfinished calibration. Keep the same warmed-up dummy load connected during standby measurement. Voltage support and calibration
+compatibility are checked before measurement. The result subtracts the dummy load and divides by the retry's bulb count.
+
+Confirm the selected devices and meter are connected correctly. Lights, speakers, and fans use their existing turn-off
+routines; for charging and recorded devices, put the device into standby yourself before confirming. Lights may briefly
+pulse on and off to refresh stale readings. A successful reading fills the field and clears **Estimated**, and its
+effective setup and calibration are recorded separately in the session's `standby_retry.json`. If saving this optional
+record fails, the measured value is still returned and the storage error is logged. Cancelling the setup,
+an unavailable reading, or an error leaves your standby entry and completed measurements unchanged. Dummy meters and
+controllers are allowed for testing, with a simulation notice; their results must not be submitted as real measurements.
 
 The standby field, **Estimated** checkbox, and retry action are also available for non-light profiles. Their value
 is watts for the device, not watts per light. Leave the optional field blank to preserve an existing value or

@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -24,6 +25,7 @@ import pytest
 from tests.ha_app.api_test_support import (
     AppClientFactory,
     FakeClient,
+    entity,
     payload,
 )
 
@@ -370,6 +372,55 @@ def test_capabilities_and_entity_filters(app_client_factory: AppClientFactory) -
         assert [item["entity_id"] for item in response.json()] == [expected]
 
 
+def test_vacuum_recording_suggestions_include_only_its_linked_dock(app_client_factory: AppClientFactory) -> None:
+    test_client = app_client_factory()
+    client = FakeClient()
+    test_client.app.state.context.home_assistant = client
+    live_entities = client.get_entities()
+    live_entities["switch"] = SimpleNamespace(
+        entities={
+            "drying": entity("switch.dock_drying", "off"),
+            "other": entity("switch.other_drying", "on"),
+        }
+    )
+    live_entities["sensor"].entities["status"] = entity("sensor.robot_status", "unknown")
+    registry = [
+        *client.list_entity_registry(),
+        SimpleNamespace(
+            entity_id="sensor.robot_status", device_id="vacuum-device", platform="roborock", translation_key="status"
+        ),
+        SimpleNamespace(
+            entity_id="switch.dock_drying", device_id="dock", platform="roborock", translation_key="mop_drying"
+        ),
+        SimpleNamespace(
+            entity_id="switch.other_drying", device_id="other-dock", platform="roborock", translation_key="mop_drying"
+        ),
+        SimpleNamespace(
+            entity_id="switch.dock_washing",
+            device_id="dock",
+            platform="roborock",
+            translation_key="mop_washing",
+            disabled_by="user",
+        ),
+    ]
+    devices = [
+        {"id": "vacuum-device", "identifiers": [["roborock", "robot"]], "config_entry_id": "account"},
+        {"id": "dock", "identifiers": [["roborock", "robot_dock"]], "config_entry_id": "account"},
+        {"id": "other-dock", "identifiers": [["roborock", "other_dock"]], "config_entry_id": "account"},
+    ]
+    with (
+        patch.object(client, "get_entities", return_value=live_entities),
+        patch.object(client, "list_entity_registry", return_value=registry),
+        patch.object(client, "get_device_registry", return_value=devices),
+    ):
+        response = test_client.get("/api/entities?all=true")
+    assert response.status_code == 200
+    vacuum = next(item for item in response.json() if item["entity_id"] == "vacuum.test")
+    assert vacuum["suggested_recording_entity_ids"] == ["sensor.robot_status", "switch.dock_drying"]
+    assert vacuum["disabled_recording_entity_ids"] == ["switch.dock_washing"]
+    assert client.entity_data_calls == 1
+
+
 def test_entity_catalog_categorizes_one_fresh_snapshot(app_client: TestClient) -> None:
     home_assistant = app_client.app.state.context.home_assistant
 
@@ -413,6 +464,25 @@ def test_entity_integration_is_resolved_and_stays_optional(app_client: TestClien
     context.home_assistant = MagicMock(spec=HomeAssistantManager)
     context.home_assistant.get_entity_data.side_effect = OSError("Home Assistant is unreachable")
     assert context.get_entity_integrations(["light.test"]) == {"light.test": None}
+
+
+def test_entity_connectivity_uses_device_metadata_and_stays_optional(app_client: TestClient) -> None:
+    context = app_client.app.state.context
+    devices = [
+        {"id": "light-device", "connections": [["mac", "00:17:88:01:02:03:04:05"]], "via_device_id": "bridge"},
+        {"id": "bridge", "connections": [["mac", "00:11:22:33:44:55"]]},
+    ]
+    with patch.object(context.home_assistant, "get_device_registry", return_value=devices):
+        assert context.get_entity_connectivity(["light.test", "light.missing"]) == {
+            "light.test": "zigbee",
+            "light.missing": None,
+        }
+    assert context.home_assistant.entity_data_calls == 1
+
+    with patch.object(context.home_assistant, "get_device_registry", return_value=devices[1:]):
+        assert context.get_entity_connectivity(["light.test"]) == {"light.test": None}
+    with patch.object(context.home_assistant, "get_entity_data", side_effect=OSError("HA offline")):
+        assert context.get_entity_connectivity(["light.test"]) == {"light.test": None}
 
 
 @pytest.mark.parametrize("meter_type", ["hass", "shelly", "kasa"])
@@ -708,3 +778,62 @@ def test_shelly_discovery_endpoint(app_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"devices": [], "available": True, "message": None}
+
+
+@pytest.mark.parametrize("saved", [False, True])
+def test_calibration_match_uses_requested_meter_not_settings(app_client: TestClient, saved: bool) -> None:
+    meter = HassPowerMeterSpec(entity_id="sensor.session_power", voltage_entity_id="sensor.session_voltage")
+    calibration = DummyLoadCalibration(
+        description="Warm bulb",
+        resistance=1322.5,
+        calibrated_at="2026-09-20T12:00:00Z",
+        power_meter_fingerprint=power_meter_fingerprint(meter),
+    )
+    if saved:
+        app_client.app.state.context.storage.save_dummy_load_calibration(calibration)
+    assert app_client.get("/api/dummy-load/calibration").json() is None
+    response = app_client.post("/api/dummy-load/calibration/match", json=meter.model_dump(mode="json"))
+    assert response.status_code == 200
+    assert response.json() == (calibration.model_dump(mode="json") if saved else None)
+    other_meter = meter.model_copy(update={"voltage_entity_id": "sensor.other_voltage"})
+    assert app_client.post("/api/dummy-load/calibration/match", json=other_meter.model_dump(mode="json")).json() is None
+
+
+@pytest.mark.parametrize("endpoint", ["preflight", "sessions"])
+@pytest.mark.parametrize("mismatch", ["missing", "meter", "description", "resistance", None])
+def test_new_measurement_reuse_requires_matching_saved_calibration(
+    app_client: TestClient,
+    endpoint: str,
+    mismatch: str | None,
+) -> None:
+    request = payload()
+    calibration = DummyLoadCalibration(
+        description="Warm bulb",
+        resistance=1322.5,
+        calibrated_at="2026-09-20T12:00:00Z",
+        power_meter_fingerprint=power_meter_fingerprint(
+            HassPowerMeterSpec(
+                entity_id="sensor.test_power",
+                voltage_entity_id="sensor.test_voltage",
+            )
+        ),
+    )
+    request["dummy_load"] = {
+        "mode": "reuse",
+        "description": calibration.description,
+        "resistance": calibration.resistance,
+    }
+    if mismatch == "meter":
+        calibration = calibration.model_copy(update={"power_meter_fingerprint": "other"})
+    elif mismatch == "description":
+        calibration = calibration.model_copy(update={"description": "Other bulb"})
+    elif mismatch == "resistance":
+        calibration = calibration.model_copy(update={"resistance": 2000})
+    if mismatch != "missing":
+        app_client.app.state.context.storage.save_dummy_load_calibration(calibration)
+    response = app_client.post(f"/api/{endpoint}", json=request)
+    if mismatch is None:
+        assert response.status_code == (200 if endpoint == "preflight" else 201)
+    else:
+        assert response.status_code == 422
+        assert "No compatible saved dummy-load calibration" in response.json()["message"]

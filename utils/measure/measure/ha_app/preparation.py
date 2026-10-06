@@ -1,14 +1,17 @@
 from dataclasses import dataclass, replace
 
+from fastapi import HTTPException
+
 from measure.controller.light.const import LutMode
+from measure.dummy_load import power_meter_fingerprint
 from measure.ha_app.context import AppContext
 from measure.ha_app.coordinator import SessionConflictError
 from measure.ha_app.light_probe import LightLoadProbeResult
-from measure.ha_app.preflight import ActiveSessionError, MeasurementPreflight, PreflightResult
+from measure.ha_app.preflight import ActiveSessionError, MeasurementPreflight, PreflightError, PreflightResult
 from measure.ha_app.session import is_active_session
 from measure.home_assistant.entities import DeviceClass, EntityDescriptor, EntityDomain, HomeAssistantEntityCatalog
 from measure.powermeter.spec import DummyPowerMeterSpec
-from measure.request import LightMeasurementRequest, MeasurementRequest
+from measure.request import DummyLoadReuseRequest, LightMeasurementRequest, MeasurementRequest
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,15 @@ def run_preflight(context: AppContext, payload: MeasurementRequest, *, refresh: 
 
 
 def _run_preflight(context: AppContext, payload: MeasurementRequest, *, refresh: bool) -> PreflightAssessment:
+    if isinstance(payload.dummy_load, DummyLoadReuseRequest):
+        calibration = context.storage.load_dummy_load_calibration()
+        if (
+            calibration is None
+            or calibration.power_meter_fingerprint != power_meter_fingerprint(payload.power_meter)
+            or calibration.description != payload.dummy_load.description
+            or calibration.resistance != payload.dummy_load.resistance
+        ):
+            raise PreflightError("No compatible saved dummy-load calibration is available. Calibrate this setup first.")
     catalog = HomeAssistantEntityCatalog(context.home_assistant)
     snapshot = None
 
@@ -67,7 +79,8 @@ def _evaluate_light_load_probe(
     return context.light_load_probe.evaluate(payload)
 
 
-def apply_fast_test_mode(context: AppContext, request: MeasurementRequest) -> MeasurementRequest:
+def apply_developer_settings(context: AppContext, request: MeasurementRequest) -> MeasurementRequest:
+    """Apply developer-only settings, forcing them off when developer mode is disabled."""
     settings = context.storage.load_settings()
     controller = request.controller
     supported_dummy_controller = controller is not None and controller.is_dummy
@@ -77,10 +90,11 @@ def apply_fast_test_mode(context: AppContext, request: MeasurementRequest) -> Me
         and isinstance(request.power_meter, DummyPowerMeterSpec)
         and supported_dummy_controller
     )
-    parameters = replace(request.parameters, fast_test_mode=False)
+    allow_zero_power = context.developer_mode and settings.allow_zero_power
+    parameters = replace(request.parameters, fast_test_mode=False, allow_zero_power=allow_zero_power)
     if enabled:
         parameters = replace(
-            request.parameters,
+            parameters,
             fast_test_mode=True,
             sleep_time=0,
             sleep_time_sample=0,
@@ -95,3 +109,18 @@ def apply_fast_test_mode(context: AppContext, request: MeasurementRequest) -> Me
             measure_time_effect_min=1,
         )
     return request.model_copy(update={"fast_test_mode": enabled, "parameters": parameters})
+
+
+def validate_standby_setup(context: AppContext, payload: MeasurementRequest) -> None:
+    catalog = HomeAssistantEntityCatalog(context.home_assistant)
+    try:
+        MeasurementPreflight(
+            has_active_session=lambda: False,
+            verify_storage=lambda: None,
+            developer_mode=context.developer_mode,
+            load_entities=lambda domain, device_class: catalog.load_snapshot().select(
+                domain=domain, device_class=device_class
+            ),
+        ).validate_standby(payload)
+    except PreflightError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

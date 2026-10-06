@@ -189,10 +189,19 @@ class MeasurementPreflight:
         self._diagnose_power_meter = diagnose_power_meter
         self._developer_mode = developer_mode
 
+    def validate_standby(self, request: MeasurementRequest) -> None:
+        """Check retry entities without LUT validation or switching any devices."""
+        self._validate_adapters(request)
+        self._validate_power_meter(request)
+        if isinstance(request.controller, HassLightControllerSpec | HassMultiLightControllerSpec):
+            self._resolve_lights(request.controller.entity_ids)
+
     def validate(self, request: MeasurementRequest) -> PreflightResult:
         """Return warnings and estimates, or raise a typed preflight error."""
 
         self._validate_adapters(request)
+        if request.parameters.allow_zero_power and not self._developer_mode:
+            raise PreflightError("Accepting 0 W readings requires developer mode")
         if self._has_active_session():
             raise ActiveSessionError("A measurement session is already active")
         try:

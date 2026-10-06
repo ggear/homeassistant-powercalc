@@ -1,4 +1,4 @@
-import { disabledVacuumEntityCount, entityChoices, entityRows, vacuumRecordingEntityIds, type FieldState } from "./options";
+import { disabledVacuumEntityIds, entityChoices, entityRows, type FieldState } from "./options";
 import { recorderDefinition } from "./test-helpers";
 import type { EntityDescriptor, MeasurementRequest } from "../../types";
 import { capabilities } from "../testing/fixtures";
@@ -23,15 +23,13 @@ const state: FieldState = {
   multiSelection: {}, dummyController: false,
 };
 
-describe("vacuum recording defaults", () => {
-  it("captures all enabled same-device states without duplicating the required inputs", () => {
-    expect(vacuumRecordingEntityIds([...entities].reverse(), "vacuum.robot")).toEqual(["sensor.state", "sensor.unknown", "switch.drying"]);
-    expect(entityRows(additional, state)).toEqual(["sensor.state", "sensor.unknown", "switch.drying"]);
-  });
-
-  it("does not guess device membership", () => {
-    expect(vacuumRecordingEntityIds(entities, "vacuum.missing")).toEqual([]);
-    expect(vacuumRecordingEntityIds([{ entity_id: "vacuum.robot", name: "Robot" }], "vacuum.robot")).toEqual([]);
+describe("vacuum recording selection", () => {
+  it("starts with no additional entities, even when the vacuum has many", () => {
+    const manyEntities = Array.from({ length: 160 }, (_, index) => ({
+      entity_id: `sensor.robot_${index}`, name: `Robot ${index}`, domain: "sensor", device_id: "robot", state: "idle",
+    }));
+    const manyEntityState: FieldState = { ...state, deviceEntities: { "*": [...entities, ...manyEntities] } };
+    expect(entityRows(additional, manyEntityState)).toEqual([]);
   });
 
   it("preserves explicit removals and manual dock selections", () => {
@@ -46,36 +44,37 @@ describe("vacuum recording defaults", () => {
     expect(choices).toContain("sensor.other");
   });
 
-  it("counts only disabled entities on the selected vacuum device", () => {
-    expect(disabledVacuumEntityCount({
+  it("excludes the vacuum and its automatically selected battery from additional choices", () => {
+    const choices = entityChoices(additional, state).map((entity) => entity.entity_id);
+    expect(choices).not.toContain("vacuum.robot");
+    expect(choices).not.toContain("sensor.battery");
+    expect(choices).toContain("sensor.state");
+  });
+
+  it("excludes the chosen battery when several battery sensors exist", () => {
+    const otherBattery: EntityDescriptor = {
+      ...entities[1]!, entity_id: "sensor.second_battery", name: "Second battery",
+    };
+    const choices = entityChoices(additional, {
+      ...state, deviceEntities: { "*": [...entities, otherBattery] },
+      selectedEntities: { ...state.selectedEntities, battery_entity_id: ["sensor.second_battery"] },
+    }).map((entity) => entity.entity_id);
+    expect(choices).not.toContain("vacuum.robot");
+    expect(choices).not.toContain("sensor.second_battery");
+    expect(choices).toContain("sensor.battery");
+  });
+
+  it("shows useful disabled entities from the selected vacuum and its dock", () => {
+    expect(disabledVacuumEntityIds({
       ...state,
-      deviceEntities: { "*": [...entities, {
-        entity_id: "sensor.other_disabled", name: "Other disabled", device_id: "other", disabled_by: "user",
-      }] },
-    })).toBe(1);
-    expect(disabledVacuumEntityCount({ ...state, selectedEntities: {} })).toBe(0);
-    expect(disabledVacuumEntityCount({ ...state, deviceEntities: {} })).toBe(0);
-    expect(disabledVacuumEntityCount({ ...state, definition: { ...recorderDefinition, fields: [] } })).toBe(0);
-  });
-
-  it("leaves defaults empty when vacuum selection metadata is absent", () => {
-    expect(entityRows(additional, { selectedEntities: {} })).toEqual([]);
-    expect(entityRows(additional, {
-      ...state, definition: { ...recorderDefinition, fields: [additional] },
-    })).toEqual([]);
-  });
-
-  it("retains multiple battery candidates until a required battery is chosen", () => {
-    expect(vacuumRecordingEntityIds([...entities, { ...entities[1]!, entity_id: "sensor.second_battery" }], "vacuum.robot"))
-      .toEqual(["sensor.battery", "sensor.second_battery", "sensor.state", "sensor.unknown", "switch.drying"]);
-  });
-
-  it("excludes an explicitly chosen battery when multiple candidates exist", () => {
-    expect(entityRows(additional, {
-      ...state,
-      deviceEntities: { "*": [...entities, { ...entities[1]!, entity_id: "sensor.second_battery" }] },
-      selectedEntities: { vacuum_entity_id: ["vacuum.robot"], battery_entity_id: ["sensor.second_battery"] },
-    })).toEqual(["sensor.battery", "sensor.state", "sensor.unknown", "switch.drying"]);
+      deviceEntities: { "*": entities.map((entity) => entity.domain === "vacuum"
+        ? { ...entity, disabled_recording_entity_ids: ["sensor.status", "switch.dock_drying"] }
+        : entity) },
+    })).toEqual(["sensor.status", "switch.dock_drying"]);
+    expect(disabledVacuumEntityIds(state)).toEqual([]);
+    expect(disabledVacuumEntityIds({ ...state, selectedEntities: {} })).toEqual([]);
+    expect(disabledVacuumEntityIds({ ...state, deviceEntities: {} })).toEqual([]);
+    expect(disabledVacuumEntityIds({ ...state, definition: { ...recorderDefinition, fields: [] } })).toEqual([]);
   });
 
   it.each([{ selection: [] }, { selection: ["sensor.other"] }])("preserves persisted additional selections $selection", ({ selection }) => {

@@ -7,13 +7,25 @@ from typing import TYPE_CHECKING, Protocol
 from measure.recording.models import RecordingContext, RecordingSample
 
 if TYPE_CHECKING:
-    from measure.analyser.vacuum_signals import ActivitySignal
+    from measure.analyser.vacuum.signals import ActivitySignal
 
 type ScalarStateValue = str | bool | int | float
 
 RECORDING_ANALYSIS_LABEL = "Recording analysis"
 # The bucket for samples matching no activity. Not a mode the profile covers.
 UNEXPLAINED_ACTIVITY = "unexplained"
+
+
+class Activity(StrEnum):
+    AUTO_EMPTYING = "auto_emptying"
+    STATION_CLEANING = "station_cleaning"
+    WASHING = "washing"
+    DRYING = "drying"
+    CHARGING = "charging"
+    SLEEPING = "sleeping"
+    COMPLETED = "completed"
+    DOCKED = "docked"
+    AWAY = "away"
 
 
 class FeatureSource(StrEnum):
@@ -81,14 +93,12 @@ class FeatureReference:
 class ModelConfigFragment:
     calculation_strategy: str
     configuration_key: str
-    configuration: Mapping[str, object] | Sequence[Mapping[str, object]]
+    configuration: Mapping[str, object]
 
     def to_dict(self) -> dict[str, object]:
         return {
             "calculation_strategy": self.calculation_strategy,
-            self.configuration_key: dict(self.configuration)
-            if isinstance(self.configuration, Mapping)
-            else [dict(branch) for branch in self.configuration],
+            self.configuration_key: dict(self.configuration),
         }
 
 
@@ -121,15 +131,19 @@ class StrategyNotApplicable:
 
 
 class ProfileAnalysisStrategy(Protocol):
+    """Fit training samples, optionally using the full recording to preserve interval boundaries."""
+
     @property
     def strategy_id(self) -> str: ...
 
-    def build_candidate(
+    def build_candidates(
         self,
         samples: Sequence[RecordingSample],
         context: RecordingContext,
         signals: Sequence[ActivitySignal],
-    ) -> AnalysisCandidate | StrategyNotApplicable: ...
+        *,
+        recording_samples: Sequence[RecordingSample] | None = None,
+    ) -> list[AnalysisCandidate] | StrategyNotApplicable: ...
 
 
 @dataclass(frozen=True)
@@ -161,10 +175,10 @@ class EnergyMetrics:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "energy_duration_seconds": self.duration_seconds,
-            "measured_energy_wh": self.measured_wh,
-            "predicted_energy_wh": self.predicted_wh,
-            "energy_bias_percent": self.bias_percent,
+            "energy_duration_seconds": round(self.duration_seconds, 3),
+            "measured_energy_wh": round(self.measured_wh, 4),
+            "predicted_energy_wh": round(self.predicted_wh, 4),
+            "energy_bias_percent": round(self.bias_percent, 2) if self.bias_percent is not None else None,
         }
 
 
@@ -172,7 +186,7 @@ class EnergyMetrics:
 class ActivityReport:
     """Validation results for one vacuum activity, or unexplained samples."""
 
-    activity: str
+    activity: Activity | None
     sample_count: int
     episode_count: int
     validation_count: int
@@ -181,16 +195,18 @@ class ActivityReport:
     transition_mae_w: float | None
     mean_power_w: float
     energy: EnergyMetrics
+    #: Validated on energy rather than per-sample error, as a fixed power cannot follow a cycling load.
+    has_fixed_power: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "activity": self.activity,
+            "activity": self.activity.value if self.activity is not None else UNEXPLAINED_ACTIVITY,
             "sample_count": self.sample_count,
             "episode_count": self.episode_count,
             "validation_count": self.validation_count,
-            "coverage": self.coverage,
-            "mae_w": self.mae_w,
-            "transition_mae_w": self.transition_mae_w,
+            "coverage": round(self.coverage, 4),
+            "mae_w": round(self.mae_w, 3) if self.mae_w is not None else None,
+            "transition_mae_w": round(self.transition_mae_w, 3) if self.transition_mae_w is not None else None,
             "mean_power_w": self.mean_power_w,
             **self.energy.to_dict(),
         }
@@ -200,6 +216,12 @@ class ActivityReport:
 class EvaluatedCandidate:
     candidate: AnalysisCandidate
     metrics: AnalysisMetrics
+    activity_reports: list[ActivityReport] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class AnalysisFailure:
+    reason: str
     activity_reports: list[ActivityReport] = field(default_factory=list)
 
 
@@ -272,7 +294,7 @@ class RecorderAnalysisResult:
                 "Validation coverage": f"{self.metrics.coverage:.0%}",
                 "Validation method": self.validation_method.value if self.validation_method else "held-out episodes",
                 "Recorded activities": ", ".join(
-                    report.activity for report in self.activity_reports if report.activity != UNEXPLAINED_ACTIVITY
+                    report.activity for report in self.activity_reports if report.activity is not None
                 ),
             }
         fixed_config = self.model_config_fragment.configuration

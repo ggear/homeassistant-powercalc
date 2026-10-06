@@ -3,6 +3,7 @@ import type { MeasureApiClient } from "./api-client";
 import { AuthController } from "./contribution/auth";
 import { entityDomains, requestFormData } from "./measurement/definition";
 import { meterFor } from "./power-meter/registry";
+import { hasModelArtifact } from "./utils/artifacts";
 import { emptyPlots } from "./types";
 import type {
   AppSettings,
@@ -18,6 +19,8 @@ import type {
   ContributionStatus,
   ContributionSubmitRequest,
   DummyLoadCalibration,
+  CalibrationJob,
+  LightMeasurementRequest,
   DeviceSpecificationField,
   EntityDescriptor,
   ErrorHelp,
@@ -304,7 +307,7 @@ export class MeasureAppController {
   }
 
   openProfile(): void {
-    if (this.state.snapshot?.state !== "completed" || this.isAverageMeasurement()) return;
+    if (this.state.busy || this.state.snapshot?.state !== "completed" || this.isAverageMeasurement() || !hasModelArtifact(this.state.files)) return;
     this.clearError();
     this.state.view = "profile";
     this.changed();
@@ -561,6 +564,19 @@ export class MeasureAppController {
     });
   }
 
+  async calibrateStandby(sessionId: string, setup: LightMeasurementRequest): Promise<CalibrationJob> {
+    return this.api().calibrateStandby(sessionId, setup);
+  }
+
+  async getStandbyCalibration(sessionId: string): Promise<CalibrationJob | null> {
+    const job = await this.api().getStandbyCalibration(sessionId);
+    if (job?.status === "completed") {
+      await this.refreshDummyLoadCalibration();
+      this.changed();
+    }
+    return job;
+  }
+
   async retryDummyLoadCalibration(): Promise<void> {
     await this.refreshDummyLoadCalibration();
     this.changed();
@@ -658,6 +674,7 @@ export class MeasureAppController {
     this.state.connectedToEvents = false;
     if (this.state.view === "settings") this.settingsReturnView = "result";
     else this.state.view = "result";
+    this.state.files = [];
     await this.loadResultArtifacts();
     await this.refreshSessions();
     this.changed();

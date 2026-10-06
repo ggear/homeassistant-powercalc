@@ -24,8 +24,7 @@ export interface FieldState {
   dummyController: boolean;
 }
 
-type EntitySelectionState = Pick<FieldState, "selectedEntities" | "request">
-  & Partial<Pick<FieldState, "deviceEntities" | "definition">>;
+type EntitySelectionState = Pick<FieldState, "selectedEntities" | "request">;
 
 export function visible(field: FormField, state: FieldState): boolean {
   return fieldVisible(field, (name) => {
@@ -53,6 +52,15 @@ export function entityChoices(
     entities = entities.filter((entity) => matchesDeviceClass(entity, field.entity_device_classes ?? []));
   }
   const related = relatedEntity(field, state);
+  if (state.definition.measure_type === "recorder" && field.name === "additional_entity_ids") {
+    const batteryField = state.definition.fields.find((candidate) => candidate.name === "battery_entity_id");
+    let batteryId = batteryField ? selectedEntityId(batteryField, state) : "";
+    if (batteryField && !batteryId) {
+      const batteries = entityChoices(batteryField, state);
+      if (batteries.length === 1) batteryId = batteries[0]!.entity_id;
+    }
+    entities = entities.filter((entity) => entity.entity_id !== related?.entity_id && entity.entity_id !== batteryId);
+  }
   if (!related?.device_id) return field.same_device_only ? [] : entities;
   if (field.same_device_only) return entities.filter((entity) => entity.device_id === related.device_id);
   return entities.sort(
@@ -85,47 +93,19 @@ export function entityRows(field: FormField, state: EntitySelectionState): strin
   if (chosen !== undefined) return chosen;
   const stored = state.request && requestFieldValue(state.request, field);
   if (Array.isArray(stored)) return stored.map(String);
-  const defaults = field.name === "additional_entity_ids" ? vacuumRecordingDefaults(state) : undefined;
-  return defaults ?? (typeof stored === "string" && stored ? [stored] : []);
-}
-
-function vacuumRecordingDefaults(state: EntitySelectionState): string[] | undefined {
-  if (!state.deviceEntities || !state.definition) return undefined;
-  const vacuumField = state.definition.fields.find((field) => field.name === "vacuum_entity_id");
-  if (!vacuumField) return undefined;
-  const vacuumId = entityRows(vacuumField, state)[0] ?? "";
-  const batteryField = state.definition.fields.find((field) => field.name === "battery_entity_id");
-  const batteryId = batteryField ? entityRows(batteryField, state)[0] : undefined;
-  return vacuumRecordingEntityIds(state.deviceEntities["*"] ?? [], vacuumId)
-    .filter((entityId) => entityId !== batteryId);
-}
-
-/** Defaults only: explicit edits and persisted selections always take precedence. */
-export function vacuumRecordingEntityIds(entities: EntityDescriptor[], vacuumId: string): string[] {
-  const vacuum = entities.find((entity) => entity.entity_id === vacuumId);
-  if (!vacuum?.device_id) return [];
-  const available = entities.filter((entity) => entity.device_id === vacuum.device_id && hasEnabledLiveState(entity));
-  const batteries = available.filter((entity) => matchesDeviceClass(entity, ["battery"]));
-  const batteryId = batteries.length === 1 ? batteries[0]?.entity_id : undefined;
-  return available.filter((entity) =>
-    entity.entity_id !== vacuumId
-    && entity.entity_id !== batteryId
-    && !["camera", "image"].includes(entity.domain ?? entity.entity_id.split(".")[0] ?? ""),
-  ).map((entity) => entity.entity_id).sort((left, right) => left.localeCompare(right));
+  return typeof stored === "string" && stored ? [stored] : [];
 }
 
 function hasEnabledLiveState(entity: EntityDescriptor): boolean {
   return !entity.disabled_by && entity.has_live_state !== false;
 }
 
-export function disabledVacuumEntityCount(state: FieldState): number {
+export function disabledVacuumEntityIds(state: FieldState): string[] {
   const vacuumField = state.definition.fields.find((field) => field.name === "vacuum_entity_id");
-  if (!vacuumField) return 0;
+  if (!vacuumField) return [];
   const entities = state.deviceEntities["*"] ?? [];
   const vacuumId = selectedEntityId(vacuumField, state);
-  const deviceId = entities.find((entity) => entity.entity_id === vacuumId)?.device_id;
-  if (!deviceId) return 0;
-  return entities.filter((entity) => entity.device_id === deviceId && entity.disabled_by).length;
+  return entities.find((entity) => entity.entity_id === vacuumId)?.disabled_recording_entity_ids ?? [];
 }
 
 export function selectedEntityId(field: FormField, state: FieldState): string {

@@ -24,6 +24,7 @@ from measure.request import (
     RecorderMeasurementRequest,
     SpeakerMeasurementRequest,
 )
+from measure.tuning import MeasurementParameters
 import pytest
 
 
@@ -327,7 +328,7 @@ def test_preflight_rejects_missing_hass_power_entity_for_non_light_kind() -> Non
 def test_preflight_warns_instead_of_failing_for_unusable_optional_recorder_entity(
     extra: Entity | None, message: str
 ) -> None:
-    """A stored request must stay runnable when an auto-selected device entity goes away.
+    """A stored request must stay runnable when an additional entity goes away.
 
     The runner records such an entity as "unavailable", so record-more and resume would be
     permanently blocked if preflight rejected the whole request over it.
@@ -829,6 +830,25 @@ def test_hs_preflight_uses_default_native_resolution() -> None:
     assert result.estimated_variations == 2_025
 
 
+@pytest.mark.parametrize("effects,expected_variations", [(["colorloop"], 8), ([], 0)])
+def test_effect_preflight_uses_recordable_effects(effects: list[str], expected_variations: int) -> None:
+    entities = base_entities()
+    entities[("light", None)] = [Entity("light.test", [LutMode.EFFECT], effect_list=effects)]
+    request = LightMeasurementRequest(
+        model_id="L122FF63H11A5.0W",
+        product_name="Test light",
+        measure_device="Test meter",
+        power_meter=HassPowerMeterSpec(entity_id="sensor.power"),
+        controller=HassLightControllerSpec(entity_id="light.test"),
+        modes={LutMode.EFFECT},
+    )
+
+    result = preflight(entities).validate(request)
+
+    assert result.estimated_variations == expected_variations
+    assert result.estimated_duration_seconds == (1471 if effects else 0)
+
+
 def test_multi_light_preflight_uses_common_capabilities_and_models() -> None:
     entities = base_entities()
     entities[("light", None)] = [
@@ -959,3 +979,18 @@ def test_non_hass_power_meter_does_not_require_power_entity() -> None:
     result = preflight({}).validate(request)
 
     assert result.warnings == []
+
+
+@pytest.mark.parametrize("developer_mode", [False, True])
+def test_accepting_zero_power_requires_developer_mode(developer_mode: bool) -> None:
+    request = AverageMeasurementRequest(
+        power_meter=HassPowerMeterSpec(entity_id="sensor.power"),
+        parameters=MeasurementParameters(allow_zero_power=True),
+    )
+    checker = preflight(base_entities(), developer_mode=developer_mode)
+
+    if developer_mode:
+        checker.validate(request)
+    else:
+        with pytest.raises(PreflightError, match="0 W readings requires developer mode"):
+            checker.validate(request)

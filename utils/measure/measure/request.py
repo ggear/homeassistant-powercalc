@@ -15,6 +15,7 @@ from measure.controller.media.spec import MediaControllerSpec
 from measure.controller.spec import BaseControllerSpec
 from measure.powermeter.spec import DummyPowerMeterSpec, ManualPowerMeterSpec, PowerMeterSpec
 from measure.recording.files import COMPLEX_PROFILE_EXPORT_FILENAME, DEFAULT_EXPORT_FILENAME
+from measure.recording.models import RecorderProfileRecipe as RecorderProfileRecipe
 from measure.tuning import MeasurementParameters
 
 
@@ -26,11 +27,6 @@ class ResumePolicy(StrEnum):
 class RecorderPurpose(StrEnum):
     PLAYBOOK = "playbook"
     COMPLEX_PROFILE = "complex_profile"
-
-
-class RecorderProfileRecipe(StrEnum):
-    GENERIC = "generic"
-    VACUUM_ROBOT = "vacuum_robot"
 
 
 class DummyLoadCalibrationRequest(BaseModel):
@@ -320,8 +316,8 @@ class RecorderMeasurementRequest(BaseMeasurementRequest):
     def required_entity_ids(self) -> list[str]:
         """Recorded entities a sample cannot be written without.
 
-        A vacuum recipe only needs the vacuum and its battery; the additional entities the
-        frontend preselects from the device are best effort and may disappear mid-session.
+        A vacuum recipe only needs the vacuum and its battery; manually selected additional
+        entities are best effort and may disappear mid-session.
         """
 
         entity_ids = self.recorded_entity_ids

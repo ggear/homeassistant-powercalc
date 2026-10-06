@@ -184,7 +184,7 @@ def test_execution_records_new_dummy_load_calibration_in_measure_settings(
         resistance,
     )
     preparation = DummyLoadPreparation(request=request, spec=request.dummy_load, sampler=sampler)
-    monkeypatch.setattr(DummyLoadPreparation, "_calibrate", lambda self, interaction: 529.0)
+    monkeypatch.setattr(DummyLoadPreparation, "calibrate", lambda self, interaction: 529.0)
     runner = MagicMock(spec=MeasurementRunner)
     runner.run.return_value = RunnerResult(model_json_data={"device_type": "generic"}, voltages=[230.0])
     runner.measure_standby_power.return_value = MeasurementResult(power=0.3, voltages=[230.0])
@@ -354,6 +354,7 @@ def test_execution_preserves_recording_when_analysis_fails(tmp_path: Path, caplo
         "Recording analysis reason": "Recording analysis failed: broken analyser",
     }
     assert "Recording analysis failed: broken analyser" in caplog.text
+    assert any(record.exc_info is not None for record in caplog.records)
 
 
 def test_analysis_without_reason_removes_stale_model_and_preserves_recording(tmp_path: Path) -> None:

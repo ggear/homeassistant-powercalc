@@ -1,4 +1,5 @@
 import { ProfilePrepareView } from "./prepare-view";
+import type { ProfileMeasurementFields } from "./measurement-fields";
 import type { Combobox } from "../shared/combobox";
 import type { StringListInput } from "../shared/string-list-input";
 import type { ContributionPreview, StandbyEstimate, StandbyMeasurementResult } from "../../types";
@@ -30,7 +31,126 @@ function submit(element: ProfilePrepareView): void {
   element.shadowRoot!.querySelector("form")!.requestSubmit();
 }
 
+async function applyEstimate(element: ProfilePrepareView): Promise<void> {
+  const button = [...element.shadowRoot!.querySelectorAll<HTMLButtonElement>("button")]
+    .find(button => button.textContent!.includes("Use estimated standby"))!;
+  button.click();
+  await element.updateComplete;
+}
+
+async function changeConnectivity(element: ProfilePrepareView, values: string[]): Promise<void> {
+  const control = element.shadowRoot!.querySelector<Combobox>('[name="device_specs.connectivity"]')!;
+  control.value = values;
+  control.dispatchEvent(new CustomEvent("combobox-change", { bubbles: true }));
+  await element.updateComplete;
+}
+
+async function mountWithConnectivity(): Promise<ProfilePrepareView> {
+  const element = await mount();
+  element.deviceSpecificationFields = { light: [{
+    name: "connectivity", label: "Connectivity", description: "", value_type: "string",
+    collection: "array", options: ["zigbee", "wifi", "bluetooth"],
+  }] };
+  await element.updateComplete;
+  return element;
+}
+
 describe("profile validation", () => {
+  it.each(["connectivity", "manufacturer"])("warns after changing %s without recalculating on validation", async field => {
+    const element = await mountWithConnectivity();
+    await applyEstimate(element);
+    if (field === "connectivity") {
+      await changeConnectivity(element, ["zigbee"]);
+    } else {
+      const manufacturer = element.shadowRoot!.querySelector<Combobox>('[name="manufacturer_name"]')!;
+      manufacturer.value = "Acme";
+      manufacturer.dispatchEvent(new CustomEvent("combobox-change", { bubbles: true }));
+      await element.updateComplete;
+    }
+
+    const warning = () => element.shadowRoot!.querySelector('.standby-field [role="alert"]');
+    expect(warning()?.textContent).toContain("Your standby value has not been updated");
+    expect(input(element, "standby_power").value).toBe("0.4");
+    const onPreview = vi.fn();
+    element.addEventListener("contribution-preview", onPreview);
+    submit(element);
+    expect(onPreview.mock.lastCall![0].detail).toMatchObject({ standby_power: 0.4, standby_power_estimated: true });
+    element.contributionPreview = { ...preview, ...onPreview.mock.lastCall![0].detail };
+    await element.updateComplete;
+    expect(warning()).not.toBeNull();
+
+    await applyEstimate(element);
+    expect(warning()).toBeNull();
+  });
+
+  it("warns while a new suggestion loads and clears the warning when applying it", async () => {
+    const element = await mountWithConnectivity();
+    await applyEstimate(element);
+    let resolve!: (estimate: StandbyEstimate) => void;
+    element.loadStandbyEstimate = vi.fn(() => new Promise<StandbyEstimate>(done => { resolve = done; }));
+    await changeConnectivity(element, ["wifi"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).not.toBeNull();
+    expect(element.shadowRoot!.textContent).toContain("Loading standby suggestion");
+    resolve({ power_w: 0.7, basis: "connectivity", profile_count: 4 });
+    await vi.waitFor(() => expect(element.shadowRoot!.textContent).toContain("Use estimated standby: 0.7 W"));
+    expect(input(element, "standby_power").value).toBe("0.4");
+    await applyEstimate(element);
+    expect(input(element, "standby_power").value).toBe("0.7");
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).toBeNull();
+  });
+
+  it.each(["manual", "uncheck", "measured", "session"])("clears an outdated estimate warning after %s standby replacement", async action => {
+    const element = await mountWithConnectivity();
+    await applyEstimate(element);
+    await changeConnectivity(element, ["wifi"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).not.toBeNull();
+    if (action === "manual") {
+      input(element, "standby_power").value = "0.8";
+      input(element, "standby_power").dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (action === "uncheck") {
+      input(element, "standby_power_estimated").checked = false;
+      input(element, "standby_power_estimated").dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (action === "measured") {
+      element.measureStandby = vi.fn().mockResolvedValue({ status: "measured", power_w: 0.65 });
+      element.shadowRoot!.querySelector("measure-profile-measurement-fields")!.dispatchEvent(new CustomEvent("standby-measure", { bubbles: true }));
+      await vi.waitFor(() => expect(input(element, "standby_power").value).toBe("0.65"));
+    } else {
+      element.snapshot = { state: "completed", session_id: "session-2" };
+    }
+    await element.updateComplete;
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).toBeNull();
+  });
+
+  it("does not warn before applying an estimate, for reordered connectivity, or after reverting a change", async () => {
+    const element = await mountWithConnectivity();
+    await changeConnectivity(element, ["zigbee", "bluetooth"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).toBeNull();
+    await applyEstimate(element);
+    await changeConnectivity(element, ["bluetooth", "zigbee"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).toBeNull();
+    await changeConnectivity(element, ["wifi"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).not.toBeNull();
+    await changeConnectivity(element, ["zigbee", "bluetooth"]);
+    expect(element.shadowRoot!.querySelector('.standby-field [role="alert"]')).toBeNull();
+  });
+
+  it("keeps measurement guidance accessible when the description fails validation", async () => {
+    const element = await mount();
+    const description = element.shadowRoot!.querySelector<HTMLTextAreaElement>('textarea[name="measure_description"]')!;
+    const hint = element.shadowRoot!.querySelector("#measure_description-hint")!;
+    expect(description.getAttribute("aria-describedby")).toBe(hint.id);
+
+    description.value = "a".repeat(2001);
+    submit(element);
+    await element.updateComplete;
+    await element.shadowRoot!.querySelector<ProfileMeasurementFields>("measure-profile-measurement-fields")!.updateComplete;
+
+    expect(description.getAttribute("aria-invalid")).toBe("true");
+    expect(description.getAttribute("aria-describedby")).toBe("measure_description-hint measure_description-error");
+    expect(hint.textContent).toContain("measurement setup, device settings, or test conditions");
+    expect(element.shadowRoot!.querySelector("#measure_description-error")!.textContent).toContain("2000");
+  });
+
   it("applies a retry result, clears estimated, and requires validation again", async () => {
     const element = await mount();
     let resolve!: (result: StandbyMeasurementResult) => void;

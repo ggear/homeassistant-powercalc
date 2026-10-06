@@ -5,6 +5,7 @@ export const measurementDefaults = { sleep_time: 1, sample_count: 2, sleep_time_
 export const settings = {
   default_power_entity_id: null, default_measure_device: null, power_meter: "hass" as const, shelly_ip: null, kasa_ip: null,
   fast_test_mode: false,
+  allow_zero_power: false,
   measurement_defaults: measurementDefaults,
 };
 export const capabilities = {
@@ -61,6 +62,10 @@ export function api(overrides: Partial<MeasureAppApi> = {}): MeasureAppApi {
     getMeasureDefinitions: async () => [],
     getMeasureDevices: async () => ({ devices: [] }),
     getStandbyEstimate: async () => ({ power_w: 0.4, basis: "fallback", profile_count: 0 }),
+    calibrateStandby: async () => ({ id: "calibration-1", session_id: "session-1", started_at: "2026-09-20T10:00:00Z", status: "running", calibration: null, error: null }),
+    getStandbyCalibration: async () => null,
+    cancelStandbyCalibration: async () => ({ id: "calibration-1", session_id: "session-1", started_at: "2026-09-20T10:00:00Z", status: "cancelled", calibration: null, error: null }),
+    getCompatibleCalibration: async () => null,
     measureStandby: async () => ({ status: "unavailable", power_w: null }),
     getManufacturers: async () => ({ manufacturers: [] }),
     getDeviceSpecifications: async () => ({ device_types: {} }),

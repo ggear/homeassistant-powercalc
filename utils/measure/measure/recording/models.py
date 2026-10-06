@@ -3,6 +3,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 
+class RecorderProfileRecipe(StrEnum):
+    GENERIC = "generic"
+    VACUUM_ROBOT = "vacuum_robot"
+
+
 class EntityRole(StrEnum):
     PRIMARY = "primary"
     BATTERY = "battery"
@@ -25,6 +30,8 @@ class RecordedEntity:
     unit: str | None = None
     disabled_by: str | None = None
     has_live_state: bool | None = None
+    unique_id: str | None = None
+    manufacturer: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         value: dict[str, object] = {
@@ -40,6 +47,8 @@ class RecordedEntity:
             "unit",
             "disabled_by",
             "has_live_state",
+            "unique_id",
+            "manufacturer",
         ):
             item = getattr(self, key)
             if item is not None:
@@ -65,11 +74,13 @@ class RecordingSample:
 class RecordingContext:
     """Recipe and device identity shared by recording and offline analysis."""
 
-    recipe: str
+    recipe: RecorderProfileRecipe
     primary_entity_id: str
     device_type: str
     entities: list[RecordedEntity]
     device_entities: list[RecordedEntity] = field(default_factory=list)
+    #: Devices besides the primary's whose entities PowerCalc profiles can reference, such as a vacuum dock.
+    related_device_ids: list[str] = field(default_factory=list)
 
     def build_metadata_record(self) -> dict[str, object]:
         record: dict[str, object] = {
@@ -81,13 +92,26 @@ class RecordingContext:
         }
         if self.device_entities:
             record["device_entities"] = [entity.to_dict() for entity in self.device_entities]
+        if self.related_device_ids:
+            record["related_device_ids"] = list(self.related_device_ids)
         return record
+
+
+@dataclass(frozen=True)
+class RecordingMetadata:
+    """Parsed header; unknown recipe names remain readable for compatibility checks."""
+
+    recipe: str | None
+    primary_entity_id: str | None
+    entities: list[RecordedEntity] = field(default_factory=list)
+    device_entities: list[RecordedEntity] = field(default_factory=list)
+    related_device_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class RecordingDataset:
     samples: list[RecordingSample]
-    metadata: Mapping[str, object] | None = None
+    metadata: RecordingMetadata | None = None
 
 
 @dataclass(frozen=True)
