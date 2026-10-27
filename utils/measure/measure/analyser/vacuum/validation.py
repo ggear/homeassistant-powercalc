@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from measure.analyser.models import ActivityReport, EnergyMetrics
 from measure.analyser.sample_intervals import calculate_sample_durations
+from measure.analyser.vacuum.settling import SettlingBranch
 from measure.analyser.vacuum.signals import Activity
 from measure.analyser.vacuum.strategy import FixedBranch, VacuumCompositeCandidate, VacuumEpisode, group_vacuum_episodes
 from measure.recording.models import RecordingSample
@@ -69,7 +70,9 @@ def build_activity_reports(
         power = candidate.estimate_activity_power(sample, activity)
         if power is not None:
             data.predictions[id(sample)] = power
-    fixed_activities = {branch.activity for branch in candidate.branches if isinstance(branch, FixedBranch)}
+    fixed_activities = {
+        branch.activity for branch in candidate.branches if isinstance(branch, FixedBranch | SettlingBranch)
+    }
     return [
         data.build_report(activity, samples, has_fixed_power=activity in fixed_activities)
         for activity, data in grouped.items()
@@ -99,7 +102,7 @@ def _find_activity_failure(report: ActivityReport) -> str | None:
         # A charging curve cannot estimate battery levels its training charges never reached.
         return (
             f"The {activity} model covers only {report.coverage:.0%} of its validation samples; "
-            f"record at least two {activity} cycles over the same battery range"
+            "record one continuous charge from a low battery through to full with mop drying off"
         )
     if report.coverage < 0.9:
         return (
@@ -127,10 +130,13 @@ def _find_energy_failure(report: ActivityReport) -> str | None:
     allowance = max(MIN_ACTIVITY_ERROR_ALLOWANCE_W, MAX_RELATIVE_ACTIVITY_ERROR * measured_w)
     if abs(predicted_w - measured_w) <= allowance:
         return None
-    return (
-        f"The {activity} validation predicts {predicted_w:.2f} W on average, but {measured_w:.2f} W was measured; "
-        f"record repeated, complete {activity} cycles and the entities that report this activity"
-    )
+    reason = f"The {activity} validation predicts {predicted_w:.2f} W on average, but {measured_w:.2f} W was measured; "
+    if activity in {Activity.SLEEPING, Activity.COMPLETED, Activity.DOCKED}:
+        return (
+            reason + "this state may include both post-charge settling and stable standby, which one fixed-power "
+            "branch cannot represent. More identical recordings may not resolve this limitation"
+        )
+    return reason + f"record repeated, complete {activity} cycles and the entities that report this activity"
 
 
 def _calculate_energy_metrics(

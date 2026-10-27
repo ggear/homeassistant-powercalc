@@ -288,7 +288,7 @@ export class AppShell extends LitElement implements MeasureAppState {
     return html`
       <measure-preflight-view
         .metrics=${reviewMetrics(this.request, this.preflight, definition)}
-        .summary=${reviewSummary(this.request, this.preflight, definition)}
+        .summary=${reviewSummary(this.request, this.preflight, definition, this.deviceEntities["*"])}
         .warnings=${this.preflight?.warnings ?? []} .powerMeterDiagnostic=${this.preflight?.power_meter_diagnostic}
         .lightLoadProbe=${this.preflight?.light_load_probe}
         .confirmationAction=${this.confirmationAction()}
@@ -300,9 +300,15 @@ export class AppShell extends LitElement implements MeasureAppState {
   }
 
   private renderRunning(snapshot: SessionSnapshot) {
+    const startDefinition = this.isStartConfirmation() ? this.activeDefinition() : undefined;
     return html`
       <measure-running-view
         .snapshot=${snapshot} .confirmationAction=${this.confirmationAction()} .warningConfirmation=${this.confirmationIsWarning()}
+        .confirmationEyebrow=${startDefinition?.confirmation_eyebrow ?? "Preparation complete"}
+        .confirmationTitle=${startDefinition?.confirmation_title ?? "Everything is ready"}
+        .guidanceTitle=${startDefinition?.confirmation_guidance_title ?? "Before starting"}
+        .guidanceLabel=${startDefinition?.confirmation_guidance_label ?? "Measurement guidance"}
+        .guidance=${startDefinition?.confirmation_guidance ?? []}
         .connected=${this.connectedToEvents} .logs=${this.logs} .samples=${this.samples}
         .lastEventReceivedAt=${this.lastEventReceivedAt}
         .diagnosticsUrl=${this.api.diagnosticsUrl(snapshot.session_id ?? "")} .busy=${this.busy}
@@ -442,7 +448,12 @@ export class AppShell extends LitElement implements MeasureAppState {
   }
 
   private confirmationIsWarning(): boolean {
-    return this.activeDefinition()?.confirmation_is_warning ?? false;
+    return this.isStartConfirmation() && (this.activeDefinition()?.confirmation_is_warning ?? false);
+  }
+
+  private isStartConfirmation(): boolean {
+    const action = this.snapshot?.confirmation_action;
+    return Boolean(action && action === this.activeDefinition()?.confirmation_action);
   }
 
   /** Load everything the app needs to show a first screen. Also the seam the tests stub out. */

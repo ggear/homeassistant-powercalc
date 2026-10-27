@@ -20,6 +20,7 @@ class Activity(StrEnum):
     AUTO_EMPTYING = "auto_emptying"
     STATION_CLEANING = "station_cleaning"
     WASHING = "washing"
+    DRYING_WHILE_CHARGING = "drying_while_charging"
     DRYING = "drying"
     CHARGING = "charging"
     SLEEPING = "sleeping"
@@ -41,11 +42,12 @@ class AnalysisStatus(StrEnum):
 class ValidationMethod(StrEnum):
     HELD_OUT_RECORDING = "held_out_recording"
     HELD_OUT_EPISODES = "held_out_episodes"
+    HELD_OUT_BLOCKS = "held_out_blocks"
 
 
 @dataclass(frozen=True)
 class TrainingValidationSplit:
-    """Samples used to fit a model and independently validate it.
+    """Separate samples used to fit a model and check its predictions.
 
     The signals travel with the split because they were discovered over every sample to
     establish its episode coverage. A strategy that rediscovered them from the training
@@ -286,7 +288,7 @@ class RecorderAnalysisResult:
         assert self.feature is not None
         assert self.metrics is not None
         assert self.model_config_fragment is not None
-        if self.model_config_fragment.calculation_strategy == "composite":
+        if self.strategy == "vacuum_composite":
             return {
                 RECORDING_ANALYSIS_LABEL: "Composite vacuum profile created",
                 "Analysed inputs": ", ".join(feature.identifier for feature in self.features),
@@ -299,9 +301,12 @@ class RecorderAnalysisResult:
             }
         fixed_config = self.model_config_fragment.configuration
         profile_type = "Fixed power" if "power" in fixed_config else "Fixed states_power"
+        if self.model_config_fragment.calculation_strategy == "composite":
+            profile_type = "State-based composite"
         return {
             RECORDING_ANALYSIS_LABEL: f"{profile_type} profile created",
             "Analysed feature": self.feature.identifier,
             "Validation MAE": f"{self.metrics.mae_w:.2f} W",
             "Validation coverage": f"{self.metrics.coverage:.0%}",
+            "Validation method": self.validation_method.value if self.validation_method else "unknown",
         }

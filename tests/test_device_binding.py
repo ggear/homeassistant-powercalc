@@ -1,4 +1,6 @@
 import logging
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from homeassistant.const import CONF_DEVICE, CONF_ENTITY_ID, CONF_NAME, CONF_SENSOR_TYPE
 from homeassistant.core import HomeAssistant
@@ -15,11 +17,14 @@ from custom_components.powercalc.common import SourceEntity, create_source_entit
 from custom_components.powercalc.const import (
     CONF_CREATE_ENERGY_SENSOR,
     CONF_CREATE_UTILITY_METERS,
+    CONF_ENERGY_SENSOR_ID,
     CONF_FIXED,
     CONF_MANUFACTURER,
     CONF_MODEL,
     CONF_POWER,
     CONF_POWER_SENSOR_ID,
+    CONF_UTILITY_METER_TARIFFS,
+    CONF_UTILITY_METER_TYPES,
     DUMMY_ENTITY_ID,
     SensorType,
 )
@@ -80,6 +85,19 @@ def test_get_profile_related_devices_for_unknown_device(hass: HomeAssistant) -> 
     assert get_profile_related_devices(hass, "missing-device") == []
 
 
+def test_profile_related_devices_skips_missing_parent(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    child = SimpleNamespace(id="child", parent_device_id="missing-parent", identifiers=set())
+    registry = MagicMock()
+    registry.async_get.side_effect = lambda device_id: child if device_id == "child" else None
+    monkeypatch.setattr(device_binding.device_registry, "async_get", lambda _: registry)
+    monkeypatch.setattr(device_binding, "_HAS_CHILD_DEVICES", False)
+
+    assert get_profile_related_devices(hass, "child") == []
+
+
 def test_roborock_dock_lookup_without_child_device_api(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
@@ -119,7 +137,7 @@ def test_profile_related_devices_deduplicate_roborock_child_dock(
     )
 
     assert get_profile_related_devices(hass, robot.id) == [dock, other_child]
-    assert get_profile_related_devices(hass, dock.id) == []
+    assert get_profile_related_devices(hass, dock.id) == [robot]
 
 
 def test_get_first_device_for_config_entry(hass: HomeAssistant) -> None:
@@ -271,9 +289,11 @@ async def test_entities_are_bound_to_source_device(
     assert utility_entity_entry.device_id == device_entry.id
 
 
+@pytest.mark.parametrize("existing_energy_sensor", [False, True])
 async def test_entities_are_bound_to_source_device_when_using_power_sensor_id(
     hass: HomeAssistant,
     caplog: pytest.LogCaptureFixture,
+    existing_energy_sensor: bool,
 ) -> None:
     """
     When using the power_sensor_id option the energy sensors and utility meters must be bound to the same device.
@@ -293,17 +313,40 @@ async def test_entities_are_bound_to_source_device_when_using_power_sensor_id(
         {
             switch_id: {"platform": "switch", "device_id": device_id},
             power_sensor_id: {"platform": "sensor", "device_id": device_id},
+            "sensor.shelly_energy": {
+                "platform": "sensor",
+                "device_id": device_id,
+                "original_name": "Shelly energy",
+            },
         },
     )
 
+    sensor_config = {CONF_ENTITY_ID: switch_id, CONF_POWER_SENSOR_ID: power_sensor_id}
+    if existing_energy_sensor:
+        sensor_config[CONF_ENERGY_SENSOR_ID] = "sensor.shelly_energy"
+    else:
+        entity_reg.async_remove("sensor.shelly_energy")
+
     await run_powercalc_setup(
         hass,
-        {CONF_ENTITY_ID: "switch.shelly", CONF_POWER_SENSOR_ID: "sensor.shelly_power"},
+        sensor_config,
+        {
+            CONF_CREATE_UTILITY_METERS: True,
+            CONF_UTILITY_METER_TYPES: ["daily"],
+            CONF_UTILITY_METER_TARIFFS: ["peak", "offpeak"],
+        },
     )
 
     energy_entity_entry = entity_reg.async_get("sensor.shelly_energy")
     assert energy_entity_entry
     assert energy_entity_entry.device_id == device_id
+
+    for entity_id in [
+        "sensor.shelly_energy_daily_peak",
+        "sensor.shelly_energy_daily_offpeak",
+        "select.shelly_energy_daily",
+    ]:
+        assert entity_reg.async_get(entity_id).device_id == device_id
 
     assert len(caplog.records) == 0
 

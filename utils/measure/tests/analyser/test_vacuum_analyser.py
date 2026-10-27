@@ -2,6 +2,7 @@ from dataclasses import replace
 import json
 from pathlib import Path
 
+from jsonschema import validate
 from measure.analyser.entity_references import resolve_portable_entity
 from measure.analyser.execution import RecorderAnalysisExecution
 from measure.analyser.fixed import FixedStatesPowerCandidate
@@ -19,6 +20,7 @@ from measure.analyser.models import (
 from measure.analyser.recording import load_recordings, restore_recording_context
 from measure.analyser.sample_intervals import calculate_sample_durations
 from measure.analyser.service import RecorderAnalyser
+from measure.analyser.vacuum.settling import SETTLING_SECONDS, SettlingBranch, build_post_charge_timing
 from measure.analyser.vacuum.signals import (
     Activity,
     ActivitySignal,
@@ -377,10 +379,377 @@ def test_incomplete_last_recording_falls_back_to_independent_episode_validation(
     assert result.metrics.validation_count == len(split.validation)
 
 
-def test_single_cycle_is_not_independent_evidence(tmp_path: Path) -> None:
+def test_sparse_single_cycle_needs_more_charging_samples(tmp_path: Path) -> None:
     result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", cycle()), CONTEXT)
     assert not result.model_ready
-    assert "two independent episodes" in str(result.reason)
+    assert "three battery ranges" in str(result.reason)
+
+
+@pytest.mark.parametrize("include_sparse_charge", [False, True])
+def test_empty_training_split_requests_more_data(tmp_path: Path, include_sparse_charge: bool) -> None:
+    samples = []
+    for activity, power in [("sleeping", 3.5), ("washing", 22), ("drying", 7)]:
+        for _ in range(4):
+            samples.append(sample(activity, power, len(samples)))
+    if include_sparse_charge:
+        for level in range(20, 81, 10):
+            samples.append(sample("charging", 50 - level / 2, len(samples), level))
+
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+
+    assert result.status == AnalysisStatus.INSUFFICIENT_DATA
+    assert result.sample_count == len(samples)
+    assert result.model_config_fragment is None
+    assert "record longer, complete vacuum/dock activities" in str(result.reason)
+
+
+def dense_cycle() -> list[RecordingSample]:
+    return [
+        replace(item, elapsed_seconds=float(index))
+        for index, item in enumerate(item for item in cycle() for _ in range(3))
+    ]
+
+
+def test_one_complete_cycle_can_create_a_profile(tmp_path: Path) -> None:
+    samples = dense_cycle()
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_BLOCKS
+    assert result.metrics is not None
+    assert result.metrics.coverage == 1
+    assert result.metrics.mae_w == 0
+    assert any("repeatability across cycles has not been tested" in warning for warning in result.warnings)
+    assert {report.activity for report in result.activity_reports} == {
+        Activity.SLEEPING,
+        Activity.WASHING,
+        Activity.AUTO_EMPTYING,
+        Activity.DRYING,
+        Activity.CHARGING,
+        Activity.AWAY,
+    }
+    assert all(report.validation_count > 0 for report in result.activity_reports)
+
+    split = split_vacuum_samples(samples, CONTEXT)
+    assert isinstance(split, TrainingValidationSplit)
+    training_ids = {id(item) for item in split.training}
+    validation_ids = {id(item) for item in split.validation}
+    assert training_ids.isdisjoint(validation_ids)
+    assert training_ids | validation_ids == {id(item) for item in samples}
+
+
+def test_single_continuous_charge_with_tapering_and_meter_noise(tmp_path: Path) -> None:
+    samples = [item for item in dense_cycle() if item.entities[STATE].state != "charging"]
+    for level in range(20, 101):
+        power = 30 if level < 75 else max(3, 30 - (level - 75) * 1.2)
+        for index in range(10):
+            samples.append(sample("charging", power + (0.1 if index % 2 else -0.1), len(samples), level))
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_BLOCKS
+    report = next(report for report in result.activity_reports if report.activity == Activity.CHARGING)
+    assert report.coverage == 1
+    assert report.mae_w is not None
+    assert report.mae_w < 1
+
+
+def test_repeated_charges_still_check_independent_power_differences(tmp_path: Path) -> None:
+    first = write_recording(tmp_path / "record-1.jsonl", dense_cycle())
+    different = [
+        replace(item, power=item.power * 2) if item.entities[STATE].state == "charging" else item
+        for item in dense_cycle()
+    ]
+    second = write_recording(tmp_path / "record-2.jsonl", different)
+    result = RecorderAnalyser().analyse([first, second], CONTEXT)
+
+    assert not result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_RECORDING
+    assert "charging validation error" in str(result.reason)
+
+
+@pytest.mark.parametrize("different_charge", [False, True])
+@pytest.mark.parametrize("transient_level", [49, 100])
+def test_complete_charge_is_held_out_when_trickle_episodes_hide_it(
+    tmp_path: Path, different_charge: bool, transient_level: int
+) -> None:
+    def trickle(count: int) -> list[RecordingSample]:
+        return [sample("charging", 3, level=100) for _ in range(count)]
+
+    def charge(start: int, multiplier: float = 1) -> list[RecordingSample]:
+        result = []
+        for level in range(start, 101):
+            power = 30 if level < 75 else max(3, 30 - (level - 75) * 1.2)
+            result.extend(sample("charging", power * multiplier, level=level) for _ in range(6))
+        return result
+
+    activities = [item for item in dense_cycle() if item.entities[STATE].state != "charging"]
+    emptying = [sample("auto_emptying", 600) for _ in range(10)]
+    recordings = [
+        trickle(10) + activities + trickle(40),
+        trickle(10)
+        + emptying
+        + [sample("charging", 30 if transient_level < 100 else 3, level=transient_level) for _ in range(15)]
+        + activities
+        + trickle(40),
+        trickle(10) + emptying + trickle(2) + emptying + charge(53, 2 if different_charge else 1),
+        trickle(10) + emptying + charge(25),
+    ]
+    paths = [
+        write_recording(
+            tmp_path / f"record-{index}.jsonl",
+            [replace(item, elapsed_seconds=float(offset)) for offset, item in enumerate(items)],
+        )
+        for index, items in enumerate(recordings)
+    ]
+    samples = load_recordings(paths).dataset.samples
+
+    split = split_vacuum_samples(samples, CONTEXT)
+
+    assert isinstance(split, TrainingValidationSplit)
+    assert split.method == ValidationMethod.HELD_OUT_EPISODES
+    charging_validation = [
+        item for item in split.validation if resolve_activity(item, split.signals) == Activity.CHARGING
+    ]
+    charging_training = [item for item in split.training if resolve_activity(item, split.signals) == Activity.CHARGING]
+    # Run 4 covers the widest battery range, so it trains the curve while the
+    # independent run 3 exercises the rise and taper, even without mop activities.
+    assert {item.recording_id for item in charging_validation} == {2}
+    assert min(int(item.entities[BATTERY].state) for item in charging_validation) == 53
+    assert min(int(item.entities[BATTERY].state) for item in charging_training) == 25
+    assert {id(item) for item in split.training}.isdisjoint(id(item) for item in split.validation)
+    assert len(split.training) + len(split.validation) == len(samples)
+
+    result = RecorderAnalyser().analyse(paths, CONTEXT)
+
+    assert result.model_ready is not different_charge
+    if different_charge:
+        assert "charging validation error" in str(result.reason)
+    else:
+        assert result.validation_method == ValidationMethod.HELD_OUT_EPISODES
+        assert not result.warnings
+
+
+def test_charging_can_hold_out_a_complete_episode_within_one_recording(tmp_path: Path) -> None:
+    activities = [item for item in repeated() if item.entities[STATE].state != "charging"]
+    charging = [item for item in dense_cycle() if item.entities[STATE].state == "charging"]
+    # Alternating episodes would hold out only the two trickle periods.
+    items = (
+        charging
+        + activities
+        + [sample("charging", 10, level=80) for _ in range(10)]
+        + activities
+        + charging
+        + activities
+        + [sample("charging", 10, level=80) for _ in range(10)]
+    )
+    samples = [replace(item, elapsed_seconds=float(index)) for index, item in enumerate(items)]
+
+    split = split_vacuum_samples(samples, CONTEXT)
+
+    assert isinstance(split, TrainingValidationSplit)
+    assert split.method == ValidationMethod.HELD_OUT_EPISODES
+    for episode in group_vacuum_episodes(samples, split.signals):
+        episode_ids = {id(item) for item in episode.samples}
+        assert episode_ids <= {id(item) for item in split.training} or episode_ids <= {
+            id(item) for item in split.validation
+        }
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_EPISODES
+
+
+def test_trickle_only_recording_cannot_validate_a_charging_curve(tmp_path: Path) -> None:
+    first = write_recording(tmp_path / "record-1.jsonl", dense_cycle())
+    items = [item for item in dense_cycle() if item.entities[STATE].state != "charging"]
+    items.extend(sample("charging", 10, level=80) for _ in range(100))
+    last = write_recording(
+        tmp_path / "record-2.jsonl",
+        [replace(item, elapsed_seconds=float(index)) for index, item in enumerate(items)],
+    )
+
+    result = RecorderAnalyser().analyse([first, last], CONTEXT)
+
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_BLOCKS
+    report = next(report for report in result.activity_reports if report.activity == Activity.CHARGING)
+    assert report.coverage == 1
+    assert any("repeatability across cycles has not been tested" in warning for warning in result.warnings)
+
+    # Only charging falls back to blocks; the other activities keep the independent recording.
+    split = split_vacuum_samples(load_recordings([first, last]).dataset.samples, CONTEXT)
+    assert isinstance(split, TrainingValidationSplit)
+    for item in split.validation:
+        if resolve_activity(item, split.signals) != Activity.CHARGING:
+            assert item.recording_id == 1
+    for item in split.training:
+        if resolve_activity(item, split.signals) != Activity.CHARGING:
+            assert item.recording_id == 0
+
+
+def charge_from(start: int, end: int = 80) -> list[RecordingSample]:
+    return [sample("charging", 50 - level / 2, level=level) for level in range(start, end + 1) for _ in range(3)]
+
+
+def unidentified() -> RecordingSample:
+    item = sample("charging", 30, level=50)
+    return replace(item, entities={**item.entities, STATE: RecordedEntityState("error_dustbin_full", {})})
+
+
+def test_partial_top_off_in_last_recording_validates_charging(tmp_path: Path) -> None:
+    first = write_recording(tmp_path / "record-1.jsonl", dense_cycle())
+    items = [item for item in dense_cycle() if item.entities[STATE].state != "charging"]
+    items.extend(charge_from(70))
+    last = write_recording(
+        tmp_path / "record-2.jsonl",
+        [replace(item, elapsed_seconds=float(index)) for index, item in enumerate(items)],
+    )
+
+    result = RecorderAnalyser().analyse([first, last], CONTEXT)
+
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_RECORDING
+    assert not result.warnings
+
+
+def test_trickle_in_last_recording_holds_out_an_earlier_recording_charge(tmp_path: Path) -> None:
+    activities = [item for item in dense_cycle() if item.entities[STATE].state != "charging"]
+    recordings = [
+        dense_cycle(),
+        dense_cycle(),
+        activities + [sample("charging", 10, level=80) for _ in range(100)],
+    ]
+    paths = [
+        write_recording(
+            tmp_path / f"record-{index}.jsonl",
+            [replace(item, elapsed_seconds=float(offset)) for offset, item in enumerate(items)],
+        )
+        for index, items in enumerate(recordings)
+    ]
+
+    split = split_vacuum_samples(load_recordings(paths).dataset.samples, CONTEXT)
+
+    assert isinstance(split, TrainingValidationSplit)
+    assert split.method == ValidationMethod.HELD_OUT_RECORDING
+    charging_validation = {
+        item.recording_id for item in split.validation if resolve_activity(item, split.signals) == Activity.CHARGING
+    }
+    assert charging_validation == {1}
+    other_validation = {
+        item.recording_id for item in split.validation if resolve_activity(item, split.signals) != Activity.CHARGING
+    }
+    assert other_validation == {2}
+
+    result = RecorderAnalyser().analyse(paths, CONTEXT)
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_RECORDING
+    assert not result.warnings
+
+
+def test_charge_interrupted_by_unidentified_reading_is_not_validated_against_itself(tmp_path: Path) -> None:
+    activities = [item for item in repeated() if item.entities[STATE].state != "charging"]
+    # A battery reading that dips back after the gap must not pass as a second charge.
+    items = activities + charge_from(20) + [unidentified()] + charge_from(60)
+    samples = [replace(item, elapsed_seconds=float(index)) for index, item in enumerate(items)]
+    assert resolve_activity(samples[len(activities) + len(charge_from(20))], discover_signals(samples, CONTEXT)) is None
+
+    split = split_vacuum_samples(samples, CONTEXT)
+
+    assert isinstance(split, TrainingValidationSplit)
+    assert split.method == ValidationMethod.HELD_OUT_BLOCKS
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+    assert any("repeatability across cycles has not been tested" in warning for warning in result.warnings)
+
+
+def test_single_cycle_still_rejects_a_bad_fit(tmp_path: Path) -> None:
+    samples = dense_cycle()
+    washing = [item for item in samples if item.entities[STATE].state == "washing"]
+    high_ids = {id(item) for item in washing[8:22]}
+    samples = [replace(item, power=100) if id(item) in high_ids else item for item in samples]
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+
+    assert not result.model_ready
+    assert "washing validation" in str(result.reason)
+
+
+@pytest.mark.parametrize("isolated_first", [True, False])
+def test_one_isolated_charge_can_supplement_overlapping_recordings(tmp_path: Path, isolated_first: bool) -> None:
+    overlapping = [
+        replace(item, entities={**item.entities, DRYING: RecordedEntityState("on", {})}, power=7)
+        if item.entities[STATE].state == "charging"
+        else item
+        for item in dense_cycle()
+    ]
+    recordings = [overlapping, dense_cycle()]
+    if isolated_first:
+        recordings.reverse()
+    paths = [write_recording(tmp_path / f"record-{index}.jsonl", data) for index, data in enumerate(recordings)]
+
+    result = RecorderAnalyser().analyse(paths, CONTEXT)
+
+    assert result.model_ready
+    assert result.validation_method == ValidationMethod.HELD_OUT_BLOCKS
+    assert next(report for report in result.activity_reports if report.activity == Activity.CHARGING).coverage == 1
+
+
+def test_drying_overlap_requests_one_isolated_charge(tmp_path: Path) -> None:
+    samples = [
+        replace(item, entities={**item.entities, DRYING: RecordedEntityState("on", {})}, power=60)
+        if item.entities[STATE].state == "charging"
+        else item
+        for item in dense_cycle()
+    ]
+    samples.extend(sample("charging", 3, len(samples) + index, 100) for index in range(30))
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples), CONTEXT)
+
+    assert not result.model_ready
+    assert "Drying overlaps the battery rise" in str(result.reason)
+    assert "one continuous charge with mop drying switched off" in str(result.reason)
+
+
+def test_contextual_drying_overlap_still_requests_an_isolated_charge(tmp_path: Path) -> None:
+    charging_id = "binary_sensor.charging_state"
+    ctx = replace(
+        CONTEXT,
+        entities=[
+            replace(entity, integration="dreame_vacuum") if entity.entity_id == STATE else entity
+            for entity in CONTEXT.entities
+        ]
+        + [
+            RecordedEntity(
+                charging_id,
+                "binary_sensor",
+                "tracked",
+                translation_key="charging_state",
+                integration="dreame_vacuum",
+                device_id="robot",
+            )
+        ],
+    )
+    data = [*dense_cycle(), *[sample("charging", 3, level=100) for _ in range(30)], sample("idle", 3)]
+    samples = []
+    for index, item in enumerate(data):
+        is_charging = item.entities[STATE].state == "charging"
+        overlaps = is_charging and item.entities[BATTERY].state != "100"
+        primary = item.entities[PRIMARY]
+        samples.append(
+            replace(
+                item,
+                elapsed_seconds=float(index),
+                entities={
+                    **item.entities,
+                    PRIMARY: replace(primary, attributes={**primary.attributes, "docked": True}),
+                    charging_id: RecordedEntityState("on" if is_charging else "off", {}),
+                    STATE: RecordedEntityState("drying", {}) if overlaps else item.entities[STATE],
+                    DRYING: RecordedEntityState("on", {}) if overlaps else item.entities[DRYING],
+                },
+            )
+        )
+    signals = discover_signals(samples, ctx)
+    assert Activity.DRYING_WHILE_CHARGING in {resolve_activity(item, signals) for item in samples}
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", samples, ctx), ctx)
+    assert not result.model_ready
+    assert "one continuous charge with mop drying switched off" in str(result.reason)
 
 
 def test_short_mode_error_is_not_hidden_by_long_idle(tmp_path: Path) -> None:
@@ -829,6 +1198,91 @@ def test_held_out_recording_must_cover_a_meaningful_share_of_each_activity() -> 
     assert split.method is ValidationMethod.HELD_OUT_EPISODES
 
 
+def test_brief_drying_episodes_do_not_validate_a_long_cycle(tmp_path: Path) -> None:
+    data = []
+    for activity, count, power in [("drying", 300, 20), ("washing", 30, 50), ("drying", 5, 20), ("washing", 30, 50)]:
+        data.extend(sample(activity, power, len(data) + index) for index in range(count))
+    split = split_vacuum_samples(data, CONTEXT)
+    assert isinstance(split, TrainingValidationSplit)
+    assert split.method == ValidationMethod.HELD_OUT_BLOCKS
+    drying_validation = [item for item in split.validation if item.entities[STATE].state == "drying"]
+    assert sum(calculate_sample_durations(data, drying_validation).values()) > 90
+    # Washing retains its independent held-out episode.
+    assert [item for item in split.validation if item.entities[STATE].state == "washing"] == data[-30:]
+    result = RecorderAnalyser().analyse(write_recording(tmp_path / "record.jsonl", data), CONTEXT)
+    assert result.model_ready, result.reason
+    assert any("repeatability across cycles has not been tested" in warning for warning in result.warnings)
+
+
+@pytest.mark.parametrize("validation_drying_power,accepted", [(10, True), (20, False)])
+def test_drying_modes_fit_and_validate_total_outlet_power_separately(
+    tmp_path: Path, validation_drying_power: float, accepted: bool
+) -> None:
+    charging_id = "binary_sensor.charging_state"
+    ctx = replace(
+        CONTEXT,
+        entities=[
+            *CONTEXT.entities,
+            RecordedEntity(
+                charging_id,
+                "binary_sensor",
+                "tracked",
+                translation_key="charging_state",
+                integration="dreame_vacuum",
+                device_id="robot",
+            ),
+        ],
+    )
+    paths = []
+    for recording_id in range(2):
+        data = []
+        for status, flag, power in [
+            ("drying", "on", 30),
+            ("drying", "off", 10 if recording_id == 0 else validation_drying_power),
+            ("sleeping", "off", 3),
+        ]:
+            for _ in range(30):
+                item = sample(status, power, len(data))
+                data.append(replace(item, entities={**item.entities, charging_id: RecordedEntityState(flag, {})}))
+        paths.append(write_recording(tmp_path / f"record-{recording_id}.jsonl", data, ctx))
+    result = RecorderAnalyser().analyse(paths, ctx)
+    assert result.model_ready is accepted, result.reason
+    reports = {report.activity: report for report in result.activity_reports}
+    assert reports[Activity.DRYING_WHILE_CHARGING].energy.bias_percent == 0
+    assert reports[Activity.DRYING].energy.bias_percent == pytest.approx(0 if accepted else -50)
+    if not accepted:
+        assert "drying validation predicts 10.00 W" in str(result.reason)
+        return
+    model = candidate(load_recordings(paths).dataset.samples, ctx)
+    assert model.estimate_power(data[0]) == 30
+    assert model.estimate_power(data[30]) == 10
+    assert FeatureReference(charging_id, FeatureSource.STATE) in model.features
+    unavailable = replace(data[30], entities={**data[30].entities, charging_id: RecordedEntityState("unavailable", {})})
+    assert model.estimate_power(unavailable) is None
+    fragment = model.build_model_config_fragment().to_dict()
+    branches = fragment["composite_config"]["strategies"]
+    assert [branch["fixed"]["power"] for branch in branches] == [30, 10, 3]
+    assert branches[0]["condition"]["conditions"][-1]["conditions"][-1] == {
+        "condition": "state",
+        "entity_id": "[[entity_by_translation_key:charging_state]]",
+        "state": ["on"],
+    }
+    assert branches[1]["condition"]["conditions"][-1]["conditions"][-1] == {
+        "condition": "state",
+        "entity_id": "[[entity_by_translation_key:charging_state]]",
+        "state": ["off"],
+    }
+
+
+@pytest.mark.parametrize("activity", [Activity.SLEEPING, Activity.COMPLETED, Activity.DOCKED])
+def test_fixed_idle_state_failure_explains_the_modelling_limit(activity: Activity) -> None:
+    report = replace(activity_report(mae_w=8, measured_wh=3, predicted_wh=11), activity=activity)
+    failure = find_credibility_failure([report])
+    assert failure is not None
+    assert "post-charge settling and stable standby" in failure
+    assert "More identical recordings may not resolve" in failure
+
+
 def test_fixed_power_activities_are_validated_on_energy() -> None:
     data = repeated()
     split = split_vacuum_samples(data, CONTEXT)
@@ -1005,3 +1459,243 @@ def test_combining_recordings_preserves_unknown_recipe_identity(tmp_path: Path) 
 
     with pytest.raises(ValueError, match="same recipe"):
         load_recordings(paths)
+
+
+CHARGING_FLAG = "binary_sensor.charging"
+IDLE_START = 52
+SETTLING_CONTEXT = replace(
+    CONTEXT,
+    entities=[
+        *CONTEXT.entities,
+        RecordedEntity(
+            CHARGING_FLAG,
+            "binary_sensor",
+            "tracked",
+            translation_key="charging_state",
+            device_class="battery_charging",
+            device_id="robot",
+            integration="dreame_vacuum",
+        ),
+    ],
+)
+
+
+def post_charge_cycle(
+    activity: str = "sleeping", settling_w: float = 11.44, standby_w: float = 3.17, standby_seconds: int = 3600
+) -> list[RecordingSample]:
+    """Synthetic charge, 30-minute decay and one hour of stable idle from #4997."""
+    data = [sample("washing", 22) for _ in range(10)]
+    for level in range(20, 81, 10):
+        data.extend(sample("charging", 50 - level / 2, level=level) for _ in range(6))
+    for second in range(0, SETTLING_SECONDS + standby_seconds, 10):
+        power = (
+            settling_w + min(5, settling_w / 2) * (1 - 2 * second / 1790) if second < SETTLING_SECONDS else standby_w
+        )
+        data.append(sample(activity, power, level=100))
+    return [
+        replace(
+            item,
+            elapsed_seconds=float(index * 10),
+            entities={
+                **item.entities,
+                CHARGING_FLAG: RecordedEntityState("on" if item.entities[STATE].state == "charging" else "off", {}),
+            },
+        )
+        for index, item in enumerate(data)
+    ]
+
+
+@pytest.mark.parametrize("activity", ["sleeping", "charging_completed", "docked"])
+@pytest.mark.parametrize("recordings", [1, 2])
+def test_post_charge_settling_preserves_idle_energy(tmp_path: Path, activity: str, recordings: int) -> None:
+    paths = [
+        write_recording(
+            tmp_path / f"record-{index}.jsonl",
+            post_charge_cycle(activity, standby_seconds=3600 * (index + 1)),
+            SETTLING_CONTEXT,
+        )
+        for index in range(recordings)
+    ]
+
+    result = RecorderAnalyser().analyse(paths, SETTLING_CONTEXT)
+
+    assert result.model_ready, result.reason
+    idle = next(
+        report
+        for report in result.activity_reports
+        if report.activity in {Activity.SLEEPING, Activity.COMPLETED, Activity.DOCKED}
+    )
+    assert idle.coverage == 1
+    assert idle.has_fixed_power
+    assert idle.energy.bias_percent == pytest.approx(0, abs=1)
+    assert result.standby_power == (None if activity == "charging_completed" else 3.17)
+    assert FeatureReference(CHARGING_FLAG, FeatureSource.STATE) in result.features
+    assert result.model_config_fragment is not None
+    config = result.model_config_fragment.configuration
+    strategies = config["strategies"]
+    assert isinstance(strategies, list)
+    idle_config = strategies[-1]
+    assert idle_config["fixed"]["power"] == (
+        "{{ 11.44 if (now() - states['[[entity_by_translation_key:charging_state]]'].last_changed)"
+        ".total_seconds() < 1800 else 3.17 }}"
+    )
+    assert {
+        "condition": "state",
+        "entity_id": "[[entity_by_translation_key:charging_state]]",
+        "state": ["off"],
+    } in idle_config["condition"]["conditions"]
+    schema = json.loads((Path(__file__).parents[4] / "profile_library/model_schema.json").read_text())
+    validate(
+        {
+            "name": "Synthetic vacuum",
+            "device_type": "vacuum_robot",
+            "measure_method": "script",
+            "measure_device": "Test meter",
+            "created_at": "2026-10-19T00:00:00Z",
+            "calculation_strategy": "composite",
+            "composite_config": config,
+        },
+        schema,
+    )
+
+
+def test_single_recording_holds_out_both_idle_phases() -> None:
+    data = post_charge_cycle()
+    split = split_vacuum_samples(data, SETTLING_CONTEXT)
+    assert isinstance(split, TrainingValidationSplit)
+    timing = build_post_charge_timing(data, SETTLING_CONTEXT)
+    assert timing is not None
+    for subset in [split.training, split.validation]:
+        idle_times = [timing.get_elapsed(item) for item in subset if item.entities[STATE].state == "sleeping"]
+        assert any(elapsed is not None and elapsed < SETTLING_SECONDS for elapsed in idle_times)
+        assert any(elapsed is not None and elapsed >= SETTLING_SECONDS for elapsed in idle_times)
+
+
+def test_settling_fit_uses_only_training_power() -> None:
+    data = post_charge_cycle()
+    split = split_vacuum_samples(data, SETTLING_CONTEXT)
+    assert isinstance(split, TrainingValidationSplit)
+    validation_ids = {id(item) for item in split.validation}
+    recording = [replace(item, power=9000) if id(item) in validation_ids else item for item in data]
+    models = VacuumCompositeStrategy().build_candidates(
+        split.training, SETTLING_CONTEXT, split.signals, recording_samples=recording
+    )
+    assert isinstance(models, list)
+    model = models[-1]
+    assert isinstance(model, VacuumCompositeCandidate)
+    branch = next(branch for branch in model.branches if isinstance(branch, SettlingBranch))
+    assert branch.settling_power == 11.44
+    assert branch.standby_power == 3.17
+    assert model.complexity == models[0].complexity + 1
+    assert branch.estimate(data[IDLE_START], None) == 11.44
+    assert branch.estimate(data[IDLE_START + 180], None) == 3.17
+
+
+def test_settling_fit_weights_irregular_measurement_intervals() -> None:
+    data = post_charge_cycle()
+    # A burst of high readings occupies just four seconds, followed by lower
+    # readings 20 seconds apart. Counting samples would overestimate its energy.
+    idle = [
+        replace(data[IDLE_START + index], elapsed_seconds=float(IDLE_START * 10 + second), power=power)
+        for index, (second, power) in enumerate(
+            [(0, 30), (1, 30), (2, 30), (3, 30), (4, 30), (24, 10), (44, 10), (64, 10), (84, 10), (104, 10)]
+        )
+    ]
+    data = [*data[:IDLE_START], *idle, *data[IDLE_START + 180 :]]
+    models = VacuumCompositeStrategy().build_candidates(
+        data, SETTLING_CONTEXT, discover_signals(data, SETTLING_CONTEXT)
+    )
+    assert isinstance(models, list)
+    model = models[-1]
+    assert isinstance(model, VacuumCompositeCandidate)
+    branch = next(branch for branch in model.branches if isinstance(branch, SettlingBranch))
+    assert branch.settling_power == 12.69  # (4 * 30 + 20 * 20 + 80 * 10) / 104
+    assert branch.standby_power == 3.17
+
+
+def test_settling_still_rejects_non_repeating_idle_power(tmp_path: Path) -> None:
+    paths = [
+        write_recording(tmp_path / "training.jsonl", post_charge_cycle(), SETTLING_CONTEXT),
+        write_recording(tmp_path / "validation.jsonl", post_charge_cycle(standby_w=8), SETTLING_CONTEXT),
+    ]
+    result = RecorderAnalyser().analyse(paths, SETTLING_CONTEXT)
+    assert not result.model_ready
+    assert "sleeping validation predicts" in str(result.reason)
+
+
+@pytest.mark.parametrize("settling_w, standby_w", [(3.6, 3.17), (11, 10), (2, 3)])
+def test_small_or_reversed_idle_difference_keeps_fixed_model(settling_w: float, standby_w: float) -> None:
+    data = post_charge_cycle(settling_w=settling_w, standby_w=standby_w)
+    models = VacuumCompositeStrategy().build_candidates(
+        data, SETTLING_CONTEXT, discover_signals(data, SETTLING_CONTEXT)
+    )
+    assert isinstance(models, list)
+    assert len(models) == 1
+
+
+@pytest.mark.parametrize("phase", ["settling", "standby", "no_intervals"])
+def test_unsupported_idle_phase_keeps_fixed_model(phase: str) -> None:
+    data = post_charge_cycle()
+    if phase == "settling":
+        data = [*data[: IDLE_START + 4], *data[IDLE_START + 180 :]]
+    elif phase == "standby":
+        data = data[: IDLE_START + 184]
+    else:
+        data = [replace(item, elapsed_seconds=item.elapsed_seconds * 4) for item in data]
+    models = VacuumCompositeStrategy().build_candidates(
+        data, SETTLING_CONTEXT, discover_signals(data, SETTLING_CONTEXT)
+    )
+    assert isinstance(models, list)
+    assert len(models) == 1
+
+
+@pytest.mark.parametrize("state", [None, "unknown", "unavailable", "on", "inactive"])
+def test_charge_timing_requires_an_observed_charge_end(state: str | None) -> None:
+    data = post_charge_cycle()
+    first_off = data[IDLE_START]
+    altered = replace(
+        first_off,
+        entities={key: value for key, value in first_off.entities.items() if key != CHARGING_FLAG},
+    )
+    if state is not None:
+        altered = replace(altered, entities={**altered.entities, CHARGING_FLAG: RecordedEntityState(state, {})})
+    sequence = [
+        *data[: IDLE_START + 1],
+        replace(altered, elapsed_seconds=(IDLE_START + 1) * 10),
+        *data[IDLE_START + 2 :],
+    ]
+    timing = build_post_charge_timing(sequence, SETTLING_CONTEXT)
+    assert timing is not None
+    assert timing.get_elapsed(sequence[IDLE_START]) == 0
+    assert timing.get_elapsed(sequence[IDLE_START + 1]) is None
+    assert timing.get_elapsed(sequence[IDLE_START + 2]) == (0 if state == "on" else None)
+
+
+def test_charge_timing_does_not_cross_recordings_or_assume_an_initial_charge() -> None:
+    data = post_charge_cycle()
+    second = [
+        replace(item, recording_id=1, elapsed_seconds=float(index * 10)) for index, item in enumerate(data[IDLE_START:])
+    ]
+    timing = build_post_charge_timing([*data, *second], SETTLING_CONTEXT)
+    assert timing is not None
+    assert timing.get_elapsed(data[-1]) == 5390
+    assert timing.get_elapsed(second[0]) is None
+    assert timing.get_elapsed(second[-1]) is None
+    branch = SettlingBranch(Activity.SLEEPING, 11.44, 3.17, timing)
+    assert branch.estimate(second[0], None) is None
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"disabled_by": "integration"},
+        {"has_live_state": False},
+        {"device_id": "unrelated"},
+        {"integration": "powercalc"},
+        {"translation_key": "unrecognised", "device_class": None},
+    ],
+)
+def test_settling_requires_a_live_portable_charging_flag(changes: dict[str, object]) -> None:
+    flag = SETTLING_CONTEXT.entities[-1]
+    context = replace(SETTLING_CONTEXT, entities=[*CONTEXT.entities, replace(flag, **changes)])
+    assert build_post_charge_timing(post_charge_cycle(), context) is None

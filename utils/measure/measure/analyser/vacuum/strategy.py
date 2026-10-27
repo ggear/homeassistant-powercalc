@@ -20,6 +20,13 @@ from measure.analyser.models import (
     ValidationMethod,
 )
 from measure.analyser.sample_intervals import calculate_sample_durations
+from measure.analyser.vacuum.settling import (
+    IDLE_ACTIVITIES,
+    SETTLING_SECONDS,
+    PostChargeTiming,
+    SettlingBranch,
+    build_post_charge_timing,
+)
 from measure.analyser.vacuum.signals import (
     Activity,
     ActivitySignal,
@@ -35,6 +42,9 @@ MIN_CHARGING_SPAN = 20
 CHARGING_BIN_WIDTH = 5
 MIN_CHARGING_BINS = 3
 MIN_SAMPLES_PER_CHARGING_BIN = 3
+#: Held-out charging must rise over this many battery percentage points, so a
+#: trickle at one level cannot stand in for an independent charge.
+MIN_VALIDATION_CHARGING_SPAN = 10
 #: A held-out recording must cover this share of every activity's recorded time, so
 #: a few seconds of an activity cannot decide whether its model is credible.
 MIN_HELD_OUT_SHARE = 0.1
@@ -85,7 +95,7 @@ class ChargingBranch:
         return left.power + (right.power - left.power) * fraction
 
 
-type VacuumBranch = FixedBranch | ChargingBranch
+type VacuumBranch = FixedBranch | ChargingBranch | SettlingBranch
 
 
 @dataclass(frozen=True)
@@ -102,9 +112,12 @@ class VacuumCompositeCandidate:
 
     @property
     def features(self) -> list[FeatureReference]:
-        features = [signal.feature for signal in self.signals]
+        features = [feature for signal in self.signals for feature in signal.features]
         if self.battery is not None:
             features.append(self.battery)
+        features.extend(
+            branch.timing.charging.feature for branch in self.branches if isinstance(branch, SettlingBranch)
+        )
         return list(dict.fromkeys(features))
 
     @property
@@ -119,6 +132,8 @@ class VacuumCompositeCandidate:
             for branch in self.branches:
                 if isinstance(branch, FixedBranch) and branch.activity == activity:
                     return branch.power
+                if isinstance(branch, SettlingBranch) and branch.activity == activity:
+                    return branch.standby_power
         return None
 
     def get_support_key(self, sample: RecordingSample) -> Activity | None:
@@ -176,6 +191,9 @@ class VacuumCompositeCandidate:
             if self.battery.source == FeatureSource.ATTRIBUTE:
                 linear["attribute"] = self.battery.attribute
             item["linear"] = linear
+        elif isinstance(branch, SettlingBranch):
+            conditions.append(branch.timing.charging.build_condition(self.context, active=False))
+            item["fixed"] = {"power": branch.build_power_template(self.context)}
         else:
             item["fixed"] = {"power": branch.power}
         item["condition"] = conditions[0] if len(conditions) == 1 else {"condition": "and", "conditions": conditions}
@@ -212,9 +230,58 @@ class VacuumCompositeStrategy(ProfileAnalysisStrategy):
             durations = calculate_sample_durations(original_samples, activity_samples)
             branch = _fit_branch(signal.activity, activity_samples, battery, durations)
             if isinstance(branch, StrategyNotApplicable):
+                if signal.activity == Activity.CHARGING and _has_overlapping_charge(original_samples, signals, battery):
+                    return StrategyNotApplicable(
+                        "Drying overlaps the battery rise, leaving too little isolated charging data. "
+                        "Record one continuous charge with mop drying switched off, from a low battery through "
+                        "to full. Existing recordings can stay in this session."
+                    )
                 return branch
             branches.append(branch)
-        return [VacuumCompositeCandidate(list(signals), branches, battery, context)]
+        candidate = VacuumCompositeCandidate(list(signals), branches, battery, context)
+        return [candidate, *_fit_settling_candidates(candidate, grouped, original_samples)]
+
+
+def _fit_settling_candidates(
+    candidate: VacuumCompositeCandidate,
+    grouped: Mapping[Activity, Sequence[RecordingSample]],
+    recording_samples: Sequence[RecordingSample],
+) -> list[VacuumCompositeCandidate]:
+    timing = build_post_charge_timing(recording_samples, candidate.context)
+    if timing is None:
+        return []
+    branches = [
+        _fit_settling_branch(branch, grouped[branch.activity], recording_samples, timing)
+        if isinstance(branch, FixedBranch) and branch.activity in IDLE_ACTIVITIES
+        else branch
+        for branch in candidate.branches
+    ]
+    return [replace(candidate, branches=branches)] if branches != candidate.branches else []
+
+
+def _fit_settling_branch(
+    branch: FixedBranch,
+    samples: Sequence[RecordingSample],
+    recording_samples: Sequence[RecordingSample],
+    timing: PostChargeTiming,
+) -> FixedBranch | SettlingBranch:
+    settling: list[RecordingSample] = []
+    standby: list[RecordingSample] = []
+    for sample in samples:
+        elapsed = timing.get_elapsed(sample)
+        if elapsed is not None:
+            (settling if elapsed < SETTLING_SECONDS else standby).append(sample)
+    if min(len(settling), len(standby)) < MIN_EPISODE_SAMPLES:
+        return branch
+    settling_durations = calculate_sample_durations(recording_samples, settling)
+    standby_durations = calculate_sample_durations(recording_samples, standby)
+    if not sum(settling_durations.values()) or not sum(standby_durations.values()):
+        return branch
+    settling_power = round(calculate_average_power(settling, settling_durations), 2)
+    standby_power = round(calculate_average_power(standby, standby_durations), 2)
+    if settling_power - standby_power < max(1.0, 0.2 * standby_power):
+        return branch
+    return SettlingBranch(branch.activity, settling_power, standby_power, timing)
 
 
 def _fit_branch(
@@ -230,6 +297,22 @@ def _fit_branch(
     # A fixed power must preserve energy: a median would pick the heater-on level of
     # a cycling dryer, or ignore the start-up ramp of a short bin emptying.
     return FixedBranch(activity, round(calculate_average_power(samples, durations), 2))
+
+
+def _has_overlapping_charge(
+    samples: Sequence[RecordingSample], signals: Sequence[ActivitySignal], battery: FeatureReference | None
+) -> bool:
+    charging = next(signal for signal in signals if signal.activity == Activity.CHARGING)
+    levels = [
+        level
+        for sample in samples
+        if (
+            (activity := resolve_activity(sample, signals)) == Activity.DRYING_WHILE_CHARGING
+            or (activity == Activity.DRYING and charging.matches(sample))
+        )
+        and (level := get_battery_level(sample, battery)) is not None
+    ]
+    return bool(levels) and max(levels) - min(levels) >= MIN_CHARGING_SPAN
 
 
 def calculate_average_power(samples: Sequence[RecordingSample], durations: Mapping[int, float]) -> float:
@@ -345,25 +428,224 @@ def split_vacuum_samples(
             grouped[episode.activity].append(episode)
     if len(grouped) < 2:
         return StrategyNotApplicable("Record at least two identifiable vacuum/dock activities")
-    insufficient = [
-        activity
-        for activity, items in grouped.items()
-        if sum(len(episode.samples) >= MIN_EPISODE_SAMPLES for episode in items) < 2
-    ]
-    if insufficient:
-        return StrategyNotApplicable(
-            "Record at least two independent episodes of at least five samples for: " + ", ".join(insufficient)
-        )
     # Telemetry gaps do not prove a new physical cycle. Keep same-activity
     # samples together, and reserve short episodes for validation, not fitting.
+    charges = _group_charges(episodes)
+    if charges:
+        grouped[Activity.CHARGING] = charges
     grouped = {
         activity: [episode for episode in items if len(episode.samples) >= MIN_EPISODE_SAMPLES]
         for activity, items in grouped.items()
     }
     recording_split = _try_split_by_recording(samples, grouped, signals)
     if recording_split is not None:
-        return recording_split
-    return _split_by_episode(samples, episodes, grouped, signals)
+        split = recording_split
+        fallback_activities: set[Activity] = set()
+    else:
+        split = _split_by_episode(samples, episodes, grouped, signals)
+        fallback_activities = {activity for activity, items in grouped.items() if len(items) < 2}
+        fallback_activities.update(_find_brief_activity_validation(samples, grouped, split))
+    # Charging needs its own hold-out when the shared split leaves it untestable,
+    # without giving up the independent split of the other activities.
+    if not _supports_charging_split(split, context, charges):
+        charging_split = _try_split_charging_cycles(samples, episodes, charges, split, context)
+        if charging_split is None:
+            fallback_activities.add(Activity.CHARGING)
+        else:
+            split = charging_split
+            fallback_activities.discard(Activity.CHARGING)
+    if not fallback_activities:
+        return split
+    split = _split_within_activities(samples, episodes, split, fallback_activities, context)
+    if not split.training:
+        return StrategyNotApplicable(
+            "No samples remain for fitting after holding out validation data; "
+            "record longer, complete vacuum/dock activities with enough readings for both fitting and validation."
+        )
+    return split
+
+
+def _find_brief_activity_validation(
+    samples: Sequence[RecordingSample],
+    grouped: Mapping[Activity, list[VacuumEpisode]],
+    split: TrainingValidationSplit,
+) -> set[Activity]:
+    """Short snippets cannot validate a much longer fixed-power activity."""
+    validation_ids = {id(sample) for sample in split.validation}
+    brief: set[Activity] = set()
+    for activity, episodes in grouped.items():
+        if activity == Activity.CHARGING:
+            continue
+        activity_samples = [sample for episode in episodes for sample in episode.samples]
+        held_out = [sample for sample in activity_samples if id(sample) in validation_ids]
+        total_seconds = sum(calculate_sample_durations(samples, activity_samples).values())
+        held_out_seconds = sum(calculate_sample_durations(samples, held_out).values())
+        if held_out_seconds < MIN_HELD_OUT_SHARE * total_seconds:
+            brief.add(activity)
+    return brief
+
+
+def _supports_charging_split(
+    split: TrainingValidationSplit, context: RecordingContext, charges: Sequence[VacuumEpisode]
+) -> bool:
+    """Require a covered, independent charge that actually rises over a usable battery range."""
+    training = [sample for sample in split.training if resolve_activity(sample, split.signals) == Activity.CHARGING]
+    validation = [sample for sample in split.validation if resolve_activity(sample, split.signals) == Activity.CHARGING]
+    if not training and not validation:
+        return True
+    battery = find_battery_feature(training, context)
+    branch = _fit_charging_branch(training, battery)
+    if isinstance(branch, StrategyNotApplicable):
+        return False
+    validation_ids = {id(sample) for sample in validation}
+    has_rising_charge = False
+    for charge in charges:
+        if any(id(sample) not in validation_ids for sample in charge.samples):
+            continue
+        levels = [level for sample in charge.samples if (level := get_battery_level(sample, battery)) is not None]
+        if len(levels) >= MIN_EPISODE_SAMPLES and levels[-1] - levels[0] >= MIN_VALIDATION_CHARGING_SPAN:
+            has_rising_charge = True
+            break
+    if not has_rising_charge:
+        return False
+    covered = sum(branch.estimate(sample, battery) is not None for sample in validation)
+    return covered >= 0.9 * len(validation)
+
+
+@dataclass(frozen=True)
+class ChargingHoldOut:
+    sample_ids: frozenset[int]
+    method: ValidationMethod
+
+
+def _try_split_charging_cycles(
+    samples: Sequence[RecordingSample],
+    episodes: Sequence[VacuumEpisode],
+    charges: Sequence[VacuumEpisode],
+    split: TrainingValidationSplit,
+    context: RecordingContext,
+) -> TrainingValidationSplit | None:
+    """Hold out independent charging while keeping the other activities' validation from `split`.
+
+    Short charging episodes always stay in validation. The first candidate whose
+    battery range the remaining charges cover wins.
+    """
+    charging_ids: set[int] = set()
+    short_episode_ids: set[int] = set()
+    for episode in episodes:
+        if episode.activity != Activity.CHARGING:
+            continue
+        for sample in episode.samples:
+            charging_ids.add(id(sample))
+            if len(episode.samples) < MIN_EPISODE_SAMPLES:
+                short_episode_ids.add(id(sample))
+    other_validation_ids = {id(sample) for sample in split.validation if id(sample) not in charging_ids}
+    for hold_out in _list_charging_hold_outs(charges, split.method, short_episode_ids):
+        validation_ids = other_validation_ids | short_episode_ids | hold_out.sample_ids
+        candidate = TrainingValidationSplit(
+            training=[sample for sample in samples if id(sample) not in validation_ids],
+            validation=[sample for sample in samples if id(sample) in validation_ids],
+            method=hold_out.method,
+            signals=split.signals,
+        )
+        if _supports_charging_split(candidate, context, charges):
+            return candidate
+    return None
+
+
+def _list_charging_hold_outs(
+    charges: Sequence[VacuumEpisode], method: ValidationMethod | None, short_episode_ids: set[int]
+) -> list[ChargingHoldOut]:
+    """List distinct charging hold-outs: whole recordings first, then single charges, latest first.
+
+    Keep `HELD_OUT_RECORDING` only when the other activities were also held out by recording.
+    """
+    recording_method = (
+        ValidationMethod.HELD_OUT_RECORDING
+        if method == ValidationMethod.HELD_OUT_RECORDING
+        else ValidationMethod.HELD_OUT_EPISODES
+    )
+    charging_by_recording: dict[int, set[int]] = defaultdict(set)
+    for charge in charges:
+        charging_by_recording[charge.samples[0].recording_id].update(id(sample) for sample in charge.samples)
+    hold_outs: list[ChargingHoldOut] = []
+    if len(charging_by_recording) > 1:
+        hold_outs.extend(
+            ChargingHoldOut(frozenset(sample_ids - short_episode_ids), recording_method)
+            for sample_ids in reversed(charging_by_recording.values())
+        )
+    for charge in reversed(charges):
+        sample_ids = {id(sample) for sample in charge.samples}
+        hold_outs.append(ChargingHoldOut(frozenset(sample_ids - short_episode_ids), ValidationMethod.HELD_OUT_EPISODES))
+
+    distinct: list[ChargingHoldOut] = []
+    seen: set[frozenset[int]] = set()
+    for hold_out in hold_outs:
+        if hold_out.sample_ids and hold_out.sample_ids not in seen:
+            seen.add(hold_out.sample_ids)
+            distinct.append(hold_out)
+    return distinct
+
+
+def _group_charges(episodes: Sequence[VacuumEpisode]) -> list[VacuumEpisode]:
+    """Join charging episodes that only unidentified readings separate, as they are one physical charge."""
+    charges: list[VacuumEpisode] = []
+    previous: VacuumEpisode | None = None
+    for episode in episodes:
+        if episode.activity is None:
+            continue
+        if episode.activity == Activity.CHARGING:
+            continues_charge = (
+                previous is not None
+                and previous.activity == Activity.CHARGING
+                and previous.samples[0].recording_id == episode.samples[0].recording_id
+            )
+            if continues_charge:
+                charges[-1].samples.extend(episode.samples)
+            else:
+                charges.append(VacuumEpisode(Activity.CHARGING, list(episode.samples)))
+        previous = episode
+    return charges
+
+
+def _split_within_activities(
+    samples: Sequence[RecordingSample],
+    episodes: Sequence[VacuumEpisode],
+    split: TrainingValidationSplit,
+    activities: set[Activity],
+    context: RecordingContext,
+) -> TrainingValidationSplit:
+    """Hold out contiguous blocks for activities without usable repeated cycles.
+
+    Charging is split within battery buckets so a single rising charge provides
+    both fitting and checking samples across its range. Keep bucket endpoints in
+    training, and never bridge episode boundaries when selecting a block.
+    """
+    validation_ids = {id(sample) for sample in split.validation}
+    battery = find_battery_feature(samples, context)
+    timing = build_post_charge_timing(samples, context)
+    for episode in episodes:
+        if episode.activity not in activities or len(episode.samples) < MIN_EPISODE_SAMPLES:
+            continue
+        validation_ids.difference_update(id(sample) for sample in episode.samples)
+        blocks: dict[int | None, list[RecordingSample]] = defaultdict(list)
+        for sample in episode.samples:
+            level = get_battery_level(sample, battery) if episode.activity == Activity.CHARGING else None
+            key = level // CHARGING_BIN_WIDTH if level is not None else None
+            if timing is not None and episode.activity in IDLE_ACTIVITIES:
+                elapsed = timing.get_elapsed(sample)
+                key = int(elapsed >= SETTLING_SECONDS) if elapsed is not None else None
+            blocks[key].append(sample)
+        for block in blocks.values():
+            count = max(2, len(block) // 3)
+            start = (len(block) - count) // 2
+            validation_ids.update(id(sample) for sample in block[max(0, start) : start + count])
+    return TrainingValidationSplit(
+        training=[sample for sample in samples if id(sample) not in validation_ids],
+        validation=[sample for sample in samples if id(sample) in validation_ids],
+        method=ValidationMethod.HELD_OUT_BLOCKS,
+        signals=split.signals,
+    )
 
 
 def _try_split_by_recording(

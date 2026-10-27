@@ -239,6 +239,12 @@ def _measure_definitions() -> list[MeasureDefinition]:
             icon=definition.icon,
             confirmation_action=definition.confirmation_action,
             confirmation_is_warning=definition.confirmation_is_warning,
+            confirmation_guidance=list(definition.confirmation_guidance),
+            confirmation_eyebrow=definition.confirmation_eyebrow,
+            confirmation_title=definition.confirmation_title,
+            confirmation_guidance_title=definition.confirmation_guidance_title,
+            confirmation_guidance_label=definition.confirmation_guidance_label,
+            supports_dummy_controller=definition.supports_dummy_controller,
             model_id_example=definition.model_id_example,
             product_name_example=definition.product_name_example,
             parameters=[MeasureParameter(**vars(parameter)) for parameter in definition.parameters],
@@ -256,6 +262,7 @@ def _measure_definitions() -> list[MeasureDefinition]:
                             value=option.value,
                             label=option.label,
                             entity_domain=option.entity_domain,
+                            entity_domains=list(option.entity_domains),
                             enables=list(option.enables),
                             description=option.description,
                             guidance=list(option.guidance),
@@ -266,6 +273,8 @@ def _measure_definitions() -> list[MeasureDefinition]:
                     minimum=field.minimum,
                     maximum=field.maximum,
                     multiple=field.multiple,
+                    multiple_toggle=field.multiple_toggle,
+                    group_by_device=field.group_by_device,
                     plural_label=field.plural_label,
                     derived_from=field.derived_from,
                     hint=field.hint,
@@ -350,7 +359,11 @@ def _power_meter_spec(settings: AppPreferences) -> PowerMeterSpec:
     if settings.power_meter == PowerMeterType.SHELLY:
         if not settings.shelly_ip:
             raise PowerMeterError("Enter the Shelly IP address first")
-        return ShellyPowerMeterSpec(device_ip=settings.shelly_ip, username=settings.shelly_username)
+        return ShellyPowerMeterSpec(
+            device_ip=settings.shelly_ip,
+            username=settings.shelly_username,
+            channel=settings.shelly_channel,
+        )
     if settings.power_meter == PowerMeterType.KASA:
         if not settings.kasa_ip:
             raise PowerMeterError("Enter the Kasa IP address first")

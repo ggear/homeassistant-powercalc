@@ -1,10 +1,68 @@
-import type { MeasurementRequest } from "../../types";
+import type { MeasureDefinition, MeasurementRequest } from "../../types";
 import "./view";
 import { SetupViewElement, capabilities, lightDefinition, lights } from "../testing/fixtures";
 import type { TestCombobox } from "./test-helpers";
 import { entityCombobox, recorderDefinition, selectEntity } from "./test-helpers";
 
 describe("setup view defaults", () => {
+  it("uses definition flags for multi-relay selection and virtual controllers", async () => {
+    const definition: MeasureDefinition = {
+      ...lightDefinition,
+      measure_type: "smart_switch",
+      label: "Smart switch",
+      supports_dummy_controller: false,
+      fields: [
+        { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, options: [] },
+        { name: "switch_entity_id", role: "controller", label: "Relay", plural_label: "Relays", control: "entity", required: true, multiple: true, group_by_device: true, entity_domains: ["switch"], options: [] },
+        { name: "power_monitoring", role: "attribute", label: "Built-in power monitoring", control: "boolean", required: true, default: false, options: [] },
+      ],
+    };
+    const element = document.createElement("measure-setup-view") as SetupViewElement;
+    element.capabilities = { ...capabilities, developer_mode: true };
+    element.definitions = [definition];
+    element.selectedType = "smart_switch";
+    element.deviceEntities = { switch: [
+      { entity_id: "switch.one", name: "Relay 1", domain: "switch", device_id: "switch-device", device_name: "Dual relay" },
+      { entity_id: "switch.two", name: "Relay 2", domain: "switch", device_id: "switch-device", device_name: "Dual relay" },
+      { entity_id: "switch.other", name: "Other relay", domain: "switch", device_id: "other-device", device_name: "Other switch" },
+    ] };
+    element.meter = { type: "dummy" };
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(entityCombobox(element, "switch_entity_id")).toBeNull();
+    selectEntity(entityCombobox(element, "device_switch_entity_id"), "switch-device");
+    await element.updateComplete;
+    const relays = entityCombobox(element, "switch_entity_id");
+    expect(relays.hasAttribute("multiple")).toBe(true);
+    expect(relays.label).toBe("Relays");
+    expect(relays.options.map((option) => option.value)).toEqual(["switch.one", "switch.two"]);
+    expect(element.shadowRoot.querySelector(".add-entity")).toBeNull();
+    relays.dispatchEvent(new CustomEvent("combobox-change", {
+      detail: { value: ["switch.one", "switch.two"] }, bubbles: true, composed: true,
+    }));
+    await element.updateComplete;
+    expect(element.selectedEntities.switch_entity_id).toEqual(["switch.one", "switch.two"]);
+    selectEntity(entityCombobox(element, "device_switch_entity_id"), "other-device");
+    await element.updateComplete;
+    expect(element.selectedEntities.switch_entity_id).toEqual([]);
+    expect(entityCombobox(element, "switch_entity_id").options.map((option) => option.value)).toEqual(["switch.other"]);
+    expect(element.shadowRoot.querySelector('input[name="power_monitoring"]')).toBeTruthy();
+    expect(element.shadowRoot.querySelector('input[name="use_dummy_controller"]')).toBeNull();
+
+    element.selectedEntityDeviceIds = {};
+    element.selectedEntities = {};
+    element.initialRequest = {
+      measure_type: "smart_switch", controller: { type: "hass_multi", entity_ids: ["switch.one", "switch.two"] },
+      model_id: "", product_name: "", measure_device: "", power_meter: { type: "dummy" },
+      generate_model: false, parameters: capabilities.defaults, resume_policy: "new",
+      power_monitoring: false, samples_per_state: 12, repeat_cycles: 2, settle_seconds: 2,
+    };
+    await element.updateComplete;
+    expect(entityCombobox(element, "device_switch_entity_id").value).toBe("switch-device");
+    expect(entityCombobox(element, "switch_entity_id").value).toEqual(["switch.one", "switch.two"]);
+  });
+
   it.each([{ selection: [] }, { selection: ["sensor.manual"] }])("preserves saved vacuum selections $selection when suggestions exist", async ({ selection }) => {
     const element = document.createElement("measure-setup-view") as SetupViewElement;
     element.capabilities = capabilities;
@@ -29,12 +87,16 @@ describe("setup view defaults", () => {
     expect(entityCombobox(element, "additional_entity_ids").value).toEqual(selection);
   });
 
-  it("restores a duplicated recorder request with its persisted null controller", async () => {
+  it.each([true, false])("restores primary and secondary signals from a saved generic request (legacy=%s)", async (legacy) => {
     const element = document.createElement("measure-setup-view") as SetupViewElement;
     element.capabilities = capabilities;
     element.definitions = [recorderDefinition];
     element.deviceEntities = {
-      "*": [{ entity_id: "climate.room", name: "Room", domain: "climate", state: "heat" }],
+      "*": [
+        { entity_id: "climate.room", name: "Room", domain: "climate", state: "heat", device_id: "room" },
+        { entity_id: "sensor.room", name: "Room state", domain: "sensor", state: "heat", device_id: "room" },
+        { entity_id: "sensor.mode", name: "Mode", domain: "sensor", state: "eco", device_id: "room" },
+      ],
     };
     element.selectedType = "recorder";
     element.initialRequest = {
@@ -49,7 +111,9 @@ describe("setup view defaults", () => {
       resume_policy: "new",
       recorder_purpose: "complex_profile",
       profile_recipe: "generic",
-      tracked_entity_ids: ["climate.room"],
+      ...(legacy
+        ? { tracked_entity_ids: ["sensor.room", "sensor.mode"] }
+        : { primary_entity_id: "climate.room", profile_device_type: "heating", tracked_entity_ids: ["sensor.mode"] }),
     };
     element.meter = { type: "dummy" };
     document.body.append(element);
@@ -57,9 +121,20 @@ describe("setup view defaults", () => {
 
     expect(element.shadowRoot.querySelector('[name="recorder_purpose"]')).toBeTruthy();
     expect(element.shadowRoot.querySelector('[name="profile_recipe"]')).toBeTruthy();
-    const trackedEntity = entityCombobox(element, "tracked_entity_ids");
+    const trackedEntity = entityCombobox(element, "primary_entity_id");
     expect(trackedEntity).toBeTruthy();
-    expect((trackedEntity.querySelector('input[slot="value"]') as HTMLInputElement).value).toBe("climate.room");
+    expect((trackedEntity.querySelector('input[slot="value"]') as HTMLInputElement).value).toBe(legacy ? "sensor.room" : "climate.room");
+    expect(entityCombobox(element, "profile_device_type").value).toBe(legacy ? "generic_iot" : "heating");
+    const additional = entityCombobox(element, "tracked_entity_ids");
+    expect(additional.value).toEqual(["sensor.mode"]);
+    expect(additional.options.map((option) => option.value)).not.toContain(legacy ? "sensor.room" : "climate.room");
+    expect(element.shadowRoot.textContent).toContain("states may explain power changes");
+    additional.dispatchEvent(new CustomEvent("combobox-change", { detail: { value: [] } }));
+    await element.updateComplete;
+    expect(entityCombobox(element, "tracked_entity_ids").value).toEqual([]);
+    selectEntity(entityCombobox(element, "primary_entity_id"), "");
+    await element.updateComplete;
+    expect(entityCombobox(element, "primary_entity_id").value).toBe("");
   });
 
   it("starts the recorder with a purpose choice and reveals the generic recipe conditionally", async () => {
@@ -86,11 +161,11 @@ describe("setup view defaults", () => {
 
     expect(await requestedDomains).toContain("*");
     expect(element.shadowRoot.querySelector('[name="profile_recipe"]')).toBeTruthy();
-    expect(element.shadowRoot.querySelector('[name="tracked_entity_ids"]')).toBeTruthy();
+    expect(element.shadowRoot.querySelector('[name="primary_entity_id"]')).toBeTruthy();
     expect(element.shadowRoot.querySelector('[name="model_id"]')).toBeNull();
     expect(element.shadowRoot.querySelector('[name="product_name"]')).toBeNull();
-    expect(element.shadowRoot.textContent).toContain("not feature complete");
-    expect(element.shadowRoot.textContent).toContain("only creates fixed states_power models");
+    expect(element.shadowRoot.textContent).toContain("experimental workflow");
+    expect(element.shadowRoot.textContent).toContain("composites from a secondary signal");
     expect(element.shadowRoot.querySelector('[name="export_filename"]')).toBeNull();
   });
 
@@ -100,6 +175,7 @@ describe("setup view defaults", () => {
     element.definitions = [recorderDefinition];
     element.deviceEntities = { "*": [
       { entity_id: "vacuum.robot", name: "Robot", domain: "vacuum", device_id: "robot-device", state: "docked",
+        related_device_ids: ["dock-device"],
         suggested_recording_entity_ids: ["sensor.dock_state", "switch.dock_drying"],
         disabled_recording_entity_ids: ["switch.dock_washing"] },
       { entity_id: "switch.dock_drying", name: "Drying", domain: "switch", device_id: "dock-device", state: "off" },
@@ -131,8 +207,15 @@ describe("setup view defaults", () => {
     expect(element.shadowRoot.querySelectorAll('select[name="additional_entity_ids"]')).toHaveLength(0);
     const additional = entityCombobox(element, "additional_entity_ids");
     expect(additional.label).toBe("Additional entities (optional)");
+    expect(additional.options).toContainEqual({
+      value: "sensor.dock_state", label: "Dock state", description: "sensor.dock_state", badge: "idle",
+    });
+    expect(battery.options[0]).toMatchObject({ label: "Robot battery", description: "sensor.robot_battery" });
+    expect(battery.options[0]).not.toHaveProperty("badge", "42 %");
     expect(additional.options.map((option) => option.value)).not.toContain("vacuum.robot");
     expect(additional.options.map((option) => option.value)).not.toContain("sensor.robot_battery");
+    expect(additional.options.map((option) => option.value)).toContain("switch.dock_drying");
+    expect(additional.options.map((option) => option.value)).not.toContain("sensor.other_state");
     expect(additional.value).toEqual(["sensor.dock_state", "switch.dock_drying"]);
     expect(element.shadowRoot.textContent).toContain("Useful activity entities are disabled: switch.dock_washing");
     expect(element.shadowRoot.textContent).toContain("Known activity entities are selected automatically");
@@ -156,6 +239,7 @@ describe("setup view defaults", () => {
     selectEntity(entityCombobox(element, "vacuum_entity_id"), "vacuum.other");
     await element.updateComplete;
     expect(entityCombobox(element, "additional_entity_ids").value).toEqual([]);
+    expect(entityCombobox(element, "additional_entity_ids").options.map((option) => option.value)).toEqual(["sensor.other_state"]);
     expect(entityCombobox(element, "battery_entity_id").value).toBe("sensor.other_battery");
   });
 
@@ -199,7 +283,10 @@ describe("setup view defaults", () => {
 
     selectEntity(entityCombobox(element, "recorder_purpose"), "complex_profile");
     await element.updateComplete;
-    selectEntity(entityCombobox(element, "tracked_entity_ids"), "climate.room");
+    selectEntity(entityCombobox(element, "profile_device_type"), "heating");
+    await element.updateComplete;
+    selectEntity(entityCombobox(element, "primary_entity_id"), "climate.room");
+    await element.updateComplete;
     const submitted = new Promise<MeasurementRequest>((resolve) => element.addEventListener("preflight", (event) => resolve((event as CustomEvent<MeasurementRequest>).detail)));
     (element.shadowRoot.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 
@@ -211,10 +298,42 @@ describe("setup view defaults", () => {
       product_name: "",
       recorder_purpose: "complex_profile",
       profile_recipe: "generic",
-      tracked_entity_ids: ["climate.room"],
+      primary_entity_id: "climate.room",
+      profile_device_type: "heating",
+      tracked_entity_ids: [],
     });
     expect(request).not.toHaveProperty("vacuum_entity_id");
     expect(request).not.toHaveProperty("battery_entity_id");
+  });
+
+  it("narrows the primary entity to the selected profile device type", async () => {
+    const element = document.createElement("measure-setup-view") as SetupViewElement;
+    element.capabilities = capabilities;
+    element.definitions = [recorderDefinition];
+    element.deviceEntities = { "*": [
+      { entity_id: "camera.porch", name: "Porch", domain: "camera", state: "idle", device_id: "porch",
+        related_device_ids: ["porch-child", "porch-parent"] },
+      { entity_id: "sensor.mode", name: "Mode", domain: "sensor", state: "day", device_id: "porch" },
+      { entity_id: "sensor.calculated", name: "Calculated power", domain: "sensor", state: "4", device_id: "porch", integration: "powercalc" },
+      { entity_id: "sensor.child", name: "Child", domain: "sensor", state: "on", device_id: "porch-child" },
+      { entity_id: "sensor.parent", name: "Parent", domain: "sensor", state: "on", device_id: "porch-parent" },
+      { entity_id: "sensor.other", name: "Other", domain: "sensor", state: "on", device_id: "unrelated" },
+    ] };
+    element.selectedType = "recorder";
+    element.meter = { type: "dummy" };
+    document.body.append(element);
+    await element.updateComplete;
+
+    selectEntity(entityCombobox(element, "recorder_purpose"), "complex_profile");
+    await element.updateComplete;
+    selectEntity(entityCombobox(element, "profile_device_type"), "camera");
+    await element.updateComplete;
+    expect(entityCombobox(element, "primary_entity_id").options.map((option) => option.value)).toEqual(["camera.porch"]);
+    selectEntity(entityCombobox(element, "primary_entity_id"), "camera.porch");
+    await element.updateComplete;
+    expect(entityCombobox(element, "tracked_entity_ids").options.map((option) => option.value)).toEqual([
+      "sensor.mode", "sensor.child", "sensor.parent",
+    ]);
   });
 
   it("shows the configured power sensor as read-only measurement context", async () => {
@@ -226,8 +345,9 @@ describe("setup view defaults", () => {
     element.meter = { type: "hass", entity_id: "sensor.plug_power" };
     element.defaultMeasureDevice = "Shelly Plug S";
     element.definitions = [lightDefinition];
-    element.selectedType = "light";
     document.body.append(element);
+    await element.updateComplete;
+    (element.shadowRoot.querySelector(".device-card") as HTMLButtonElement).click();
     await element.updateComplete;
 
     expect(element.shadowRoot.querySelector('select[name="power_entity_id"]')).toBeNull();
@@ -291,8 +411,9 @@ describe("setup view defaults", () => {
     element.powers = [{ entity_id: "sensor.plug_power", name: "Plug power" }];
     element.voltages = [];
     element.definitions = [lightDefinition];
-    element.selectedType = "light";
     document.body.append(element);
+    await element.updateComplete;
+    (element.shadowRoot.querySelector(".device-card") as HTMLButtonElement).click();
     await element.updateComplete;
 
     const profileSection = element.shadowRoot.querySelector(".device-section");

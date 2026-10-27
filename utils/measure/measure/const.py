@@ -5,6 +5,10 @@ from pathlib import Path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = Path(os.path.join(script_dir, "../")).resolve()
 
+# Model IDs become library directory names, so only allow characters which are safe in a path.
+MODEL_ID_PATTERN = r"[A-Za-z0-9][A-Za-z0-9 ._()+!-]*"
+MODEL_ID_MAX_LENGTH = 120
+
 
 class MeasureType(StrEnum):
     """Stable machine identifiers for supported measurement workflows."""
@@ -13,8 +17,10 @@ class MeasureType(StrEnum):
     SPEAKER = "speaker"
     RECORDER = "recorder"
     AVERAGE = "average"
+    FIXED = "fixed"
     CHARGING = "charging"
     FAN = "fan"
+    SMART_SWITCH = "smart_switch"
 
 
 MEASURE_TYPE_LABELS: dict[MeasureType, str] = {
@@ -22,8 +28,10 @@ MEASURE_TYPE_LABELS: dict[MeasureType, str] = {
     MeasureType.SPEAKER: "Smart speaker",
     MeasureType.RECORDER: "Recorder",
     MeasureType.AVERAGE: "Average",
+    MeasureType.FIXED: "Fixed power profile",
     MeasureType.CHARGING: "Charging device",
     MeasureType.FAN: "Fan",
+    MeasureType.SMART_SWITCH: "Smart switch",
 }
 
 LEGACY_MEASURE_TYPE_VALUES: dict[str, MeasureType] = {

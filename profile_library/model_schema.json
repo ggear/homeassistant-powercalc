@@ -145,6 +145,11 @@
           },
           "only_self_usage": {
             "const": true
+          },
+          "calculation_strategy": {
+            "not": {
+              "const": "multi_switch"
+            }
           }
         },
         "required": [
@@ -371,6 +376,11 @@
           "label": {
             "type": "string",
             "description": "Label of the field"
+          },
+          "translation_key": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "Optional key for the form label and description translations. The field key remains the stored variable name. Must be unique among form field names in this profile."
           },
           "auto_select": {
             "type": "object",

@@ -27,6 +27,8 @@ from measure.controller.media.controller import MediaController
 from measure.controller.media.dummy import DummyMediaController
 from measure.controller.media.hass import HassMediaController
 from measure.controller.media.spec import DummyMediaControllerSpec, HassMediaControllerSpec, MediaControllerSpec
+from measure.controller.switch.hass import HassSwitchController
+from measure.controller.switch.spec import HassMultiSwitchControllerSpec
 from measure.execution import (
     DummyLoadCalibrationStore,
     DummyLoadPreparation,
@@ -63,10 +65,12 @@ from measure.request import (
     AverageMeasurementRequest,
     ChargingMeasurementRequest,
     FanMeasurementRequest,
+    FixedMeasurementRequest,
     LightMeasurementRequest,
     MeasurementRequest,
     RecorderMeasurementRequest,
     ResumePolicy,
+    SmartSwitchMeasurementRequest,
     SpeakerMeasurementRequest,
 )
 from measure.runner.average import AverageRunner
@@ -76,6 +80,7 @@ from measure.runner.interaction import RunInteraction
 from measure.runner.light.runner import LightRunner
 from measure.runner.recorder import EntityStateReader, RecorderEntityState, RecorderRunner
 from measure.runner.runner import MeasurementRunner
+from measure.runner.smart_switch import SmartSwitchRunner
 from measure.runner.speaker import SpeakerRunner
 from measure.tuning import MeasurementParameters
 from measure.utils.sampling import PowerSampler
@@ -169,6 +174,7 @@ class MeasurementAssembler:
                 spec.timeout,
                 username=spec.username,
                 password=self._shelly_password,
+                channel=spec.channel,
             )
         if isinstance(spec, TasmotaPowerMeterSpec):
             return TasmotaPowerMeter(spec.device_ip)
@@ -212,7 +218,7 @@ class MeasurementAssembler:
                 snapshot = HomeAssistantEntityCatalog(self._require_home_assistant()).load_snapshot()
                 context = build_recording_context(request, snapshot.get_all(), snapshot.related_device_ids)
             return RecorderRunner(sampler, interaction, state_reader, context)
-        if isinstance(request, AverageMeasurementRequest):
+        if isinstance(request, AverageMeasurementRequest | FixedMeasurementRequest):
             return AverageRunner(sampler, interaction=interaction)
         if isinstance(request, ChargingMeasurementRequest):
             charging_controller = self._create_charging_controller(request.controller)
@@ -225,6 +231,15 @@ class MeasurementAssembler:
         if isinstance(request, FanMeasurementRequest):
             fan_controller = self._create_fan_controller(request.controller)
             return FanRunner(sampler, parameters, fan_controller, interaction)
+        if isinstance(request, SmartSwitchMeasurementRequest):
+            controller = request.controller
+            entity_ids = (
+                controller.entity_ids
+                if isinstance(controller, HassMultiSwitchControllerSpec)
+                else [controller.entity_id]
+            )
+            switch_controller = HassSwitchController(self._require_home_assistant(), entity_ids)
+            return SmartSwitchRunner(sampler, switch_controller, interaction)
         assert_never(request)  # pragma: no cover - all MeasurementRequest variants handled
 
     def _create_recorder_state_reader(self) -> EntityStateReader:

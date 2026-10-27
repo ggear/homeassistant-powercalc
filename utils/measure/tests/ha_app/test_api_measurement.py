@@ -35,13 +35,37 @@ def test_measure_definitions_and_average_request(app_client: TestClient) -> None
     assert {item["measure_type"] for item in definitions.json()} == {item.value for item in MeasureType}
     actions = {item["measure_type"]: item["confirmation_action"] for item in definitions.json()}
     assert actions == {
-        "light": None,
+        "light": "Start light measurement",
         "speaker": "Start speaker measurement",
         "recorder": "Start recording",
         "average": "Start averaging",
+        "fixed": "Start measuring self consumption",
         "charging": "Start charging measurement",
-        "fan": None,
+        "fan": "Start fan measurement",
+        "smart_switch": "Start switch measurement",
     }
+    fixed = next(item for item in definitions.json() if item["measure_type"] == MeasureType.FIXED)
+    device_field = next(field for field in fixed["fields"] if field["name"] == "device_id")
+    assert device_field["control"] == "device"
+    assert device_field["all_entities"] is True
+    smart_switch = next(item for item in definitions.json() if item["measure_type"] == MeasureType.SMART_SWITCH)
+    relay = next(field for field in smart_switch["fields"] if field["name"] == "switch_entity_id")
+    assert relay["group_by_device"] is True
+    guidance = {item["measure_type"]: item["confirmation_guidance"] for item in definitions.json()}
+    assert "Disable automations" in guidance["light"][0]
+    assert "Disable automations" in guidance["fan"][0]
+    assert guidance["average"] == []
+    speaker = next(item for item in definitions.json() if item["measure_type"] == MeasureType.SPEAKER)
+    assert speaker["confirmation_is_warning"] is True
+    assert speaker["confirmation_eyebrow"] == "High volume warning"
+    assert speaker["confirmation_title"] == "Protect your hearing"
+    assert (
+        next(item for item in definitions.json() if item["measure_type"] == MeasureType.FAN)["confirmation_title"]
+        == "Everything is ready"
+    )
+    recorder_definition = next(item for item in definitions.json() if item["measure_type"] == MeasureType.RECORDER)
+    assert recorder_definition["confirmation_guidance_title"] == "What to record"
+    assert recorder_definition["confirmation_guidance_label"] == "Recording guidance"
     charging = next(item for item in definitions.json() if item["measure_type"] == MeasureType.CHARGING)
     fields = {field["name"]: field for field in charging["fields"]}
     assert "entity_domain" not in fields["charging_entity_id"]
@@ -50,7 +74,6 @@ def test_measure_definitions_and_average_request(app_client: TestClient) -> None
         for option in fields["charging_device_type"]["options"]
     ] == [
         ("vacuum_robot", "Vacuum robot", "vacuum"),
-        ("lawn_mower_robot", "Lawn mower robot", "lawn_mower"),
     ]
     recorder = next(item for item in definitions.json() if item["measure_type"] == MeasureType.RECORDER)
     recorder_fields = {field["name"]: field for field in recorder["fields"]}
@@ -58,6 +81,14 @@ def test_measure_definitions_and_average_request(app_client: TestClient) -> None
     assert recorder_fields["profile_recipe"]["visible_when"] == {"recorder_purpose": ["complex_profile"]}
     assert recorder_fields["tracked_entity_ids"]["all_entities"] is True
     assert recorder_fields["battery_entity_id"]["same_device_only"] is True
+    light = next(item for item in definitions.json() if item["measure_type"] == MeasureType.LIGHT)
+    light_fields = {field["name"]: field for field in light["fields"]}
+    assert light_fields["light_entity_id"]["multiple_toggle"] is True
+    smart_switch = next(item for item in definitions.json() if item["measure_type"] == MeasureType.SMART_SWITCH)
+    switch_fields = {field["name"]: field for field in smart_switch["fields"]}
+    assert smart_switch["supports_dummy_controller"] is False
+    assert switch_fields["switch_entity_id"]["multiple_toggle"] is False
+    assert switch_fields["power_monitoring"]["control"] == "boolean"
 
     payload = {
         "measure_type": MeasureType.AVERAGE,
@@ -409,6 +440,7 @@ def test_completed_recording_can_be_analysed_again(app_client: TestClient) -> No
         "".join(f"{json.dumps(record)}\n" for record in records),
         encoding="utf-8",
     )
+    (output / "record-1.jsonl").write_text((output / "record.jsonl").read_text())
     (output / "model.json").write_text(
         json.dumps({"voltage_range": {"min": 229.5, "max": 231.0}}),
         encoding="utf-8",
@@ -428,8 +460,9 @@ def test_completed_recording_can_be_analysed_again(app_client: TestClient) -> No
         "Analysed feature": "switch.device.state",
         "Validation MAE": "0.00 W",
         "Validation coverage": "100%",
-        "Recordings analysed": "1",
-        "Samples analysed": "20",
+        "Validation method": "held_out_recording",
+        "Recordings analysed": "2",
+        "Samples analysed": "40",
     }
     model = json.loads((output / "model.json").read_text(encoding="utf-8"))
     assert model["fixed_config"] == {"power": 5.2}

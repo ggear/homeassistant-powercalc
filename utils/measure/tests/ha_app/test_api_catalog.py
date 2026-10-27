@@ -22,6 +22,7 @@ from measure.tuning import MeasurementParameters
 from measure.utils.version import measure_version
 import pytest
 
+from tests.conftest import MockRequestsGetFactory
 from tests.ha_app.api_test_support import (
     AppClientFactory,
     FakeClient,
@@ -200,6 +201,22 @@ def test_entity_manufacturer_normalizes_a_library_alias(app_client: TestClient) 
         ],
     ):
         assert context.get_entity_manufacturers(["light.test"]) == {"light.test": "Signify"}
+
+
+def test_device_id_resolves_manufacturer_and_model_for_fixed_profile(app_client: TestClient) -> None:
+    context = app_client.app.state.context
+    context.home_assistant = FakeClient()
+    context.manufacturer_catalog = ManufacturerCatalog(
+        loader=lambda: {"manufacturers": [{"name": "Acme", "full_name": "Acme", "models": []}]},
+    )
+
+    with patch.object(
+        FakeClient,
+        "get_device_registry",
+        return_value=[{"id": "light-device", "manufacturer": "Acme", "model": "Router X"}],
+    ):
+        assert context.get_entity_manufacturers(["light-device"]) == {"light-device": "Acme"}
+        assert context.get_entity_model_ids(["light-device"]) == {"light-device": "Router X"}
 
 
 @pytest.mark.parametrize("manufacturer", [None, ""])
@@ -731,6 +748,45 @@ def test_power_meter_test_endpoint(app_client: TestClient) -> None:
     assert validated.json()["supports_voltage"] is False
     assert validated.json()["precision_decimals"] == 1
     assert validated.json()["update_interval_status"] == "poor"
+
+
+@pytest.mark.parametrize("channel", [None, 0, 3, 4])
+def test_shelly_meter_validation_uses_selected_outlet(
+    app_client: TestClient,
+    mock_requests_get_factory: MockRequestsGetFactory,
+    channel: int | None,
+) -> None:
+    responses = {
+        "http://192.168.1.50/shelly": ({"gen": 4, "model": "S4PL-00416EU"}, 200),
+        "http://192.168.1.50/rpc/Shelly.GetStatus": (
+            {f"switch:{index}": {"apower": index + 0.5, "voltage": 230.0} for index in range(4)},
+            200,
+        ),
+    }
+    for index in range(4):
+        responses[f"http://192.168.1.50/rpc/Switch.GetStatus?id={index}"] = (
+            {"apower": index + 0.5, "voltage": 230.0},
+            200,
+        )
+    mock_requests_get_factory(responses)
+
+    response = app_client.post(
+        "/api/settings/test-power-meter",
+        json={"power_meter": "shelly", "shelly_ip": "192.168.1.50", "shelly_channel": channel},
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    if channel is None:
+        assert result["success"] is False
+        assert "select the outlet" in result["message"]
+    elif channel == 4:
+        assert result["success"] is False
+        assert "does not have" in result["message"]
+    else:
+        assert result["success"] is True
+        assert result["power"] == pytest.approx(channel + 0.5)
+        assert result["supports_voltage"] is True
 
 
 @pytest.mark.parametrize(

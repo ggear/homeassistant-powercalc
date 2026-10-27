@@ -1,5 +1,5 @@
-import { decodeEntities, decodePreflight, decodeSessionSnapshot, isMeasurementRequest } from "./api-decoders";
-import { capabilities } from "./components/testing/fixtures";
+import { decodeEntities, decodeMeasureDefinitions, decodePreflight, decodeSessionFiles, decodeSessionSnapshot, decodeSessionSummaries, isMeasurementRequest } from "./api-decoders";
+import { capabilities, lightDefinition } from "./components/testing/fixtures";
 
 const averageRequest = {
   measure_type: "average",
@@ -51,6 +51,37 @@ describe("measurement request boundary", () => {
 });
 
 describe("response boundary", () => {
+  it("accepts file dates and files from older backends without dates", () => {
+    const file = { name: "measurement/record.jsonl", size: 1024, media_type: "application/octet-stream" };
+    expect(decodeSessionFiles([file])).toEqual([file]);
+    const datedFile = { ...file, modified_at: "2026-10-10T14:45:00Z" };
+    expect(decodeSessionFiles([datedFile])).toEqual([datedFile]);
+    expect(() => decodeSessionFiles([{ ...file, modified_at: 123 }])).toThrow();
+  });
+
+  it("accepts the device selector in a fixed measurement definition", () => {
+    const definitions = [{
+      ...lightDefinition,
+      measure_type: "fixed",
+      fields: [{ name: "device_id", label: "Home Assistant device", control: "device",
+        role: "attribute", required: true, options: [], all_entities: true }],
+    }];
+
+    expect(decodeMeasureDefinitions(definitions)).toBe(definitions);
+  });
+
+  it("accepts saved smart switch sessions in the session list", () => {
+    const sessions = [{
+      session_id: "8af8795c-7131-4e94-8eab-2ce4a7e7f2c1", state: "failed",
+      created_at: "2026-09-28T16:24:12Z", updated_at: "2026-09-28T16:26:39Z",
+      measure_type: "smart_switch", model_id: "SHPLG-S", product_name: "Vaatwasser",
+      measure_device: "Shelly 1PM Mini Gen3", completed: 2, total: 6, percent: 33.33,
+      can_resume: false, file_count: 0, size: 6614, active: false,
+    }];
+
+    expect(decodeSessionSummaries(sessions)).toBe(sessions);
+  });
+
   it("accepts optional connectivity and rejects malformed detection results", () => {
     const entity = { entity_id: "light.test", name: "Test light" };
     for (const connectivity of [undefined, null, "zigbee", "zwave"]) {

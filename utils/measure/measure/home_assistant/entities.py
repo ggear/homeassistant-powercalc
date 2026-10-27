@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 
 class EntityDomain(StrEnum):
+    SWITCH = "switch"
     LIGHT = "light"
     MEDIA_PLAYER = "media_player"
     FAN = "fan"
@@ -62,6 +63,7 @@ class EntityDescriptor(BaseModel):
     domain: str
     device_class: str | None = None
     device_id: str | None = None
+    device_name: str | None = None
     #: Home Assistant integration providing the entity, as shown on the device page.
     integration: str | None = None
     connectivity: Connectivity | None = None
@@ -81,6 +83,7 @@ class EntityDescriptor(BaseModel):
     max_mired: int | None = None
     related_voltage_entity_id: str | None = None
     member_entity_ids: list[str] = Field(default_factory=list)
+    related_device_ids: list[str] = Field(default_factory=list)
     suggested_recording_entity_ids: list[str] = Field(default_factory=list)
     disabled_recording_entity_ids: list[str] = Field(default_factory=list)
 
@@ -93,9 +96,14 @@ class EntityCatalogSnapshot:
         entities: list[EntityDescriptor],
         related_device_ids: Mapping[str, list[str]] | None = None,
     ) -> None:
-        self._entities = tuple(entities)
-        self._by_id = {entity.entity_id: entity for entity in entities}
         self._related_device_ids = dict(related_device_ids or {})
+        self._entities = tuple(
+            entity.model_copy(
+                update={"related_device_ids": list(self._related_device_ids.get(entity.device_id or "", []))}
+            )
+            for entity in entities
+        )
+        self._by_id = {entity.entity_id: entity for entity in self._entities}
 
     @property
     def related_device_ids(self) -> Mapping[str, list[str]]:
@@ -141,6 +149,12 @@ class EntityCatalogSnapshot:
 
     def get(self, entity_id: str) -> EntityDescriptor | None:
         return self._by_id.get(entity_id)
+
+    def get_device_entity(self, device_id: str) -> EntityDescriptor | None:
+        """Return a stable entity of the device, for reading device-level metadata such as its model."""
+
+        device_entities = [entity for entity in self._entities if entity.device_id == device_id]
+        return min(device_entities, key=lambda entity: entity.entity_id, default=None)
 
     def find_related_entity_id(self, entity_id: str, device_class: DeviceClass) -> str | None:
         entity = self._by_id.get(entity_id)
@@ -235,17 +249,22 @@ class HomeAssistantEntityCatalog:
 
 def _describe_registry_entity(entry: EntityRegistryEntry, devices: dict[str, dict[str, object]]) -> EntityDescriptor:
     """Describe an inventory-only entity with no live Home Assistant state."""
-    manufacturer = devices.get(entry.device_id or "", {}).get(HASS_DEVICE_REGISTRY_MANUFACTURER)
+    device = devices.get(entry.device_id or "", {})
+    manufacturer = device.get(HASS_DEVICE_REGISTRY_MANUFACTURER)
+    model_id = device.get(HASS_DEVICE_REGISTRY_MODEL_ID) or device.get(HASS_DEVICE_REGISTRY_MODEL)
     return EntityDescriptor(
         entity_id=entry.entity_id,
         name=getattr(entry, "name", None) or getattr(entry, "original_name", None) or entry.entity_id,
         domain=entry.entity_id.partition(".")[0],
         device_id=entry.device_id,
+        device_name=_device_name(device),
         integration=entry.platform,
         connectivity=detect_connectivity(entry.platform, devices.get(entry.device_id or "", {})),
         translation_key=getattr(entry, "translation_key", None),
         unique_id=getattr(entry, "unique_id", None),
         manufacturer=str(manufacturer) if manufacturer else None,
+        model_id=str(model_id) if model_id else None,
+        product_name=str(device[HASS_DEVICE_REGISTRY_MODEL]) if device.get(HASS_DEVICE_REGISTRY_MODEL) else None,
         disabled_by=getattr(entry, "disabled_by", None),
         has_live_state=False,
         state="unavailable",
@@ -331,6 +350,7 @@ def _describe_entity(
         domain=domain,
         device_class=device_class,
         device_id=device_id,
+        device_name=_device_name(device),
         integration=integration,
         connectivity=(detect_connectivity(getattr(registry_entry, "platform", None), device) if not members else None),
         translation_key=getattr(registry_entry, "translation_key", None),
@@ -350,6 +370,11 @@ def _describe_entity(
         max_mired=light_info.get_max_mired() if light_info is not None else None,
         member_entity_ids=[str(member) for member in members] if detailed and isinstance(members, list) else [],
     )
+
+
+def _device_name(device: dict[str, object]) -> str | None:
+    name = device.get("name_by_user") or device.get("name")
+    return str(name) if name else None
 
 
 def _parse_device_class(value: object) -> str | None:

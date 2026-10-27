@@ -5,6 +5,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from measure.controller.light.spec import DummyLightControllerSpec
+from measure.controller.switch.spec import HassSwitchControllerSpec
+from measure.execution import MeasurementExecution, PreparedMeasurement
 from measure.ha_app.coordinator import (
     MeasurementCoordinator,
     SessionConflictError,
@@ -24,6 +26,7 @@ from measure.request import (
     RecorderProfileRecipe,
     RecorderPurpose,
     ResumePolicy,
+    SmartSwitchMeasurementRequest,
 )
 from measure.runner.average import AverageRunner
 from measure.runner.interaction import LightOperatingPoint
@@ -101,10 +104,12 @@ class RecorderService(SessionMeasurementService):
             return MeasurementResult(power=4.2, voltages=[])
 
         sampler.take_measurement.side_effect = take_measurement
-        return RecorderRunner(sampler, SessionInteraction(control)).run(
-            request,
-            str(context.artifact_directory),
+        interaction = SessionInteraction(control)
+        measurement = PreparedMeasurement(
+            request=request, runner=RecorderRunner(sampler, interaction), interaction=interaction
         )
+        execution = MeasurementExecution(measurement=measurement, output_directory=context.artifact_directory)
+        return execution.run()
 
 
 class SamplingService(SessionMeasurementService):
@@ -169,6 +174,37 @@ class CheckpointService(SessionMeasurementService):
         )
         self.continued.set()
         return RunnerResult(model_json_data={})
+
+
+class SwitchCheckpointService(SessionMeasurementService):
+    def __init__(self, continued: Event) -> None:
+        self.continued = continued
+
+    def run(
+        self,
+        request: MeasurementRequest,
+        control: SessionControl,
+        context: SessionExecutionContext,
+    ) -> RunnerResult:
+        control.confirm("Ready to switch relays.", action="Start switch measurement")
+        self.continued.set()
+        return RunnerResult(model_json_data={})
+
+
+def test_smart_switch_starts_after_explicit_confirmation(tmp_path: Path) -> None:
+    continued = Event()
+    coordinator = MeasurementCoordinator(SessionStorage(tmp_path), lambda: SwitchCheckpointService(continued))
+    request = SmartSwitchMeasurementRequest(
+        power_meter=DummyPowerMeterSpec(),
+        controller=HassSwitchControllerSpec(entity_id="switch.test"),
+        power_monitoring=False,
+    )
+    session = coordinator.start(request)
+    wait_for_state(coordinator, SessionState.AWAITING_CONFIRMATION)
+
+    coordinator.confirm(session.id)
+    assert continued.wait(1)
+    wait_for_state(coordinator, SessionState.COMPLETED)
 
 
 def test_coordinator_completes_and_persists_files(tmp_path: Path) -> None:
@@ -281,7 +317,11 @@ def test_stopping_average_keeps_result_after_sampling(tmp_path: Path, stop_befor
                 wait=control.wait,
                 on_sample=lambda _: sample_recorded.set(),
             )
-            return AverageRunner(util, SessionInteraction(control)).run(request, "")
+            interaction = SessionInteraction(control)
+            measurement = PreparedMeasurement(
+                request=request, runner=AverageRunner(util, interaction), interaction=interaction
+            )
+            return MeasurementExecution(measurement=measurement, output_directory=None).run()
 
     coordinator = MeasurementCoordinator(SessionStorage(tmp_path), AverageService)
     session = coordinator.start(AverageMeasurementRequest(power_meter=DummyPowerMeterSpec(), duration=60))

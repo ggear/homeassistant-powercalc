@@ -26,6 +26,7 @@ from measure.controller.light.const import LightControllerType
 from measure.controller.light.spec import DummyLightControllerSpec, HassLightControllerSpec, HueLightControllerSpec
 from measure.controller.media.const import MediaControllerType
 from measure.controller.media.spec import DummyMediaControllerSpec, HassMediaControllerSpec
+from measure.controller.switch.spec import HassMultiSwitchControllerSpec, HassSwitchControllerSpec
 from measure.powermeter.const import PowerMeterType
 from measure.powermeter.spec import (
     DummyPowerMeterSpec,
@@ -48,6 +49,7 @@ from measure.request import (
     MeasurementRequest,
     RecorderMeasurementRequest,
     ResumePolicy,
+    SmartSwitchMeasurementRequest,
     SpeakerMeasurementRequest,
 )
 from measure.tuning import MeasurementParameters
@@ -59,6 +61,8 @@ def request_from_answers(
     environment: CliEnvironment,
 ) -> MeasurementRequest:
     """Adapt CLI/Inquirer answers once at the transport boundary."""
+    if measure_type == MeasureType.FIXED:
+        raise ValueError("Fixed profiles are currently available only in the Home Assistant measure app")
     common: dict[str, Any] = {
         "model_id": str(answers.get(QUESTION_MODEL_ID) or ""),
         "product_name": str(answers.get(QUESTION_MODEL_NAME) or ""),
@@ -102,6 +106,20 @@ def request_from_answers(
             **common,
             controller=_fan_controller_spec(environment, answers),
         )
+    if measure_type == MeasureType.SMART_SWITCH:
+        entity_ids = list(answers.get("switch_entity_ids") or [])
+        if not entity_ids:
+            raise ValueError("Select at least one switch relay")
+        controller = (
+            HassMultiSwitchControllerSpec(entity_ids=entity_ids)
+            if len(entity_ids) > 1
+            else HassSwitchControllerSpec(entity_id=entity_ids[0])
+        )
+        return SmartSwitchMeasurementRequest(
+            **common,
+            controller=controller,
+            power_monitoring=answers["power_monitoring"],
+        )
     assert_never(measure_type)  # pragma: no cover - all MeasureType members handled
 
 
@@ -136,6 +154,7 @@ def _power_meter_spec(environment: CliEnvironment, answers: dict[str, Any]) -> P
             device_ip=environment.shelly_ip,
             username=environment.shelly_username,
             timeout=environment.shelly_timeout,
+            channel=environment.shelly_channel,
         )
     if selected == PowerMeterType.TASMOTA:
         return TasmotaPowerMeterSpec(device_ip=environment.tasmota_device_ip)

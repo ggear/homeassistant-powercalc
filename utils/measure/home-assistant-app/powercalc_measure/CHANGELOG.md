@@ -2,6 +2,57 @@
 
 ## Unreleased
 
+## 0.13.1 - 2026-10-19
+
+### 🐛 Bug Fixes
+
+- #5004 Model vacuum post-charge settling separately from standby @bramstroker
+
+## 0.13.0 - 2026-10-11
+
+### 🚀 Features
+
+- #4955 Support multi-outlet Shelly meters in the Measure app @bramstroker
+
+### 🐛 Bug Fixes
+
+- #4954 Improve vacuum charging validation and Mova activity modelling @bramstroker
+- #4966 Show backend errors when recording more measurements @bramstroker
+- #4967 Show dates for measurement recording files @bramstroker
+
+## 0.12.0 - 2026-10-03
+
+### 🚀 Features
+
+- #4921 Improve measure app entity pickers and vacuum entity filtering @bramstroker
+
+### 🐛 Bug Fixes
+
+- #4920 Improve Measure app log timestamps and health-check filtering @bramstroker
+
+## 0.11.0 - 2026-10-02
+
+### 🚀 Features
+
+- #4884 Extend recorder complex profiles to more device types @bramstroker
+- #4885 Choose device type before measurement method @bramstroker
+- #4888 Add automated smart switch measurement @bramstroker
+- #4896 Measure fixed self consumption for device profiles @bramstroker
+
+### 🐛 Bug Fixes
+
+- #4892 Fix speaker measurements when turn-off is unsupported @bramstroker
+- #4914 Allow vacuum profile analysis from a single cycle @bramstroker
+
+## 0.10.0 - 2026-09-27
+
+- #4881 Centralize vacuum entity rules and expand integration mappings @bramstroker
+
+### 🚀 Features
+
+- #4880 Automatically select vacuum recording entities @bramstroker
+- #4882 Support portable Valetudo dock entity references @bramstroker
+
 ## 0.9.0 - 2026-09-26
 
 - #4875 Improve analyser validation and simplify domain models @bramstroker

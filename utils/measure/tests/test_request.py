@@ -3,18 +3,21 @@ from measure.cli.request_adapter import request_from_answers
 from measure.const import PARAMETER_LIMITS, MeasureType
 from measure.controller.light.const import LightControllerType, LutMode
 from measure.controller.light.spec import HassMultiLightControllerSpec
+from measure.controller.switch.spec import HassMultiSwitchControllerSpec
 from measure.powermeter.const import PowerMeterType
-from measure.powermeter.spec import DummyPowerMeterSpec
+from measure.powermeter.spec import DummyPowerMeterSpec, ShellyPowerMeterSpec
 from measure.request import (
     _BASE_PARAMETER_FIELDS,
     _LIGHT_PARAMETER_FIELDS,
     AverageMeasurementRequest,
     DummyLoadCalibrationRequest,
     DummyLoadReuseRequest,
+    FixedMeasurementRequest,
     LightMeasurementRequest,
     RecorderMeasurementRequest,
     RecorderProfileRecipe,
     RecorderPurpose,
+    SmartSwitchMeasurementRequest,
     parse_measurement_request,
     validate_export_filename,
 )
@@ -32,6 +35,88 @@ def valid_request() -> dict[str, object]:
         "controller": {"type": "hass", "entity_id": "light.test"},
         "power_meter": {"type": "hass", "entity_id": "sensor.test_power"},
     }
+
+
+@pytest.mark.parametrize("channel", [None, 0, 3])
+def test_shelly_request_round_trip_preserves_channel(channel: int | None) -> None:
+    request = AverageMeasurementRequest(power_meter=ShellyPowerMeterSpec(device_ip="192.168.1.50", channel=channel))
+
+    assert parse_measurement_request(request.model_dump(mode="json")) == request
+
+
+@pytest.mark.parametrize("channel", [-1, True, 1.5, "1"])
+def test_shelly_request_rejects_invalid_channel(channel: object) -> None:
+    with pytest.raises(ValidationError):
+        ShellyPowerMeterSpec.model_validate({"device_ip": "192.168.1.50", "channel": channel})
+
+
+def test_smart_switch_request_round_trip_preserves_multi_relay_configuration() -> None:
+    request = SmartSwitchMeasurementRequest.model_validate(
+        {
+            "power_meter": {"type": "hass", "entity_id": "sensor.external_power"},
+            "controller": {"type": "hass_multi", "entity_ids": ["switch.one", "switch.two"]},
+            "power_monitoring": True,
+        }
+    )
+
+    restored = parse_measurement_request(request.model_dump(mode="json"))
+
+    assert restored == request
+    assert isinstance(restored.controller, HassMultiSwitchControllerSpec)
+    assert restored.controlled_entity_ids == ["switch.one", "switch.two"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"controller": {"type": "hass_multi", "entity_ids": ["switch.one", "switch.one"]}},
+        {"controller": {"type": "hass_multi", "entity_ids": ["switch.one", "light.two"]}},
+        {"controller": {"type": "hass_multi", "entity_ids": ["switch.one"]}},
+        {"power_meter": {"type": "manual"}},
+        {"power_monitoring": "unknown"},
+        {"samples_per_state": 4},
+        {"repeat_cycles": 1},
+    ],
+)
+def test_smart_switch_request_rejects_unusable_input(changes: dict[str, object]) -> None:
+    payload = {
+        "power_meter": {"type": "hass", "entity_id": "sensor.external_power"},
+        "controller": {"type": "hass", "entity_id": "switch.one"},
+        "power_monitoring": False,
+    }
+
+    with pytest.raises(ValidationError):
+        SmartSwitchMeasurementRequest.model_validate(payload | changes)
+
+
+@pytest.mark.parametrize(
+    "entity_ids, power_monitoring",
+    [(["switch.one"], False), (["switch.one", "switch.two"], True)],
+)
+def test_cli_smart_switch_answers_create_typed_request(
+    mock_config_factory: MockConfigFactory, entity_ids: list[str], power_monitoring: bool
+) -> None:
+    environment = mock_config_factory()
+    environment.selected_power_meter = PowerMeterType.DUMMY
+
+    request = request_from_answers(
+        MeasureType.SMART_SWITCH,
+        {"switch_entity_ids": entity_ids, "power_monitoring": power_monitoring},
+        environment,
+    )
+
+    assert isinstance(request, SmartSwitchMeasurementRequest)
+    assert request.controller.entity_ids == entity_ids
+    assert request.power_monitoring is power_monitoring
+
+
+def test_cli_smart_switch_requires_a_selected_relay(mock_config_factory: MockConfigFactory) -> None:
+    with pytest.raises(ValueError, match="Select at least one switch relay"):
+        request_from_answers(
+            MeasureType.SMART_SWITCH,
+            {"switch_entity_ids": [], "power_monitoring": False},
+            mock_config_factory(),
+        )
 
 
 def test_request_round_trip_preserves_typed_input() -> None:
@@ -97,6 +182,24 @@ def test_request_rejects_blank_required_profile_metadata(field: str) -> None:
     payload = valid_request() | {field: "   "}
     with pytest.raises(ValidationError, match=field):
         LightMeasurementRequest.model_validate(payload)
+
+
+def fixed_request(duration: int) -> dict[str, object]:
+    return {
+        "power_meter": {"type": "dummy"},
+        "device_id": "router-device",
+        "profile_device_type": "network",
+        "duration": duration,
+    }
+
+
+def test_fixed_request_accepts_a_one_minute_average() -> None:
+    assert FixedMeasurementRequest.model_validate(fixed_request(60)).duration == 60
+
+
+def test_fixed_request_rejects_averages_shorter_than_a_minute() -> None:
+    with pytest.raises(ValidationError, match="duration"):
+        FixedMeasurementRequest.model_validate(fixed_request(59))
 
 
 def test_request_defers_unknown_product_details_until_preparation() -> None:

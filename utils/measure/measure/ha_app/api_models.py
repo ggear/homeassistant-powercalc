@@ -79,6 +79,7 @@ class SessionFile(BaseModel):
     name: str
     size: int
     media_type: str
+    modified_at: str
 
 
 class SessionPlots(BaseModel):
@@ -162,6 +163,7 @@ class FormFieldOption(BaseModel):
     value: str
     label: str
     entity_domain: str | None = None
+    entity_domains: list[str] = Field(default_factory=list)
     enables: list[str] = Field(default_factory=list)
     description: str = ""
     guidance: list[str] = Field(default_factory=list)
@@ -180,6 +182,8 @@ class FormField(BaseModel):
     minimum: int | float | None = None
     maximum: int | float | None = None
     multiple: bool = False
+    multiple_toggle: bool = False
+    group_by_device: bool = False
     plural_label: str = ""
     derived_from: str | None = None
     hint: str = ""
@@ -207,9 +211,15 @@ class MeasureDefinition(BaseModel):
     icon: str
     confirmation_action: str | None
     confirmation_is_warning: bool = False
+    confirmation_guidance: list[str] = Field(default_factory=list)
+    confirmation_eyebrow: str = "Preparation complete"
+    confirmation_title: str = "Everything is ready"
+    confirmation_guidance_title: str = "Before starting"
+    confirmation_guidance_label: str = "Measurement guidance"
     model_id_example: str = ""
     product_name_example: str = ""
     fields: list[FormField]
     parameters: list[MeasureParameter] = Field(default_factory=list)
     supports_profile: bool
     supports_resume: bool
+    supports_dummy_controller: bool = True

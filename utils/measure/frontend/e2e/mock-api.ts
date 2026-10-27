@@ -50,6 +50,11 @@ const lights: EntityDescriptor[] = [
   { entity_id: "light.desk", name: "Desk lamp", supported_modes: ["brightness"] },
   { entity_id: "light.floor", name: "Floor lamp", supported_modes: ["brightness"] },
 ];
+const switches: EntityDescriptor[] = [
+  { entity_id: "switch.relay_one", name: "Relay one", domain: "switch", state: "off", device_id: "switch-device", device_name: "Dual relay" },
+  { entity_id: "switch.relay_two", name: "Relay two", domain: "switch", state: "off", device_id: "switch-device", device_name: "Dual relay" },
+  { entity_id: "switch.other", name: "Other relay", domain: "switch", state: "off", device_id: "other-device", device_name: "Other switch" },
+];
 
 const catalog: EntityCatalog = { home_assistant_ready: true, lights, powers, voltages };
 const measureDevices: MeasureDeviceCatalog = {
@@ -109,13 +114,18 @@ const lightDefinition: MeasureDefinition = {
   icon: "💡",
   model_id_example: "LWA017",
   product_name_example: "Hue White Ambiance A60 E27",
+  confirmation_action: "Start light measurement",
+  confirmation_guidance: [
+    "Disable automations and other controls for the selected lights so they cannot change them during measurement.",
+    "PowerCalc will control the lights automatically and cycle through the settings selected for this run.",
+  ],
   parameters: [
     { name: "sleep_time", label: "Settle time (seconds)", step: "0.1", group: "Sampling" },
     { name: "bri_bri_steps", label: "Brightness mode step", group: "Profile resolution" },
   ],
   fields: [
     { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, entity_domains: ["sensor"], options: [] },
-    { name: "light_entity_id", role: "controller", label: "Light", plural_label: "Lights", control: "entity", required: true, multiple: true, entity_domains: ["light"], options: [] },
+    { name: "light_entity_id", role: "controller", label: "Light", plural_label: "Lights", control: "entity", required: true, multiple: true, multiple_toggle: true, entity_domains: ["light"], options: [] },
     { name: "multiple_light_count", role: "attribute", label: "Number of lights", control: "number", required: true, options: [], default: 1, minimum: 1, maximum: 100, derived_from: "light_entity_id" },
     {
       name: "modes", role: "attribute", label: "Lookup-table modes", control: "multi_select",
@@ -127,8 +137,29 @@ const lightDefinition: MeasureDefinition = {
   supports_resume: true,
 };
 
+const smartSwitchDefinition: MeasureDefinition = {
+  measure_type: "smart_switch",
+  label: "Smart switch",
+  description: "Measure switch self consumption.",
+  icon: "🔘",
+  model_id_example: "SHSW-25",
+  product_name_example: "Shelly 2.5",
+  parameters: [],
+  fields: [
+    { name: "power_entity_id", role: "power_meter", label: "Power sensor", control: "entity", required: true, entity_domains: ["sensor"], options: [] },
+    { name: "switch_entity_id", role: "controller", label: "Relay", plural_label: "Relays", control: "entity", required: true, multiple: true, group_by_device: true, entity_domains: ["switch"], options: [] },
+    { name: "power_monitoring", role: "attribute", label: "Built-in power monitoring", control: "boolean", required: true, default: false, options: [] },
+  ],
+  supports_profile: true,
+  supports_resume: false,
+  supports_dummy_controller: false,
+};
+
 const recorderDefinition: MeasureDefinition = {
   measure_type: "recorder",
+  confirmation_action: "Start recording",
+  confirmation_guidance_title: "What to record",
+  confirmation_guidance_label: "Recording guidance",
   label: "Recorder",
   description: "Record power and entity states.",
   icon: "⏺",
@@ -150,8 +181,21 @@ const recorderDefinition: MeasureDefinition = {
       options: [{ value: "generic", label: "Generic device" }],
     },
     {
+      name: "profile_device_type", role: "attribute", label: "Profile device type", control: "select", required: true,
+      default: "generic_iot", visible_when: { recorder_purpose: ["complex_profile"], profile_recipe: ["generic"] },
+      options: [
+        { value: "generic_iot", label: "Generic IoT", entity_domains: ["sensor"] },
+        { value: "heating", label: "Heating", entity_domains: ["climate"] },
+      ],
+    },
+    {
+      name: "primary_entity_id", role: "attribute", label: "Primary entity", control: "entity", required: true,
+      all_entities: true, narrowed_by: "profile_device_type", options: [],
+      visible_when: { recorder_purpose: ["complex_profile"], profile_recipe: ["generic"] },
+    },
+    {
       name: "tracked_entity_ids", role: "attribute", label: "Tracked entity", plural_label: "Tracked entities",
-      control: "entity", required: true, multiple: true, all_entities: true, options: [],
+      control: "entity", required: false, multiple: true, all_entities: true, related_to: "primary_entity_id", options: [],
       visible_when: { recorder_purpose: ["complex_profile"], profile_recipe: ["generic"] },
     },
   ],
@@ -160,7 +204,8 @@ const recorderDefinition: MeasureDefinition = {
 };
 
 const allEntities: EntityDescriptor[] = [
-  { entity_id: "climate.living_room", name: "Living room thermostat", domain: "climate", state: "heat" },
+  { entity_id: "climate.living_room", name: "Living room thermostat", domain: "climate", state: "heat", device_id: "thermostat" },
+  { entity_id: "sensor.thermostat_mode", name: "Thermostat mode", domain: "sensor", state: "eco", device_id: "thermostat" },
 ];
 
 const completedSession: SessionSummary = {
@@ -377,7 +422,7 @@ const fixedRoutes = new Map<string, unknown>([
   ["settings", settings],
   ["contribution/auth", { connected: false }],
   ["contribution/status", { submitted: false }],
-  ["measure-definitions", [averageDefinition, lightDefinition, recorderDefinition]],
+  ["measure-definitions", [averageDefinition, lightDefinition, recorderDefinition, smartSwitchDefinition]],
   ["library/measure-devices", measureDevices],
   ["library/manufacturers", manufacturers],
   ["library/device-specifications", deviceSpecifications],
@@ -398,7 +443,10 @@ const fixedRoutes = new Map<string, unknown>([
 const dynamicRoutes = new Map<string, (context: RequestContext) => unknown>([
   ["entities", ({ url }) => {
     if (url.searchParams.get("all") === "true") return allEntities;
-    return url.searchParams.get("domain") === "light" ? lights : powers;
+    const domain = url.searchParams.get("domain");
+    if (domain === "light") return lights;
+    if (domain === "switch") return switches;
+    return powers;
   }],
   ["sessions", ({ method, sessions }) => (method === "POST" ? startedSnapshot : sessions)],
 ]);
@@ -437,4 +485,4 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
   });
 }
 
-export { completedSession, settings, startedSnapshot, parameters, contributionPreview };
+export { completedSession, settings, startedSnapshot, parameters, contributionPreview, lightRequest };

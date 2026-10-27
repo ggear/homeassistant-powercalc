@@ -18,6 +18,7 @@ from measure.controller.light.spec import (
     HueLightControllerSpec,
 )
 from measure.controller.media.spec import HassMediaControllerSpec
+from measure.controller.switch.spec import HassMultiSwitchControllerSpec, HassSwitchControllerSpec
 from measure.home_assistant.entities import DeviceClass, EntityDomain
 from measure.powermeter.diagnostics import DiagnosticStatus, PowerMeterDiagnostic
 from measure.powermeter.spec import (
@@ -27,17 +28,21 @@ from measure.powermeter.spec import (
     PowerMeterSpec,
     ShellyPowerMeterSpec,
 )
+from measure.profile.device_type import ProfileDeviceType
 from measure.request import (
     ChargingMeasurementRequest,
     DummyLoadCalibrationRequest,
     FanMeasurementRequest,
+    FixedMeasurementRequest,
     LightMeasurementRequest,
     MeasurementRequest,
     RecorderMeasurementRequest,
     RecorderProfileRecipe,
+    SmartSwitchMeasurementRequest,
     SpeakerMeasurementRequest,
 )
 from measure.runner.light.plan import build_light_plan, estimate_light_time_left
+from measure.runner.smart_switch import estimate_smart_switch_remaining_seconds
 
 
 class PreflightError(Exception):
@@ -52,7 +57,9 @@ class EntityRecord(Protocol):
     entity_id: str
     domain: str
     device_class: str | None
+    unit: str | None
     device_id: str | None
+    related_device_ids: list[str]
     state: str
     attribute_names: list[str]
     supported_modes: list[LutMode] | None
@@ -286,7 +293,9 @@ class MeasurementPreflight:
             | HassMultiLightControllerSpec
             | HassMediaControllerSpec
             | HassChargingControllerSpec
-            | HassFanControllerSpec,
+            | HassFanControllerSpec
+            | HassSwitchControllerSpec
+            | HassMultiSwitchControllerSpec,
         ):
             return
         if isinstance(controller, HueLightControllerSpec):
@@ -328,13 +337,31 @@ class MeasurementPreflight:
         """Apply the check this request type declares; a type absent here drives nothing up front."""
 
         checks: dict[type[MeasurementRequest], Callable[[Any], PreflightResult]] = {
+            FixedMeasurementRequest: self._validate_fixed,
             SpeakerMeasurementRequest: self._validate_speaker,
             FanMeasurementRequest: self._validate_fan,
             ChargingMeasurementRequest: self._validate_charging,
             RecorderMeasurementRequest: self._validate_recorder,
+            SmartSwitchMeasurementRequest: self._validate_smart_switch,
         }
         check = checks.get(type(request))
         return PreflightResult() if check is None else check(request)
+
+    def _validate_fixed(self, request: FixedMeasurementRequest) -> PreflightResult:
+        if self._load_all_entities is None:
+            raise PreflightError("Home Assistant device metadata is unavailable")
+        entities = self._load_all_entities()
+        devices = {entity.device_id for entity in entities if entity.device_id}
+        if request.device_id not in devices:
+            raise PreflightError("Selected Home Assistant device no longer exists")
+        if isinstance(request.power_meter, HassPowerMeterSpec):
+            meter = next(
+                (entity for entity in entities if entity.entity_id == request.power_meter.entity_id),
+                None,
+            )
+            if meter is not None and meter.device_id == request.device_id:
+                raise PreflightError("Use an external power meter to measure the selected device's own consumption")
+        return PreflightResult(estimated_duration_seconds=request.duration)
 
     def _validate_recorder(self, request: RecorderMeasurementRequest) -> PreflightResult:
         if not request.recorded_entity_ids:
@@ -355,6 +382,9 @@ class MeasurementPreflight:
             # the run, so this must not block record-more or resume on a stored request.
             warnings.append(f"{problem}. It will be recorded as unavailable.")
 
+        self._validate_printer_primary(request, all_entities)
+        self._validate_generic_signals(request, all_entities)
+
         if request.profile_recipe != RecorderProfileRecipe.VACUUM_ROBOT:
             return PreflightResult(warnings=warnings)
 
@@ -371,6 +401,29 @@ class MeasurementPreflight:
             raise PreflightError("Battery sensor must belong to the same Home Assistant device as the vacuum")
         return PreflightResult(warnings=warnings)
 
+    @staticmethod
+    def _validate_printer_primary(request: RecorderMeasurementRequest, entities: dict[str, EntityRecord]) -> None:
+        if request.profile_device_type != ProfileDeviceType.PRINTER:
+            return
+        primary = entities.get(request.primary_entity_id or "")
+        if primary is not None and primary.unit:
+            raise PreflightError("A printer profile needs a sensor without a unit of measurement")
+
+    @staticmethod
+    def _validate_generic_signals(request: RecorderMeasurementRequest, entities: dict[str, EntityRecord]) -> None:
+        if request.profile_recipe != RecorderProfileRecipe.GENERIC or not request.tracked_entity_ids:
+            return
+        primary = entities.get(request.primary_entity_id or "")
+        if primary is None or primary.device_id is None:
+            raise PreflightError("Additional power signals require a primary entity with a Home Assistant device")
+        allowed_devices = {primary.device_id, *primary.related_device_ids}
+        for entity_id in request.tracked_entity_ids:
+            signal = entities.get(entity_id)
+            if signal is not None and signal.device_id not in allowed_devices:
+                raise PreflightError(
+                    f"Additional power signal {entity_id} must belong to the primary device or its parent or child"
+                )
+
     def _validate_speaker(self, request: SpeakerMeasurementRequest) -> PreflightResult:
         if isinstance(request.controller, HassMediaControllerSpec):
             self._require_entity(
@@ -384,6 +437,29 @@ class MeasurementPreflight:
         if isinstance(request.controller, HassFanControllerSpec):
             self._require_entity(request.controller.entity_id, EntityDomain.FAN, "Selected fan is unavailable")
         return PreflightResult()
+
+    def _validate_smart_switch(self, request: SmartSwitchMeasurementRequest) -> PreflightResult:
+        """Require live relays on one device and an external measurement source."""
+
+        relays = [
+            self._require_entity(entity_id, EntityDomain.SWITCH, "Selected switch is unavailable")
+            for entity_id in request.controller.entity_ids
+        ]
+        device_id = relays[0].device_id
+        if device_id is None or any(relay.device_id != device_id for relay in relays):
+            raise PreflightError("All selected relays must belong to the same Home Assistant device")
+        if any(relay.state not in {"on", "off"} for relay in relays):
+            raise PreflightError("Every selected relay must have an on or off state")
+        if isinstance(request.power_meter, HassPowerMeterSpec):
+            meter = self._require_entity(
+                request.power_meter.entity_id, EntityDomain.SENSOR, "Power sensor is unavailable"
+            )
+            if meter.device_id == device_id:
+                raise PreflightError("Measure switch self consumption with an external power meter, not its own sensor")
+        return PreflightResult(
+            estimated_variations=request.repeat_cycles * (len(relays) + (2 if len(relays) > 1 else 1)),
+            estimated_duration_seconds=estimate_smart_switch_remaining_seconds(request, len(relays)),
+        )
 
     def _validate_charging(self, request: ChargingMeasurementRequest) -> PreflightResult:
         if not isinstance(request.controller, HassChargingControllerSpec):

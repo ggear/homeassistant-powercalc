@@ -178,28 +178,42 @@ Prediction and export must agree on missing values, integer conversion, branch p
 and range guards.
 
 Generic acceptance thresholds require 90% validation coverage, at least five
-covered samples per model value, at least 0.1 W prediction range, and a reduction
+training and five validation samples per model value, at least 0.1 W prediction range, and a reduction
 in baseline MAE of at least 0.1 W **or** 15%. The baseline predicts the median training power.
+Each value's validation MAE must be within the larger of 0.5 W or 20% of its measured mean power.
 When several model families are accepted, a more complex candidate needs at least 0.1 W
 **and** 15% improvement over the simpler one. These thresholds are engineering heuristics.
 
 ## 7. Fixed fitter: one categorical input
 
 [FixedStatesPowerStrategy](measure/analyser/fixed.py) examines the primary entity's state
-and scalar attributes. It supports 2–20 distinct usable values with at least four training
+and scalar attributes, plus states of selected secondary entities with portable references.
+It supports 2–20 distinct usable values with at least five training
 samples each. Each value gets the median observed training power, rounded to two decimals.
 Every fitted feature goes through validation before selection. A sparse attribute cannot
 discard a credible state model merely because it has a lower training error on fewer samples.
-Generic validation preserves the existing deterministic every-fifth-sample holdout.
+Generic validation holds out the latest recording in full and trains on all earlier recordings.
+Single recordings remain insufficient regardless of sample count. Every learned value must appear
+in the held-out recording, so common states cannot hide an untested rare state.
 
 An `on`/`off` lookup table can export `fixed_config.power` with explicit standby; other
 models export `states_power`. Attribute keys use the form `attribute|value`.
+Secondary states export a `stop_at_first` composite with portable state conditions. Each branch
+models total outlet power, including when the primary entity is off. Missing or ambiguous references
+exclude the secondary feature; secondary attributes and combinations of features are not fitted.
+
+The generic request explicitly stores `primary_entity_id` and `profile_device_type`; `tracked_entity_ids`
+contains only additional signals. Legacy requests promote their first tracked entity to primary.
+The standalone device-type enum mirrors the profile schema and is checked for parity in tests.
 
 ## 8. Vacuum fitter: known semantics, learned parameters
 
 [signals.py](measure/analyser/vacuum/signals.py) recognises runtime activities:
 auto-emptying, station cleaning, washing, drying, charging, sleeping, charging completed,
 docked, and operation away from the dock. Aliases normalise integration-specific labels.
+When a recognised live charging flag records both states during drying, drying while
+charging and drying after charging finishes become separate activities. Each learns
+total outlet power independently; consumption is not decomposed or added together.
 `Activity`, defined in the analyser models, is the shared string enum for signals, branches,
 episodes and reports; `ACTIVITY_PRIORITY` defines their matching order. Unidentified activity
 is represented internally by `None`, exported as `"unexplained"`. Recording labels and JSON
@@ -220,6 +234,11 @@ charging and sleeping signals fill specific gaps. Unknown inputs remain uncovere
 
 Station idle leaves the primary activity in control. `docked` alone does not identify
 charging or completion. Errors and unrecognised modes require better runtime signals.
+Dreame/Mova paused and idle states use the primary vacuum's recorded boolean `docked`
+attribute to distinguish docked idle from operation away from the dock. A recognised
+live charging flag identifies charging during these ambiguous states. Explicit dock
+activities, completion, sleep and errors retain their own semantics. Missing context
+remains uncovered rather than assigning an away or zero-power fallback.
 
 [entity_references.py](measure/analyser/entity_references.py) resolves portable references
 using captured registry metadata and inventory, including disabled duplicates. The exporter
@@ -244,30 +263,57 @@ intervals, fitting falls back to the arithmetic mean. Charging gets a bounded pi
 - Require at least three supported bins, 20 percentage points of span, and no gap over
   20 percentage points. Predictions are bounded to the fitted range.
 
-`VacuumBranch` is the union of `FixedBranch`, with a required fixed power, and
+Idle activities (sleeping, completed and docked) can additionally use a `SettlingBranch`
+with separate time-weighted powers before and after 30 minutes since charge completion.
+A recognised, live, portable charging flag must show an active-to-inactive transition
+within the same recording. Both phases need at least five training samples with usable
+intervals; settling must exceed standby by at least 1 W and 20%. The simpler fixed model
+remains a candidate. Timing uses recorded states only; held-out power never affects fitting.
+Unobserved charge ends, unavailable flags and recording boundaries do not provide timing.
+
+`VacuumBranch` is the union of `FixedBranch`, `SettlingBranch` and
 `ChargingBranch`, with required `ChargingPoint` values. A charging curve validates that it
 has at least two points with strictly increasing battery levels before interpolation.
-`ActivitySignal` stores its feature and observed active/inactive values, and builds equivalent
-configuration conditions.
+`ActivitySignal` stores its feature, observed active/inactive values, and any required
+context signals, and builds equivalent configuration conditions. Context features are
+included in the model inputs. Inactive guards preserve unknown source and context values.
 Boolean attributes use identity comparisons to distinguish booleans from numeric enums.
 
 Export uses `stop_at_first`: guards enforce activity priority, including overlapping or
 unknown inputs. Mutually exclusive values of the same enum share fewer guards. Charging
 uses an explicit battery source and numeric/range guards matching candidate conversions.
+Settling uses a fixed power template referencing the charging State object's `last_changed`,
+guarded by its observed inactive values. This clock restarts when Home Assistant recreates
+the charging state after a restart or recovers from an unavailable state; runtime power
+can therefore use the settling value for another 30 minutes in those cases.
 
 Branches model total outlet power, including overlapping consumption. Per-activity validation
 checks repeatability and requests better signals or isolated runs when errors are too large.
 
-## 9. Independent evidence and diagnostics
+## 9. Validation evidence and diagnostics
 
-Recorded states determine activity labels. Each identified activity needs two episodes with
-at least five samples each. Episodes change at activity or recording boundaries. Short and
-unexplained episodes remain in validation.
+Recorded states determine activity labels. Episodes change at activity or recording boundaries.
+Short episodes with fewer than five samples and unexplained episodes remain in validation.
 
 When compatible source files contain all activities on both sides, the last recording is
-held out in full if it covers at least 10% of every activity's eligible recorded time.
-Otherwise, alternate qualifying episodes of each activity are held out.
-Training and validation use separate episodes, providing a check on repeated-cycle behaviour.
+held out in full if it covers at least 10% of every activity's eligible recorded time and
+training can cover its charging range. Otherwise, alternate qualifying episodes of each
+activity are held out where suitable. Activities with only one qualifying episode, or
+less than 10% of their eligible recorded time held out by the episode split, use a
+within-cycle split while other activities retain their independent validation. Charging
+without sufficient independent range coverage also uses this fallback: the middle third
+(at least two samples) is held out from each episode, separately within each
+5-percentage-point battery bucket for charging. Idle activities with known charge timing
+hold out a block from each time phase, keeping both within the same activity. Bucket edges
+remain available for fitting.
+All samples belong to only one side of the split. Existing minimum fitting support and
+per-activity validation thresholds still apply.
+
+The `held_out_blocks` method identifies this weaker evidence and includes a warning that
+repeatability across cycles has not been tested for those activities. It allows a useful
+profile from one complete cycle without claiming independent validation. An insufficient
+charging curve with a battery rise hidden by drying requests one isolated charge with
+drying off, which can be added to the existing session.
 
 [validation.py](measure/analyser/vacuum/validation.py) reports each activity's sample
 and episode counts, coverage, MAE, transition MAE, and energy. Each activity must have 90%
@@ -278,6 +324,11 @@ the overall MAE and constant-power baseline do not veto a repeatable cycling loa
 Samples matching no activity are tolerated up to 10% of the recording, so a brief
 unavailable blip or transient state does not reject it; beyond that acceptance fails.
 These checks keep long low-power periods from masking a poor short, high-power dock cycle.
+Failed sleeping, completed or docked energy validation explains that one reported state
+may contain both post-charge settling and stable standby. One fixed power cannot always
+represent both; repeating identical recordings may not solve this modelling limitation.
+When supported, the time-since-charge candidate retains both phases in the same activity
+and validates their energy together. Settling energy is never silently discarded.
 
 MAE is average absolute prediction error in watts. RMSE gives larger errors more weight.
 Transition MAE covers the first/last observations of episodes. Per-activity results help

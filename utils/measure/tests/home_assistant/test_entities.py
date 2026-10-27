@@ -144,13 +144,16 @@ def _entity_data(*, power_state: str = "4.2") -> HomeAssistantEntityData:
 
 def test_catalog_applies_one_selection_policy_and_enriches_entities() -> None:
     home_assistant = MagicMock(spec=HomeAssistantManager)
-    home_assistant.get_entity_data.return_value = _entity_data()
+    data = _entity_data()
+    data.device_registry[0].update(name="Original device", name_by_user="Desk lamp device")
+    home_assistant.get_entity_data.return_value = data
 
     snapshot = HomeAssistantEntityCatalog(home_assistant).load_snapshot()
 
     lights = snapshot.select(domain=EntityDomain.LIGHT)
     assert [entity.entity_id for entity in lights] == ["light.desk"]
     assert lights[0].model_id == "LWA017"
+    assert lights[0].device_name == "Desk lamp device"
     assert lights[0].product_name == "Hue White Ambiance"
     assert lights[0].manufacturer == "Signify"
     assert lights[0].integration == "hue"
@@ -463,8 +466,10 @@ def test_related_devices_follow_powercalc_child_and_roborock_dock_rules() -> Non
 
     assert map_profile_related_devices(registry) == {
         "robot": ["dock"],
+        "dock": ["robot"],
         "legacy": ["legacy_dock"],
         "ups": ["battery"],
+        "battery": ["ups"],
     }
 
 
@@ -476,7 +481,21 @@ def test_catalog_snapshot_exposes_related_devices() -> None:
 
     snapshot = HomeAssistantEntityCatalog(home_assistant).load_snapshot()
 
-    assert snapshot.related_device_ids == {"meter-device": ["child"]}
+    assert snapshot.related_device_ids == {"meter-device": ["child"], "child": ["meter-device"]}
+    assert snapshot.get("sensor.desk_power").related_device_ids == ["child"]
+
+
+def test_snapshot_returns_stable_entity_for_device() -> None:
+    home_assistant = MagicMock(spec=HomeAssistantManager)
+    home_assistant.get_entity_data.return_value = _entity_data()
+
+    snapshot = HomeAssistantEntityCatalog(home_assistant).load_snapshot()
+
+    device_entity = snapshot.get_device_entity("meter-device")
+    assert device_entity is not None
+    assert device_entity.entity_id == "sensor.desk_power"
+    assert device_entity.model_id == "PM-001"
+    assert snapshot.get_device_entity("unknown-device") is None
 
 
 @pytest.mark.parametrize("live", [True, False])
